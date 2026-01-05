@@ -33,6 +33,8 @@ export const TestingForm: React.FC<TestingFormProps> = ({
     mutationFn: (data: Partial<Testing>) => testingApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['testing', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['testing-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });
@@ -41,6 +43,8 @@ export const TestingForm: React.FC<TestingFormProps> = ({
     mutationFn: (data: Partial<Testing>) => testingApi.update(testing!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['testing', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['testing-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });

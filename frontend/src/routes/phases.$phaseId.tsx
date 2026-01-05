@@ -23,6 +23,8 @@ function PhaseDetail() {
   const [activeTab, setActiveTab] = useState<"efforts" | "testing">("efforts");
   const [showAddEffort, setShowAddEffort] = useState(false);
   const [showAddTesting, setShowAddTesting] = useState(false);
+  const [editingEffort, setEditingEffort] = useState<any>(null);
+  const [editingTesting, setEditingTesting] = useState<any>(null);
 
   const { data: phase, isLoading } = useQuery({
     queryKey: ["phase", parseInt(phaseId)],
@@ -229,6 +231,9 @@ function PhaseDetail() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Progress
                       </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -249,6 +254,15 @@ function PhaseDetail() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {effort.progress.toFixed(1)}%
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setEditingEffort(effort)}
+                          >
+                            Edit
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -341,6 +355,9 @@ function PhaseDetail() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Status
                       </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -367,6 +384,15 @@ function PhaseDetail() {
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <StatusBadge status={test.status as any} />
                         </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setEditingTesting(test)}
+                          >
+                            Edit
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -389,26 +415,46 @@ function PhaseDetail() {
 
       {/* Modals */}
       <Modal
-        isOpen={showAddEffort}
-        onClose={() => setShowAddEffort(false)}
-        title="Add Effort Record"
+        isOpen={showAddEffort || !!editingEffort}
+        onClose={() => {
+          setShowAddEffort(false);
+          setEditingEffort(null);
+        }}
+        title={editingEffort ? "Edit Effort Record" : "Add Effort Record"}
       >
         <EffortForm
           phaseId={parseInt(phaseId)}
-          onSuccess={() => setShowAddEffort(false)}
-          onCancel={() => setShowAddEffort(false)}
+          effort={editingEffort}
+          onSuccess={() => {
+            setShowAddEffort(false);
+            setEditingEffort(null);
+          }}
+          onCancel={() => {
+            setShowAddEffort(false);
+            setEditingEffort(null);
+          }}
         />
       </Modal>
 
       <Modal
-        isOpen={showAddTesting}
-        onClose={() => setShowAddTesting(false)}
-        title="Add Testing Data"
+        isOpen={showAddTesting || !!editingTesting}
+        onClose={() => {
+          setShowAddTesting(false);
+          setEditingTesting(null);
+        }}
+        title={editingTesting ? "Edit Testing Data" : "Add Testing Data"}
       >
         <TestingForm
           phaseId={parseInt(phaseId)}
-          onSuccess={() => setShowAddTesting(false)}
-          onCancel={() => setShowAddTesting(false)}
+          testing={editingTesting}
+          onSuccess={() => {
+            setShowAddTesting(false);
+            setEditingTesting(null);
+          }}
+          onCancel={() => {
+            setShowAddTesting(false);
+            setEditingTesting(null);
+          }}
         />
       </Modal>
     </div>

@@ -31,6 +31,8 @@ export const EffortForm: React.FC<EffortFormProps> = ({
     mutationFn: (data: Partial<Effort>) => effortApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });
@@ -39,6 +41,8 @@ export const EffortForm: React.FC<EffortFormProps> = ({
     mutationFn: (data: Partial<Effort>) => effortApi.update(effort!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });
