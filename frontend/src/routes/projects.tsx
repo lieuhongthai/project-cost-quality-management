@@ -80,7 +80,8 @@ function ProjectsList() {
                     <tr key={project.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                         <Link
-                          to={`/projects/${project.id}`}
+                          to="/projects/$projectId"
+                          params={{ projectId: project.id.toString() }}
                           className="text-primary-600 hover:text-primary-900"
                         >
                           {project.name}
@@ -113,7 +114,8 @@ function ProjectsList() {
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                         <Link
-                          to={`/projects/${project.id}`}
+                          to="/projects/$projectId"
+                          params={{ projectId: project.id.toString() }}
                           className="text-primary-600 hover:text-primary-900"
                         >
                           View
