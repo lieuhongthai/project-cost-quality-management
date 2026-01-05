@@ -81,27 +81,35 @@ export const TestingForm: React.FC<TestingFormProps> = ({
 
     if (!validate()) return;
 
-    const weekStart = new Date(formData.weekStartDate);
-    const weekEnd = addDays(weekStart, 6);
-    const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
-
-    const submitData = {
-      phaseId,
-      weekNumber,
-      year: weekStart.getFullYear(),
-      weekStartDate: weekStart.toISOString(),
-      weekEndDate: weekEnd.toISOString(),
-      totalTestCases: parseInt(formData.totalTestCases.toString()),
-      passedTestCases: parseInt(formData.passedTestCases.toString()),
-      failedTestCases: parseInt(formData.failedTestCases.toString()),
-      testingTime: parseFloat(formData.testingTime.toString()),
-      defectsDetected: parseInt(formData.defectsDetected.toString()),
-    };
-
     if (testing) {
-      updateMutation.mutate(submitData);
+      // When updating, only send the editable fields
+      const updateData = {
+        totalTestCases: parseInt(formData.totalTestCases.toString()),
+        passedTestCases: parseInt(formData.passedTestCases.toString()),
+        failedTestCases: parseInt(formData.failedTestCases.toString()),
+        testingTime: parseFloat(formData.testingTime.toString()),
+        defectsDetected: parseInt(formData.defectsDetected.toString()),
+      };
+      updateMutation.mutate(updateData);
     } else {
-      createMutation.mutate(submitData);
+      // When creating, send all required fields
+      const weekStart = new Date(formData.weekStartDate);
+      const weekEnd = addDays(weekStart, 6);
+      const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+      const createData = {
+        phaseId,
+        weekNumber,
+        year: weekStart.getFullYear(),
+        weekStartDate: weekStart.toISOString(),
+        weekEndDate: weekEnd.toISOString(),
+        totalTestCases: parseInt(formData.totalTestCases.toString()),
+        passedTestCases: parseInt(formData.passedTestCases.toString()),
+        failedTestCases: parseInt(formData.failedTestCases.toString()),
+        testingTime: parseFloat(formData.testingTime.toString()),
+        defectsDetected: parseInt(formData.defectsDetected.toString()),
+      };
+      createMutation.mutate(createData);
     }
   };
 
