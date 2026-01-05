@@ -83,17 +83,18 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
 
     if (!validate()) return;
 
-    const submitData = {
-      projectId,
+    const baseData = {
       ...formData,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
     };
 
     if (phase) {
-      updateMutation.mutate(submitData);
+      // Don't send projectId when updating
+      updateMutation.mutate(baseData);
     } else {
-      createMutation.mutate(submitData);
+      // Send projectId only when creating
+      createMutation.mutate({ projectId, ...baseData });
     }
   };
 
