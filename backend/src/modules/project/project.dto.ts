@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsNumberString } from 'class-validator';
+import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProjectDto {
@@ -21,7 +21,8 @@ export class CreateProjectDto {
   endDate?: Date;
 
   @IsNotEmpty()
-  @IsNumberString()
+  @Type(() => Number)
+  @IsNumber()
   estimatedEffort: number;
 }
 
@@ -45,14 +46,17 @@ export class UpdateProjectDto {
   endDate?: Date;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   estimatedEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   actualEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   progress?: number;
 
@@ -63,32 +67,39 @@ export class UpdateProjectDto {
 
 export class CreateProjectSettingsDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   projectId: number;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   numberOfMembers: number;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   workingHoursPerDay: number;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   workingDaysPerMonth: number;
 }
 
 export class UpdateProjectSettingsDto {
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   numberOfMembers?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   workingHoursPerDay?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   workingDaysPerMonth?: number;
 }
