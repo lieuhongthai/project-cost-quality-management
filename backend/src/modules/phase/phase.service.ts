@@ -3,6 +3,7 @@ import { Phase } from './phase.model';
 import { CreatePhaseDto, UpdatePhaseDto } from './phase.dto';
 import { EVALUATION_THRESHOLDS } from '../../config/evaluation-thresholds';
 import { EffortService } from '../effort/effort.service';
+import { ProjectService } from '../project/project.service';
 
 @Injectable()
 export class PhaseService {
@@ -11,6 +12,8 @@ export class PhaseService {
     private phaseRepository: typeof Phase,
     @Inject(forwardRef(() => EffortService))
     private effortService: EffortService,
+    @Inject(forwardRef(() => ProjectService))
+    private projectService: ProjectService,
   ) {}
 
   async findAll(): Promise<Phase[]> {
@@ -112,6 +115,7 @@ export class PhaseService {
    * Called automatically when effort records are created/updated
    */
   async updatePhaseMetricsFromEfforts(phaseId: number): Promise<void> {
+    const phase = await this.findOne(phaseId);
     const effortSummary = await this.effortService.getPhaseEffortSummary(phaseId);
 
     await this.phaseRepository.update(
@@ -121,5 +125,8 @@ export class PhaseService {
       },
       { where: { id: phaseId } },
     );
+
+    // Auto-update project metrics after updating phase
+    await this.projectService.updateProjectMetricsFromPhases(phase.projectId);
   }
 }

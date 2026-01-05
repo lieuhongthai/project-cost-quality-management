@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
 import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
+import { PhaseService } from '../phase/phase.service';
 
 @Injectable()
 export class ProjectService {
@@ -11,6 +12,8 @@ export class ProjectService {
     private projectRepository: typeof Project,
     @Inject('PROJECT_SETTINGS_REPOSITORY')
     private projectSettingsRepository: typeof ProjectSettings,
+    @Inject(forwardRef(() => PhaseService))
+    private phaseService: PhaseService,
   ) {}
 
   async findAll(): Promise<Project[]> {
@@ -132,6 +135,34 @@ export class ProjectService {
     const newStatus = this.evaluateProjectStatus(metrics);
     await this.projectRepository.update(
       { status: newStatus },
+      { where: { id: projectId } },
+    );
+  }
+
+  /**
+   * Update project actualEffort and progress based on phase data
+   * Called automatically when phase metrics are updated
+   */
+  async updateProjectMetricsFromPhases(projectId: number): Promise<void> {
+    const phases = await this.phaseService.findByProject(projectId);
+
+    // Calculate total actual effort (sum of all phases)
+    const totalActual = phases.reduce((sum, phase) => sum + (phase.actualEffort || 0), 0);
+
+    // Calculate weighted average progress (weighted by estimatedEffort)
+    const totalEstimated = phases.reduce((sum, phase) => sum + phase.estimatedEffort, 0);
+    const weightedProgress = totalEstimated > 0
+      ? phases.reduce((sum, phase) => {
+          const weight = phase.estimatedEffort / totalEstimated;
+          return sum + (phase.progress || 0) * weight;
+        }, 0)
+      : 0;
+
+    await this.projectRepository.update(
+      {
+        actualEffort: totalActual,
+        progress: weightedProgress,
+      },
       { where: { id: projectId } },
     );
   }
