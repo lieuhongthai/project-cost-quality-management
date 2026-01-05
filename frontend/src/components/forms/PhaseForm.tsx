@@ -38,6 +38,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     mutationFn: (data: Partial<Phase>) => phaseApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       onSuccess();
     },
   });
@@ -47,6 +48,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
       queryClient.invalidateQueries({ queryKey: ['phase', phase!.id] });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       onSuccess();
     },
   });
