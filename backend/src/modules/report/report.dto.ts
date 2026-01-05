@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 
 export class CreateReportDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   projectId: number;
 
@@ -15,10 +16,12 @@ export class CreateReportDto {
   phaseName?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   weekNumber?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   year?: number;
 

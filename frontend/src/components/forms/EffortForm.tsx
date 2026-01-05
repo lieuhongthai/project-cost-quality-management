@@ -95,7 +95,10 @@ export const EffortForm: React.FC<EffortFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert number fields to actual numbers
+    const numberFields = ['plannedEffort', 'actualEffort', 'progress'];
+    const finalValue = numberFields.includes(name) ? parseFloat(value) || 0 : value;
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }

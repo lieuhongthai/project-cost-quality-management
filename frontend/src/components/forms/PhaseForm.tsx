@@ -97,7 +97,9 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert estimatedEffort to number
+    const finalValue = name === 'estimatedEffort' ? parseFloat(value) || 0 : value;
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }

@@ -103,7 +103,16 @@ export const TestingForm: React.FC<TestingFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert number fields to actual numbers
+    const intFields = ['totalTestCases', 'passedTestCases', 'failedTestCases', 'defectsDetected'];
+    const floatFields = ['testingTime'];
+    let finalValue: string | number = value;
+    if (intFields.includes(name)) {
+      finalValue = parseInt(value) || 0;
+    } else if (floatFields.includes(name)) {
+      finalValue = parseFloat(value) || 0;
+    }
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
