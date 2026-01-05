@@ -87,7 +87,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert estimatedEffort to number
+    const finalValue = name === 'estimatedEffort' ? parseFloat(value) || 0 : value;
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
