@@ -1,13 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { reportApi } from '../services/api'
 import { format } from 'date-fns'
+import { Modal } from '../components/common'
+import { ReportForm } from '../components/forms'
 
 export const Route = createFileRoute('/reports')({
   component: ReportsList,
 })
 
 function ReportsList() {
+  const [showGenerateReport, setShowGenerateReport] = useState(false);
+
   const { data: reports, isLoading } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
@@ -37,6 +42,7 @@ function ReportsList() {
           <button
             type="button"
             className="btn btn-primary"
+            onClick={() => setShowGenerateReport(true)}
           >
             Generate Report
           </button>
@@ -58,7 +64,7 @@ function ReportsList() {
                   {format(new Date(report.reportDate), 'MMM dd, yyyy')}
                 </p>
               </div>
-              
+
               <div className="flex gap-2">
                 <button className="btn btn-secondary text-sm">
                   View Details
@@ -114,6 +120,18 @@ function ReportsList() {
           <p className="text-gray-500">No reports found. Generate your first report to get started.</p>
         </div>
       )}
+
+      {/* Generate Report Modal */}
+      <Modal
+        isOpen={showGenerateReport}
+        onClose={() => setShowGenerateReport(false)}
+        title="Generate Report"
+      >
+        <ReportForm
+          onSuccess={() => setShowGenerateReport(false)}
+          onCancel={() => setShowGenerateReport(false)}
+        />
+      </Modal>
     </div>
   )
 }
