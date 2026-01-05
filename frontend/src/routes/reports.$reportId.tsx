@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { reportApi, metricsApi, commentaryApi } from '@/services/api';
-import { Card, LoadingSpinner, Button } from '@/components/common';
+import { Card, LoadingSpinner, Button, Modal } from '@/components/common';
+import { CommentaryForm } from '@/components/forms';
 import { format } from 'date-fns';
 
 export const Route = createFileRoute('/reports/$reportId')({
@@ -10,6 +12,7 @@ export const Route = createFileRoute('/reports/$reportId')({
 
 function ReportDetail() {
   const { reportId } = Route.useParams();
+  const [showAddCommentary, setShowAddCommentary] = useState(false);
 
   const { data: report, isLoading } = useQuery({
     queryKey: ['report', parseInt(reportId)],
@@ -147,7 +150,9 @@ function ReportDetail() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Commentary</h2>
-          <Button size="sm">Add Commentary</Button>
+          <Button size="sm" onClick={() => setShowAddCommentary(true)}>
+            Add Commentary
+          </Button>
         </div>
 
         {commentaries && commentaries.length > 0 ? (
@@ -188,6 +193,19 @@ function ReportDetail() {
           </Card>
         )}
       </div>
+
+      {/* Add Commentary Modal */}
+      <Modal
+        isOpen={showAddCommentary}
+        onClose={() => setShowAddCommentary(false)}
+        title="Add Commentary"
+      >
+        <CommentaryForm
+          reportId={parseInt(reportId)}
+          onSuccess={() => setShowAddCommentary(false)}
+          onCancel={() => setShowAddCommentary(false)}
+        />
+      </Modal>
     </div>
   );
 }
