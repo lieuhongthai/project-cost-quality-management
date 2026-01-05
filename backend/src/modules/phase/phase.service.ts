@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Phase } from './phase.model';
 import { CreatePhaseDto, UpdatePhaseDto } from './phase.dto';
 import { EVALUATION_THRESHOLDS } from '../../config/evaluation-thresholds';
+import { EffortService } from '../effort/effort.service';
 
 @Injectable()
 export class PhaseService {
   constructor(
     @Inject('PHASE_REPOSITORY')
     private phaseRepository: typeof Phase,
+    @Inject(forwardRef(() => EffortService))
+    private effortService: EffortService,
   ) {}
 
   async findAll(): Promise<Phase[]> {
@@ -100,6 +103,22 @@ export class PhaseService {
     const newStatus = this.evaluatePhaseStatus(metrics);
     await this.phaseRepository.update(
       { status: newStatus },
+      { where: { id: phaseId } },
+    );
+  }
+
+  /**
+   * Update phase actualEffort and progress based on effort data
+   * Called automatically when effort records are created/updated
+   */
+  async updatePhaseMetricsFromEfforts(phaseId: number): Promise<void> {
+    const effortSummary = await this.effortService.getPhaseEffortSummary(phaseId);
+
+    await this.phaseRepository.update(
+      {
+        actualEffort: effortSummary.totalActual,
+        progress: effortSummary.avgProgress,
+      },
       { where: { id: phaseId } },
     );
   }
