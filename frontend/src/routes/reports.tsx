@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { reportApi } from '../services/api'
@@ -66,9 +66,13 @@ function ReportsList() {
               </div>
 
               <div className="flex gap-2">
-                <button className="btn btn-secondary text-sm">
+                <Link
+                  to="/reports/$reportId"
+                  params={{ reportId: report.id.toString() }}
+                  className="btn btn-secondary text-sm"
+                >
                   View Details
-                </button>
+                </Link>
               </div>
             </div>
 
