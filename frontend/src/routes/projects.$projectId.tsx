@@ -20,6 +20,7 @@ export const Route = createFileRoute('/projects/$projectId')({
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
@@ -40,6 +41,34 @@ function ProjectDetail() {
       return response.data;
     },
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: (phaseOrders: Array<{ id: number; displayOrder: number }>) =>
+      phaseApi.reorder(phaseOrders),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['phases', parseInt(projectId)] });
+    },
+  });
+
+  const handleMovePhase = (index: number, direction: 'up' | 'down') => {
+    if (!phases) return;
+
+    const newPhases = [...phases];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= newPhases.length) return;
+
+    // Swap positions
+    [newPhases[index], newPhases[targetIndex]] = [newPhases[targetIndex], newPhases[index]];
+
+    // Update displayOrder for all phases
+    const phaseOrders = newPhases.map((phase, idx) => ({
+      id: phase.id,
+      displayOrder: idx + 1,
+    }));
+
+    reorderMutation.mutate(phaseOrders);
+  };
 
   if (isLoading) {
     return (
@@ -232,6 +261,9 @@ function ProjectDetail() {
                 <thead>
                   <tr>
                     <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                      Order
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Name
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -252,9 +284,33 @@ function ProjectDetail() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {phases.map((phase) => (
+                  {phases.map((phase, index) => (
                     <tr key={phase.id}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleMovePhase(index, 'up')}
+                            disabled={index === 0 || reorderMutation.isPending}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleMovePhase(index, 'down')}
+                            disabled={index === phases.length - 1 || reorderMutation.isPending}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
                         {phase.name}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm">

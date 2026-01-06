@@ -31,6 +31,7 @@ export interface Phase {
   actualEffort: number;
   progress: number;
   status: 'Good' | 'Warning' | 'At Risk';
+  displayOrder: number;
 }
 
 export type PhaseType = 

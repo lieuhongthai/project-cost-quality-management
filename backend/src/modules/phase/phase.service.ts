@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Phase } from './phase.model';
-import { CreatePhaseDto, UpdatePhaseDto } from './phase.dto';
+import { CreatePhaseDto, UpdatePhaseDto, ReorderPhasesDto } from './phase.dto';
 import { EVALUATION_THRESHOLDS } from '../../config/evaluation-thresholds';
 import { EffortService } from '../effort/effort.service';
 import { ProjectService } from '../project/project.service';
@@ -23,6 +23,7 @@ export class PhaseService {
   async findByProject(projectId: number): Promise<Phase[]> {
     return this.phaseRepository.findAll({
       where: { projectId },
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
     });
   }
 
@@ -37,7 +38,16 @@ export class PhaseService {
   }
 
   async create(createPhaseDto: CreatePhaseDto): Promise<Phase> {
-    return this.phaseRepository.create(createPhaseDto as any);
+    // Get the max display order for this project
+    const phases = await this.findByProject(createPhaseDto.projectId);
+    const maxOrder = phases.length > 0
+      ? Math.max(...phases.map(p => p.displayOrder || 0))
+      : 0;
+
+    return this.phaseRepository.create({
+      ...createPhaseDto,
+      displayOrder: maxOrder + 1,
+    } as any);
   }
 
   async update(id: number, updatePhaseDto: UpdatePhaseDto): Promise<Phase> {
@@ -128,5 +138,18 @@ export class PhaseService {
 
     // Auto-update project metrics after updating phase
     await this.projectService.updateProjectMetricsFromPhases(phase.projectId);
+  }
+
+  /**
+   * Reorder phases for a project
+   */
+  async reorderPhases(reorderDto: ReorderPhasesDto): Promise<void> {
+    // Update each phase's displayOrder
+    for (const { id, displayOrder } of reorderDto.phaseOrders) {
+      await this.phaseRepository.update(
+        { displayOrder },
+        { where: { id } },
+      );
+    }
   }
 }

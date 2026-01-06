@@ -86,6 +86,12 @@ export class Phase extends Model {
   })
   status: string;
 
+  @Column({
+    type: DataType.INTEGER,
+    defaultValue: 0,
+  })
+  displayOrder: number; // Order for displaying phases
+
   @BelongsTo(() => Project)
   project: Project;
 

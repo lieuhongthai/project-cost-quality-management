@@ -60,4 +60,14 @@ export class UpdatePhaseDto {
   @IsOptional()
   @IsEnum(['Good', 'Warning', 'At Risk'])
   status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+}
+
+export class ReorderPhasesDto {
+  @IsNotEmpty()
+  phaseOrders: Array<{ id: number; displayOrder: number }>;
 }

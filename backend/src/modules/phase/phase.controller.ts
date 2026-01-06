@@ -9,7 +9,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { PhaseService } from './phase.service';
-import { CreatePhaseDto, UpdatePhaseDto } from './phase.dto';
+import { CreatePhaseDto, UpdatePhaseDto, ReorderPhasesDto } from './phase.dto';
 
 @Controller('phases')
 export class PhaseController {
@@ -46,5 +46,10 @@ export class PhaseController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.phaseService.remove(id);
+  }
+
+  @Put('reorder')
+  reorder(@Body() reorderDto: ReorderPhasesDto) {
+    return this.phaseService.reorderPhases(reorderDto);
   }
 }
