@@ -65,6 +65,9 @@ export class MetricsService {
     return {
       schedulePerformanceIndex: spi,
       costPerformanceIndex: cpi,
+      plannedValue,
+      earnedValue,
+      actualCost,
       delayRate,
       delayInManMonths,
       estimatedVsActual,
