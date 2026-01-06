@@ -43,6 +43,11 @@ export class Report extends Model {
   scope: string;
 
   @Column({
+    type: DataType.INTEGER,
+  })
+  phaseId: number; // for phase-level reports
+
+  @Column({
     type: DataType.STRING,
   })
   phaseName: string; // for phase-level reports

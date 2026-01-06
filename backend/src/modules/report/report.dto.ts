@@ -12,6 +12,11 @@ export class CreateReportDto {
   scope: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  phaseId?: number;
+
+  @IsOptional()
   @IsString()
   phaseName?: string;
 
