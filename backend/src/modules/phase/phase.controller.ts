@@ -35,6 +35,12 @@ export class PhaseController {
     return this.phaseService.create(createPhaseDto);
   }
 
+  // IMPORTANT: Put 'reorder' route BEFORE ':id' route to avoid route conflict
+  @Put('reorder')
+  reorder(@Body() reorderDto: ReorderPhasesDto) {
+    return this.phaseService.reorderPhases(reorderDto);
+  }
+
   @Put(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -46,10 +52,5 @@ export class PhaseController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.phaseService.remove(id);
-  }
-
-  @Put('reorder')
-  reorder(@Body() reorderDto: ReorderPhasesDto) {
-    return this.phaseService.reorderPhases(reorderDto);
   }
 }
