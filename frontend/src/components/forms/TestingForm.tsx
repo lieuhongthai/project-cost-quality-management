@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { testingApi } from '@/services/api';
-import { Button, Input } from '../common';
+import { Button, Input, DateInput } from '../common';
 import type { Testing } from '@/types';
 import { addDays, startOfWeek } from 'date-fns';
 
@@ -134,16 +134,15 @@ export const TestingForm: React.FC<TestingFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
+      <DateInput
         label="Week Start Date"
         name="weekStartDate"
-        type="date"
         value={formData.weekStartDate}
         onChange={handleChange}
         error={errors.weekStartDate}
         required
         disabled={isLoading || !!testing}
-        helperText="Select the Monday of the week"
+        helperText="Enter date in yyyy/mm/dd format (e.g., 2024/01/15)"
       />
 
       <Input

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '@/services/api';
-import { Button, Input, TextArea } from '../common';
+import { Button, Input, DateInput, TextArea } from '../common';
 import type { Project } from '@/types';
 
 interface ProjectFormProps {
@@ -119,10 +119,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <Input
+        <DateInput
           label="Start Date"
           name="startDate"
-          type="date"
           value={formData.startDate}
           onChange={handleChange}
           error={errors.startDate}
@@ -130,10 +129,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           disabled={isLoading}
         />
 
-        <Input
+        <DateInput
           label="End Date"
           name="endDate"
-          type="date"
           value={formData.endDate}
           onChange={handleChange}
           error={errors.endDate}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { phaseApi } from '@/services/api';
-import { Button, Input, Select } from '../common';
+import { Button, Input, DateInput, Select } from '../common';
 import type { Phase, PhaseType } from '@/types';
 
 interface PhaseFormProps {
@@ -124,10 +124,9 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <Input
+        <DateInput
           label="Start Date"
           name="startDate"
-          type="date"
           value={formData.startDate}
           onChange={handleChange}
           error={errors.startDate}
@@ -135,10 +134,9 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           disabled={isLoading}
         />
 
-        <Input
+        <DateInput
           label="End Date"
           name="endDate"
-          type="date"
           value={formData.endDate}
           onChange={handleChange}
           error={errors.endDate}
