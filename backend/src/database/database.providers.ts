@@ -45,7 +45,7 @@ export const databaseProviders = [
         Metrics,
       ]);
 
-      await sequelize.sync();
+      await sequelize.sync({alter: true });
       return sequelize;
     },
   },
