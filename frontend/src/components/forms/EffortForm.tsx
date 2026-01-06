@@ -31,6 +31,8 @@ export const EffortForm: React.FC<EffortFormProps> = ({
     mutationFn: (data: Partial<Effort>) => effortApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });
@@ -39,6 +41,8 @@ export const EffortForm: React.FC<EffortFormProps> = ({
     mutationFn: (data: Partial<Effort>) => effortApi.update(effort!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
       onSuccess();
     },
   });
@@ -71,31 +75,40 @@ export const EffortForm: React.FC<EffortFormProps> = ({
 
     if (!validate()) return;
 
-    const weekStart = new Date(formData.weekStartDate);
-    const weekEnd = addDays(weekStart, 6);
-    const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
-
-    const submitData = {
-      phaseId,
-      weekNumber,
-      year: weekStart.getFullYear(),
-      weekStartDate: weekStart.toISOString(),
-      weekEndDate: weekEnd.toISOString(),
-      plannedEffort: parseFloat(formData.plannedEffort.toString()),
-      actualEffort: parseFloat(formData.actualEffort.toString()),
-      progress: parseFloat(formData.progress.toString()),
-    };
-
     if (effort) {
-      updateMutation.mutate(submitData);
+      // When updating, only send the editable fields
+      const updateData = {
+        plannedEffort: parseFloat(formData.plannedEffort.toString()),
+        actualEffort: parseFloat(formData.actualEffort.toString()),
+        progress: parseFloat(formData.progress.toString()),
+      };
+      updateMutation.mutate(updateData);
     } else {
-      createMutation.mutate(submitData);
+      // When creating, send all required fields
+      const weekStart = new Date(formData.weekStartDate);
+      const weekEnd = addDays(weekStart, 6);
+      const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+      const createData = {
+        phaseId,
+        weekNumber,
+        year: weekStart.getFullYear(),
+        weekStartDate: weekStart.toISOString(),
+        weekEndDate: weekEnd.toISOString(),
+        plannedEffort: parseFloat(formData.plannedEffort.toString()),
+        actualEffort: parseFloat(formData.actualEffort.toString()),
+        progress: parseFloat(formData.progress.toString()),
+      };
+      createMutation.mutate(createData);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert number fields to actual numbers
+    const numberFields = ['plannedEffort', 'actualEffort', 'progress'];
+    const finalValue = numberFields.includes(name) ? parseFloat(value) || 0 : value;
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }

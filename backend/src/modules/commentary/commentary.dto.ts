@@ -1,7 +1,9 @@
 import { IsNotEmpty, IsString, IsNumber, IsEnum, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCommentaryDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   reportId: number;
 
@@ -14,6 +16,7 @@ export class CreateCommentaryDto {
   content: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   version?: number;
 
@@ -28,6 +31,7 @@ export class UpdateCommentaryDto {
   content?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   version?: number;
 
@@ -38,6 +42,7 @@ export class UpdateCommentaryDto {
 
 export class GenerateCommentaryDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   reportId: number;
 }

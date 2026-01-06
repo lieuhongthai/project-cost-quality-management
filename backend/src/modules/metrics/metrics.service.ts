@@ -1,8 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Metrics } from './metrics.model';
 import { EffortService } from '../effort/effort.service';
 import { TestingService } from '../testing/testing.service';
 import { PhaseService } from '../phase/phase.service';
+import { ProjectService } from '../project/project.service';
 
 export interface ScheduleMetricsInput {
   estimatedEffort: number;
@@ -26,6 +27,8 @@ export class MetricsService {
     private effortService: EffortService,
     private testingService: TestingService,
     private phaseService: PhaseService,
+    @Inject(forwardRef(() => ProjectService))
+    private projectService: ProjectService,
   ) {}
 
   calculateScheduleMetrics(input: ScheduleMetricsInput) {
@@ -124,6 +127,14 @@ export class MetricsService {
       testingTime: testingSummary.totalTestingTime,
     });
 
+    // Auto-update phase status based on calculated metrics
+    await this.phaseService.updatePhaseStatus(phaseId, {
+      schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
+      costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
+    });
+
     return this.metricsRepository.create({
       reportId,
       ...scheduleMetrics,
@@ -171,6 +182,14 @@ export class MetricsService {
       failedTestCases: totalFailed,
       defectsDetected: totalDefects,
       testingTime: totalTestingTime,
+    });
+
+    // Auto-update project status based on calculated metrics
+    await this.projectService.updateProjectStatus(projectId, {
+      schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
+      costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
     });
 
     return this.metricsRepository.create({

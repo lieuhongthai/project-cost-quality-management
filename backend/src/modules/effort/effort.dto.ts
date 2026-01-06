@@ -3,14 +3,17 @@ import { Type } from 'class-transformer';
 
 export class CreateEffortDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   phaseId: number;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   weekNumber: number;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   year: number;
 
@@ -25,34 +28,41 @@ export class CreateEffortDto {
   weekEndDate: Date;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   plannedEffort: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   actualEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   progress?: number;
 }
 
 export class UpdateEffortDto {
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   plannedEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   actualEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   progress?: number;
 }
 
 export class BulkEffortDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   phaseId: number;
 

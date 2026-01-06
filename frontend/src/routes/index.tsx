@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { projectApi } from '../services/api'
 
@@ -76,16 +76,21 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Active Projects */}
-      {activeProjects.length > 0 && (
+      {/* All Projects */}
+      {projects && projects.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Active Projects</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">All Projects</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activeProjects.map((project) => (
-              <div key={project.id} className="card hover:shadow-lg transition-shadow cursor-pointer">
+            {projects.map((project) => (
+              <Link
+                key={project.id}
+                to="/projects/$projectId"
+                params={{ projectId: project.id.toString() }}
+                className="card hover:shadow-lg transition-shadow cursor-pointer block"
+              >
                 <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">{project.description}</p>
-                
+
                 <div className="mt-4 flex items-center justify-between">
                   <span className={`status-${project.status.toLowerCase().replace(' ', '-')}`}>
                     {project.status}
@@ -94,19 +99,19 @@ function Dashboard() {
                     {project.progress.toFixed(0)}% Complete
                   </span>
                 </div>
-                
+
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-primary-600 h-2 rounded-full"
                     style={{ width: `${project.progress}%` }}
                   />
                 </div>
-                
+
                 <div className="mt-4 flex justify-between text-xs text-gray-500">
                   <span>Est: {project.estimatedEffort} MM</span>
                   <span>Act: {project.actualEffort} MM</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

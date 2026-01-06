@@ -23,6 +23,7 @@ function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<any>(null);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', parseInt(projectId)],
@@ -245,6 +246,9 @@ function ProjectDetail() {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Start Date
                     </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -266,6 +270,15 @@ function ProjectDetail() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {format(new Date(phase.startDate), 'MMM dd, yyyy')}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setEditingPhase(phase)}
+                        >
+                          Edit
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -306,14 +319,24 @@ function ProjectDetail() {
       </Modal>
 
       <Modal
-        isOpen={showAddPhase}
-        onClose={() => setShowAddPhase(false)}
-        title="Add Phase"
+        isOpen={showAddPhase || !!editingPhase}
+        onClose={() => {
+          setShowAddPhase(false);
+          setEditingPhase(null);
+        }}
+        title={editingPhase ? "Edit Phase" : "Add Phase"}
       >
         <PhaseForm
           projectId={parseInt(projectId)}
-          onSuccess={() => setShowAddPhase(false)}
-          onCancel={() => setShowAddPhase(false)}
+          phase={editingPhase}
+          onSuccess={() => {
+            setShowAddPhase(false);
+            setEditingPhase(null);
+          }}
+          onCancel={() => {
+            setShowAddPhase(false);
+            setEditingPhase(null);
+          }}
         />
       </Modal>
     </div>

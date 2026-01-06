@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 
 export class CreatePhaseDto {
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   projectId: number;
 
@@ -21,6 +22,7 @@ export class CreatePhaseDto {
   endDate?: Date;
 
   @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
   estimatedEffort: number;
 }
@@ -41,14 +43,17 @@ export class UpdatePhaseDto {
   endDate?: Date;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   estimatedEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   actualEffort?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   progress?: number;
 

@@ -38,6 +38,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     mutationFn: (data: Partial<Phase>) => phaseApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       onSuccess();
     },
   });
@@ -47,6 +48,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
       queryClient.invalidateQueries({ queryKey: ['phase', phase!.id] });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       onSuccess();
     },
   });
@@ -81,23 +83,26 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
 
     if (!validate()) return;
 
-    const submitData = {
-      projectId,
+    const baseData = {
       ...formData,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
     };
 
     if (phase) {
-      updateMutation.mutate(submitData);
+      // Don't send projectId when updating
+      updateMutation.mutate(baseData);
     } else {
-      createMutation.mutate(submitData);
+      // Send projectId only when creating
+      createMutation.mutate({ projectId, ...baseData });
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Convert estimatedEffort to number
+    const finalValue = name === 'estimatedEffort' ? parseFloat(value) || 0 : value;
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
