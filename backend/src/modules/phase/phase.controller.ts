@@ -7,8 +7,6 @@ import {
   Body,
   Param,
   ParseIntPipe,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { PhaseService } from './phase.service';
 import { CreatePhaseDto, UpdatePhaseDto, ReorderPhasesDto } from './phase.dto';
@@ -51,11 +49,6 @@ export class PhaseController {
   }
 
   @Put('reorder')
-  @UsePipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: false
-  }))
   reorder(@Body() reorderDto: ReorderPhasesDto) {
     return this.phaseService.reorderPhases(reorderDto);
   }
