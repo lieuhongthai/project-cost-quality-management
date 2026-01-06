@@ -1,5 +1,15 @@
-import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+class PhaseOrderDto {
+  @IsNotEmpty()
+  @IsNumber()
+  id: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  displayOrder: number;
+}
 
 export class CreatePhaseDto {
   @IsNotEmpty()
@@ -69,5 +79,8 @@ export class UpdatePhaseDto {
 
 export class ReorderPhasesDto {
   @IsNotEmpty()
-  phaseOrders: Array<{ id: number; displayOrder: number }>;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PhaseOrderDto)
+  phaseOrders: PhaseOrderDto[];
 }
