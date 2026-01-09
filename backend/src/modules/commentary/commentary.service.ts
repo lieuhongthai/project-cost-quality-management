@@ -62,7 +62,7 @@ export class CommentaryService {
   }
 
   async generateAICommentary(generateCommentaryDto: GenerateCommentaryDto): Promise<Commentary> {
-    const { reportId } = generateCommentaryDto;
+    const { reportId, language = 'English' } = generateCommentaryDto;
     const report = await this.reportService.findOne(reportId);
 
     let metrics = report.metrics && report.metrics.length > 0 ? report.metrics[0] : null;
@@ -97,18 +97,19 @@ export class CommentaryService {
     }
 
     // Build prompt for AI
-    const prompt = this.buildPrompt(report, metrics);
+    const prompt = this.buildPrompt(report, metrics, language);
 
     let aiContent: string;
 
     try {
       // Call OpenAI API
+      const languageInstruction = this.getLanguageInstruction(language);
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4',
         messages: [
           {
             role: 'system',
-            content: 'You are a project management analyst. Analyze the given metrics and provide insights, identify risks, and suggest improvements.',
+            content: `You are a project management analyst. Analyze the given metrics and provide insights, identify risks, and suggest improvements. ${languageInstruction}`,
           },
           {
             role: 'user',
@@ -123,12 +124,12 @@ export class CommentaryService {
     } catch (error) {
       console.error('OpenAI API error:', error);
       // Fallback to template-based commentary
-      aiContent = this.generateTemplateCommentary(report, metrics);
+      aiContent = this.generateTemplateCommentary(report, metrics, language);
     }
 
     // Get the latest version number
     const existingCommentaries = await this.findByReport(reportId);
-    const latestVersion = existingCommentaries.length > 0 
+    const latestVersion = existingCommentaries.length > 0
       ? Math.max(...existingCommentaries.map(c => c.version))
       : 0;
 
@@ -140,7 +141,19 @@ export class CommentaryService {
     });
   }
 
-  private buildPrompt(report: any, metrics: any): string {
+  private getLanguageInstruction(language: string): string {
+    switch (language) {
+      case 'Vietnamese':
+        return 'Please respond in Vietnamese (Tiếng Việt).';
+      case 'Japanese':
+        return 'Please respond in Japanese (日本語).';
+      case 'English':
+      default:
+        return 'Please respond in English.';
+    }
+  }
+
+  private buildPrompt(report: any, metrics: any, language: string): string {
     return `
 Analyze this project report and provide insights:
 
@@ -172,7 +185,7 @@ Keep the response concise and actionable.
     `.trim();
   }
 
-  private generateTemplateCommentary(report: any, metrics: any): string {
+  private generateTemplateCommentary(report: any, metrics: any, language: string): string {
     const sections = [];
 
     // Overall Assessment
@@ -180,51 +193,128 @@ Keep the response concise and actionable.
     const cpi = metrics.costPerformanceIndex;
     const passRate = metrics.passRate;
 
+    const translations = this.getTranslations(language);
+
     let overallStatus: string;
     if (spi >= 0.95 && cpi >= 0.95 && passRate >= 95) {
-      overallStatus = 'The project is performing well across all metrics.';
+      overallStatus = translations.overallGood;
     } else if (spi >= 0.85 && cpi >= 0.85 && passRate >= 80) {
-      overallStatus = 'The project is performing acceptably with some areas requiring attention.';
+      overallStatus = translations.overallAcceptable;
     } else {
-      overallStatus = 'The project is facing significant challenges that require immediate attention.';
+      overallStatus = translations.overallCritical;
     }
 
-    sections.push(`**Overall Assessment:**\n${overallStatus}`);
+    sections.push(`**${translations.overallAssessment}**\n${overallStatus}`);
 
     // Schedule Analysis
     if (spi < 0.95) {
-      sections.push(`**Schedule Concern:**\nThe Schedule Performance Index (${spi.toFixed(2)}) indicates the project is behind schedule. Current delay is ${metrics.delayInManMonths.toFixed(2)} man-months.`);
+      sections.push(`**${translations.scheduleConcern}**\n${translations.scheduleText(spi.toFixed(2), metrics.delayInManMonths.toFixed(2))}`);
     }
 
     // Cost Analysis
     if (cpi < 0.95) {
-      sections.push(`**Cost Concern:**\nThe Cost Performance Index (${cpi.toFixed(2)}) shows the project is over budget. Actual effort is ${(metrics.estimatedVsActual * 100).toFixed(0)}% of estimated.`);
+      sections.push(`**${translations.costConcern}**\n${translations.costText(cpi.toFixed(2), (metrics.estimatedVsActual * 100).toFixed(0))}`);
     }
 
     // Quality Analysis
     if (passRate < 95) {
-      sections.push(`**Quality Concern:**\nThe test pass rate (${passRate.toFixed(1)}%) is below target. Defect rate is ${metrics.defectRate.toFixed(3)} per test case.`);
+      sections.push(`**${translations.qualityConcern}**\n${translations.qualityText(passRate.toFixed(1), metrics.defectRate.toFixed(3))}`);
     }
 
     // Recommendations
     const recommendations = [];
     if (spi < 0.95) {
-      recommendations.push('- Review and optimize project schedule');
-      recommendations.push('- Consider adding resources to critical path activities');
+      recommendations.push(translations.scheduleRec1);
+      recommendations.push(translations.scheduleRec2);
     }
     if (cpi < 0.95) {
-      recommendations.push('- Analyze cost overruns and identify root causes');
-      recommendations.push('- Implement cost control measures');
+      recommendations.push(translations.costRec1);
+      recommendations.push(translations.costRec2);
     }
     if (passRate < 95) {
-      recommendations.push('- Increase testing coverage and quality');
-      recommendations.push('- Conduct root cause analysis for defects');
+      recommendations.push(translations.qualityRec1);
+      recommendations.push(translations.qualityRec2);
     }
 
     if (recommendations.length > 0) {
-      sections.push(`**Recommendations:**\n${recommendations.join('\n')}`);
+      sections.push(`**${translations.recommendations}**\n${recommendations.join('\n')}`);
     }
 
     return sections.join('\n\n');
+  }
+
+  private getTranslations(language: string) {
+    switch (language) {
+      case 'Vietnamese':
+        return {
+          overallAssessment: 'Đánh giá tổng quan',
+          overallGood: 'Dự án đang hoạt động tốt trên tất cả các chỉ số.',
+          overallAcceptable: 'Dự án đang hoạt động ở mức chấp nhận được với một số lĩnh vực cần chú ý.',
+          overallCritical: 'Dự án đang đối mặt với những thách thức đáng kể cần được xử lý ngay lập tức.',
+          scheduleConcern: 'Vấn đề về tiến độ',
+          scheduleText: (spi: string, delay: string) =>
+            `Chỉ số hiệu suất tiến độ (${spi}) cho thấy dự án đang bị chậm tiến độ. Độ trễ hiện tại là ${delay} người-tháng.`,
+          costConcern: 'Vấn đề về chi phí',
+          costText: (cpi: string, percent: string) =>
+            `Chỉ số hiệu suất chi phí (${cpi}) cho thấy dự án đang vượt ngân sách. Nỗ lực thực tế là ${percent}% so với dự kiến.`,
+          qualityConcern: 'Vấn đề về chất lượng',
+          qualityText: (passRate: string, defectRate: string) =>
+            `Tỷ lệ test case passed (${passRate}%) thấp hơn mục tiêu. Tỷ lệ lỗi là ${defectRate} trên mỗi test case.`,
+          recommendations: 'Khuyến nghị',
+          scheduleRec1: '- Xem xét và tối ưu hóa lịch trình dự án',
+          scheduleRec2: '- Xem xét việc bổ sung nguồn lực cho các hoạt động quan trọng',
+          costRec1: '- Phân tích nguyên nhân vượt chi phí',
+          costRec2: '- Triển khai các biện pháp kiểm soát chi phí',
+          qualityRec1: '- Tăng phạm vi và chất lượng kiểm thử',
+          qualityRec2: '- Thực hiện phân tích nguyên nhân gốc rễ cho các lỗi',
+        };
+      case 'Japanese':
+        return {
+          overallAssessment: '総合評価',
+          overallGood: 'プロジェクトは全ての指標で良好に進行しています。',
+          overallAcceptable: 'プロジェクトは許容範囲内で進行していますが、いくつかの領域で注意が必要です。',
+          overallCritical: 'プロジェクトは重大な課題に直面しており、早急な対応が必要です。',
+          scheduleConcern: 'スケジュールに関する懸念',
+          scheduleText: (spi: string, delay: string) =>
+            `スケジュール効率指数（${spi}）は、プロジェクトが遅延していることを示しています。現在の遅延は${delay}人月です。`,
+          costConcern: 'コストに関する懸念',
+          costText: (cpi: string, percent: string) =>
+            `コスト効率指数（${cpi}）は、プロジェクトが予算超過していることを示しています。実際の工数は見積もりの${percent}%です。`,
+          qualityConcern: '品質に関する懸念',
+          qualityText: (passRate: string, defectRate: string) =>
+            `テスト合格率（${passRate}%）は目標を下回っています。欠陥率はテストケースあたり${defectRate}です。`,
+          recommendations: '推奨事項',
+          scheduleRec1: '- プロジェクトスケジュールの見直しと最適化',
+          scheduleRec2: '- クリティカルパスの活動にリソースの追加を検討',
+          costRec1: '- コスト超過の根本原因を分析',
+          costRec2: '- コスト管理措置の実施',
+          qualityRec1: '- テストカバレッジと品質の向上',
+          qualityRec2: '- 欠陥の根本原因分析の実施',
+        };
+      case 'English':
+      default:
+        return {
+          overallAssessment: 'Overall Assessment',
+          overallGood: 'The project is performing well across all metrics.',
+          overallAcceptable: 'The project is performing acceptably with some areas requiring attention.',
+          overallCritical: 'The project is facing significant challenges that require immediate attention.',
+          scheduleConcern: 'Schedule Concern',
+          scheduleText: (spi: string, delay: string) =>
+            `The Schedule Performance Index (${spi}) indicates the project is behind schedule. Current delay is ${delay} man-months.`,
+          costConcern: 'Cost Concern',
+          costText: (cpi: string, percent: string) =>
+            `The Cost Performance Index (${cpi}) shows the project is over budget. Actual effort is ${percent}% of estimated.`,
+          qualityConcern: 'Quality Concern',
+          qualityText: (passRate: string, defectRate: string) =>
+            `The test pass rate (${passRate}%) is below target. Defect rate is ${defectRate} per test case.`,
+          recommendations: 'Recommendations',
+          scheduleRec1: '- Review and optimize project schedule',
+          scheduleRec2: '- Consider adding resources to critical path activities',
+          costRec1: '- Analyze cost overruns and identify root causes',
+          costRec2: '- Implement cost control measures',
+          qualityRec1: '- Increase testing coverage and quality',
+          qualityRec2: '- Conduct root cause analysis for defects',
+        };
+    }
   }
 }

@@ -22,6 +22,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
     content: commentary?.content || '',
     author: commentary?.author || '',
   });
+  const [language, setLanguage] = useState<string>('English');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useMutation({
@@ -43,7 +44,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
   });
 
   const generateAIMutation = useMutation({
-    mutationFn: () => commentaryApi.generateAI(reportId),
+    mutationFn: () => commentaryApi.generateAI(reportId, language),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentaries', reportId] });
       queryClient.invalidateQueries({ queryKey: ['report', reportId] });
@@ -130,14 +131,31 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
       </div>
 
       <div className="flex justify-between items-center pt-4 border-t">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={handleGenerateAI}
-          disabled={isLoading || !!commentary}
-        >
-          Generate AI Commentary
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">
+              AI Language:
+            </label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="input py-1.5 px-3"
+              disabled={isLoading || !!commentary}
+            >
+              <option value="English">🇬🇧 English</option>
+              <option value="Vietnamese">🇻🇳 Tiếng Việt</option>
+              <option value="Japanese">🇯🇵 日本語</option>
+            </select>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleGenerateAI}
+            disabled={isLoading || !!commentary}
+          >
+            Generate AI Commentary
+          </Button>
+        </div>
 
         <div className="flex gap-2">
           <Button

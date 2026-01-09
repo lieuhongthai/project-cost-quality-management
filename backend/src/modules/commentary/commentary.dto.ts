@@ -45,4 +45,8 @@ export class GenerateCommentaryDto {
   @Type(() => Number)
   @IsNumber()
   reportId: number;
+
+  @IsOptional()
+  @IsEnum(['English', 'Vietnamese', 'Japanese'])
+  language?: string;
 }
