@@ -1,14 +1,17 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Report } from './report.model';
 import { Commentary } from '../commentary/commentary.model';
 import { Metrics } from '../metrics/metrics.model';
 import { CreateReportDto, UpdateReportDto } from './report.dto';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
 export class ReportService {
   constructor(
     @Inject('REPORT_REPOSITORY')
     private reportRepository: typeof Report,
+    @Inject(forwardRef(() => MetricsService))
+    private metricsService: MetricsService,
   ) {}
 
   async findAll(): Promise<Report[]> {
@@ -58,7 +61,35 @@ export class ReportService {
   }
 
   async create(createReportDto: CreateReportDto): Promise<Report> {
-    return this.reportRepository.create(createReportDto as any);
+    // Create the report first
+    const report = await this.reportRepository.create(createReportDto as any);
+
+    // Automatically calculate and create metrics based on scope
+    try {
+      if (createReportDto.scope === 'Project') {
+        await this.metricsService.calculateProjectMetrics(
+          createReportDto.projectId,
+          report.id,
+        );
+      } else if (createReportDto.scope === 'Phase' && createReportDto.phaseId) {
+        await this.metricsService.calculatePhaseMetrics(
+          createReportDto.phaseId,
+          report.id,
+        );
+      } else if (createReportDto.scope === 'Weekly' && createReportDto.phaseId) {
+        // For weekly reports, also calculate phase metrics if phaseId is provided
+        await this.metricsService.calculatePhaseMetrics(
+          createReportDto.phaseId,
+          report.id,
+        );
+      }
+    } catch (error) {
+      // Log error but don't fail the report creation
+      console.error('Error calculating metrics for new report:', error);
+    }
+
+    // Return the report with metrics included
+    return this.findOne(report.id);
   }
 
   async update(id: number, updateReportDto: UpdateReportDto): Promise<Report> {

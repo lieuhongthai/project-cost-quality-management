@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { reportApi, metricsApi, commentaryApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, Modal, ProgressBar } from '@/components/common';
 import { CommentaryForm } from '@/components/forms';
@@ -13,6 +13,7 @@ export const Route = createFileRoute('/reports/$reportId')({
 function ReportDetail() {
   const { reportId } = Route.useParams();
   const [showAddCommentary, setShowAddCommentary] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: report, isLoading } = useQuery({
     queryKey: ['report', parseInt(reportId)],
@@ -22,7 +23,7 @@ function ReportDetail() {
     },
   });
 
-  const { data: metrics } = useQuery({
+  const { data: metrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ['metrics', parseInt(reportId)],
     queryFn: async () => {
       const response = await metricsApi.getByReport(parseInt(reportId));
@@ -30,6 +31,31 @@ function ReportDetail() {
     },
     enabled: !!report,
   });
+
+  // Auto-calculate metrics if not exist
+  const calculateMetricsMutation = useMutation({
+    mutationFn: async () => {
+      if (!report) return null;
+
+      if (report.scope === 'Project') {
+        return metricsApi.calculateProject(report.projectId, parseInt(reportId));
+      } else if ((report.scope === 'Phase' || report.scope === 'Weekly') && report.phaseId) {
+        return metricsApi.calculatePhase(report.phaseId, parseInt(reportId));
+      }
+      return null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['metrics', parseInt(reportId)] });
+    },
+  });
+
+  // Trigger auto-calculation when report is loaded but no metrics exist
+  useEffect(() => {
+    if (report && !isMetricsLoading && (!metrics || metrics.length === 0) && !calculateMetricsMutation.isPending) {
+      calculateMetricsMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id, metrics?.length, isMetricsLoading]);
 
   const { data: commentaries } = useQuery({
     queryKey: ['commentaries', parseInt(reportId)],
