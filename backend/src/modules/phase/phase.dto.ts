@@ -1,5 +1,17 @@
-import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class PhaseOrderDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  id: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder: number;
+}
 
 export class CreatePhaseDto {
   @IsNotEmpty()
@@ -60,4 +72,16 @@ export class UpdatePhaseDto {
   @IsOptional()
   @IsEnum(['Good', 'Warning', 'At Risk'])
   status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+}
+
+export class ReorderPhasesDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PhaseOrderDto)
+  phaseOrders: PhaseOrderDto[];
 }

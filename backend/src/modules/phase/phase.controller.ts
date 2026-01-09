@@ -9,7 +9,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { PhaseService } from './phase.service';
-import { CreatePhaseDto, UpdatePhaseDto } from './phase.dto';
+import { CreatePhaseDto, UpdatePhaseDto, ReorderPhasesDto } from './phase.dto';
 
 @Controller('phases')
 export class PhaseController {
@@ -33,6 +33,12 @@ export class PhaseController {
   @Post()
   create(@Body() createPhaseDto: CreatePhaseDto) {
     return this.phaseService.create(createPhaseDto);
+  }
+
+  // IMPORTANT: Put 'reorder' route BEFORE ':id' route to avoid route conflict
+  @Put('reorder')
+  reorder(@Body() reorderDto: ReorderPhasesDto) {
+    return this.phaseService.reorderPhases(reorderDto);
   }
 
   @Put(':id')

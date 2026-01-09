@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException } from '@nestjs/common';
 import { Commentary } from './commentary.model';
 import { CreateCommentaryDto, UpdateCommentaryDto, GenerateCommentaryDto } from './commentary.dto';
 import { ReportService } from '../report/report.service';
+import { MetricsService } from '../metrics/metrics.service';
+import { PhaseService } from '../phase/phase.service';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -12,6 +14,9 @@ export class CommentaryService {
     @Inject('COMMENTARY_REPOSITORY')
     private commentaryRepository: typeof Commentary,
     private reportService: ReportService,
+    @Inject(forwardRef(() => MetricsService))
+    private metricsService: MetricsService,
+    private phaseService: PhaseService,
   ) {
     // Initialize OpenAI client
     // Note: API key should be in environment variables
@@ -60,11 +65,36 @@ export class CommentaryService {
     const { reportId } = generateCommentaryDto;
     const report = await this.reportService.findOne(reportId);
 
-    if (!report.metrics || report.metrics.length === 0) {
-      throw new NotFoundException(`No metrics found for report ${reportId}`);
-    }
+    let metrics = report.metrics && report.metrics.length > 0 ? report.metrics[0] : null;
 
-    const metrics = report.metrics[0];
+    // If no metrics exist, automatically generate them based on report scope
+    if (!metrics) {
+      console.log(`No metrics found for report ${reportId}, generating automatically...`);
+
+      if (report.scope === 'Project') {
+        // For project-level reports, calculate project metrics
+        metrics = await this.metricsService.calculateProjectMetrics(report.projectId, reportId);
+      } else if (report.scope === 'Phase') {
+        // For phase-level reports, calculate phase metrics
+        if (!report.phaseId) {
+          // If phaseId is not set, try to find phase by name
+          if (report.phaseName) {
+            const phases = await this.phaseService.findByProject(report.projectId);
+            const phase = phases.find(p => p.name === report.phaseName);
+            if (!phase) {
+              throw new BadRequestException(`Phase '${report.phaseName}' not found for this project`);
+            }
+            metrics = await this.metricsService.calculatePhaseMetrics(phase.id, reportId);
+          } else {
+            throw new BadRequestException(`Report scope is 'Phase' but no phaseId or phaseName provided`);
+          }
+        } else {
+          metrics = await this.metricsService.calculatePhaseMetrics(report.phaseId, reportId);
+        }
+      } else {
+        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Phase' scopes are supported.`);
+      }
+    }
 
     // Build prompt for AI
     const prompt = this.buildPrompt(report, metrics);

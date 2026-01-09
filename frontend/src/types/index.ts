@@ -31,6 +31,7 @@ export interface Phase {
   actualEffort: number;
   progress: number;
   status: 'Good' | 'Warning' | 'At Risk';
+  displayOrder: number;
 }
 
 export type PhaseType = 
@@ -100,6 +101,9 @@ export interface Metrics {
   estimatedVsActual: number;
   schedulePerformanceIndex: number;
   costPerformanceIndex: number;
+  plannedValue: number; // PV - Expected cost of work scheduled
+  earnedValue: number; // EV - Value of work completed
+  actualCost: number; // AC - Actual cost of work performed
   defectRate: number;
   passRate: number;
   timePerTestCase: number;

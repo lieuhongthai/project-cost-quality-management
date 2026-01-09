@@ -41,6 +41,8 @@ export const phaseApi = {
   create: (data: Partial<Phase>) => api.post<Phase>('/phases', data),
   update: (id: number, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
   delete: (id: number) => api.delete(`/phases/${id}`),
+  reorder: (phaseOrders: Array<{ id: number; displayOrder: number }>) =>
+    api.put('/phases/reorder', { phaseOrders }),
 };
 
 // Effort APIs

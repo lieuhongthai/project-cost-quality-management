@@ -58,6 +58,25 @@ export class Metrics extends Model {
   })
   costPerformanceIndex: number; // CPI
 
+  // Earned Value Management (EVM) Metrics
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  plannedValue: number; // PV - Expected cost of work scheduled
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  earnedValue: number; // EV - Value of work completed
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  actualCost: number; // AC - Actual cost of work performed
+
   // Testing & Quality Metrics
   @Column({
     type: DataType.FLOAT,
