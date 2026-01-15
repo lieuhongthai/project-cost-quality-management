@@ -89,7 +89,8 @@ export const commentaryApi = {
   getByReport: (reportId: number) => api.get<Commentary[]>(`/commentaries/report/${reportId}`),
   getOne: (id: number) => api.get<Commentary>(`/commentaries/${id}`),
   create: (data: Partial<Commentary>) => api.post<Commentary>('/commentaries', data),
-  generateAI: (reportId: number) => api.post<Commentary>('/commentaries/generate', { reportId }),
+  generateAI: (reportId: number, language?: string) =>
+    api.post<Commentary>('/commentaries/generate', { reportId, language }),
   update: (id: number, data: Partial<Commentary>) => api.put<Commentary>(`/commentaries/${id}`, data),
   delete: (id: number) => api.delete(`/commentaries/${id}`),
 };
