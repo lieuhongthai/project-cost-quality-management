@@ -1062,6 +1062,8 @@ function ProjectDetail() {
         <PhaseForm
           projectId={parseInt(projectId)}
           phase={editingPhase}
+          effortUnit={effortUnit}
+          workSettings={settingsForm}
           onSuccess={() => {
             setShowAddPhase(false);
             setEditingPhase(null);

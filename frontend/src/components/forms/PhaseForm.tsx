@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { phaseApi } from '@/services/api';
 import { Button, Input, DateInput, Select } from '../common';
-import type { Phase, PhaseType } from '@/types';
+import type { Phase, PhaseType, EffortUnit, ProjectSettings } from '@/types';
+import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 
 interface PhaseFormProps {
   projectId: number;
   phase?: Phase;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -22,15 +25,23 @@ const PHASE_OPTIONS: { value: PhaseType; label: string }[] = [
 export const PhaseForm: React.FC<PhaseFormProps> = ({
   projectId,
   phase,
+  effortUnit = 'man-month',
+  workSettings,
   onSuccess,
   onCancel,
 }) => {
   const queryClient = useQueryClient();
+
+  // Convert existing effort from man-months to display unit for editing
+  const initialEffort = phase?.estimatedEffort
+    ? convertEffort(phase.estimatedEffort, 'man-month', effortUnit, workSettings)
+    : 0;
+
   const [formData, setFormData] = useState({
     name: phase?.name || ('' as PhaseType),
     startDate: phase?.startDate ? phase.startDate.split('T')[0] : '',
     endDate: phase?.endDate ? phase.endDate.split('T')[0] : '',
-    estimatedEffort: phase?.estimatedEffort || 0,
+    estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -83,8 +94,17 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
 
     if (!validate()) return;
 
+    // Convert effort from display unit back to man-months for storage
+    const effortInManMonths = convertEffort(
+      formData.estimatedEffort,
+      effortUnit,
+      'man-month',
+      workSettings
+    );
+
     const baseData = {
       ...formData,
+      estimatedEffort: effortInManMonths,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
     };
@@ -145,10 +165,10 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
       </div>
 
       <Input
-        label="Estimated Effort (Man-Months)"
+        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
         name="estimatedEffort"
         type="number"
-        step="0.1"
+        step="0.01"
         value={formData.estimatedEffort}
         onChange={handleChange}
         error={errors.estimatedEffort}
