@@ -24,6 +24,13 @@ export enum MemberRole {
 export enum MemberStatus {
   ACTIVE = 'Active',
   INACTIVE = 'Inactive',
+  ON_LEAVE = 'On Leave',
+}
+
+export enum MemberAvailability {
+  FULL_TIME = 'Full-time',
+  PART_TIME = 'Part-time',
+  CONTRACT = 'Contract',
 }
 
 @Table({
@@ -85,14 +92,14 @@ export class Member extends Model {
   hourlyRate: number; // Cost per hour for budget calculation
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.ENUM('Full-time', 'Part-time', 'Contract'),
     allowNull: false,
-    defaultValue: 100,
+    defaultValue: 'Full-time',
   })
-  availability: number; // Percentage of time available (0-100)
+  availability: string;
 
   @Column({
-    type: DataType.ENUM('Active', 'Inactive'),
+    type: DataType.ENUM('Active', 'Inactive', 'On Leave'),
     allowNull: false,
     defaultValue: 'Active',
   })

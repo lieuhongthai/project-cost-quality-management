@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsEnum, IsArray, IsEmail, Min, Max } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, IsOptional, IsEnum, IsArray, IsEmail, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMemberDto {
@@ -37,14 +37,11 @@ export class CreateMemberDto {
   hourlyRate?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  availability?: number;
+  @IsEnum(['Full-time', 'Part-time', 'Contract'])
+  availability?: string;
 
   @IsOptional()
-  @IsEnum(['Active', 'Inactive'])
+  @IsEnum(['Active', 'Inactive', 'On Leave'])
   status?: string;
 }
 
@@ -79,13 +76,10 @@ export class UpdateMemberDto {
   hourlyRate?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  availability?: number;
+  @IsEnum(['Full-time', 'Part-time', 'Contract'])
+  availability?: string;
 
   @IsOptional()
-  @IsEnum(['Active', 'Inactive'])
+  @IsEnum(['Active', 'Inactive', 'On Leave'])
   status?: string;
 }
