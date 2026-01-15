@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi } from "@/services/api";
+import { useState, useEffect } from "react";
+import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi, projectApi } from "@/services/api";
 import {
   Card,
   LoadingSpinner,
@@ -11,10 +11,17 @@ import {
   Modal,
   EmptyState,
 } from "@/components/common";
+import { EffortUnitSelector } from "@/components/common/EffortUnitSelector";
 import { EffortForm, TestingForm, PhaseScreenFunctionForm } from "@/components/forms";
 import { ProgressChart, TestingQualityChart } from "@/components/charts";
 import { format } from "date-fns";
-import type { PhaseScreenFunction } from "@/types";
+import type { PhaseScreenFunction, EffortUnit } from "@/types";
+import {
+  convertEffort,
+  formatEffort,
+  EFFORT_UNIT_LABELS,
+  DEFAULT_WORK_SETTINGS,
+} from "@/utils/effortUtils";
 
 export const Route = createFileRoute("/phases/$phaseId")({
   component: PhaseDetail,
@@ -31,6 +38,8 @@ function PhaseDetail() {
   const [editingPSF, setEditingPSF] = useState<PhaseScreenFunction | null>(null);
   const [showLinkScreenFunction, setShowLinkScreenFunction] = useState(false);
   const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [workSettings, setWorkSettings] = useState(DEFAULT_WORK_SETTINGS);
 
   const { data: phase, isLoading } = useQuery({
     queryKey: ["phase", parseInt(phaseId)],
@@ -99,6 +108,35 @@ function PhaseDetail() {
     },
     enabled: !!phase?.projectId,
   });
+
+  // Get project settings for effort conversion
+  const { data: projectSettings } = useQuery({
+    queryKey: ["projectSettings", phase?.projectId],
+    queryFn: async () => {
+      if (!phase?.projectId) return null;
+      const response = await projectApi.getSettings(phase.projectId);
+      return response.data;
+    },
+    enabled: !!phase?.projectId,
+  });
+
+  // Sync settings when project settings are loaded
+  useEffect(() => {
+    if (projectSettings) {
+      setWorkSettings({
+        workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
+        workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
+        defaultEffortUnit: projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+      });
+      setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
+    }
+  }, [projectSettings]);
+
+  // Helper to convert effort to display unit
+  const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
+    const converted = convertEffort(value, sourceUnit, effortUnit, workSettings);
+    return formatEffort(converted, effortUnit);
+  };
 
   // Mutations
   const linkMutation = useMutation({
@@ -187,36 +225,44 @@ function PhaseDetail() {
         <p className="mt-2 text-gray-600">Phase Details and Tracking</p>
 
         {/* Stats */}
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
-          <Card>
-            <p className="text-sm text-gray-500">Status</p>
-            <div className="mt-1">
-              <StatusBadge status={phase.status as any} />
-            </div>
-          </Card>
+        <div className="mt-6">
+          {/* Effort Unit Selector */}
+          <div className="flex items-center justify-end mb-4 gap-2">
+            <span className="text-sm text-gray-500">Display effort in:</span>
+            <EffortUnitSelector value={effortUnit} onChange={setEffortUnit} />
+          </div>
 
-          <Card>
-            <p className="text-sm text-gray-500">Progress</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {phase.progress.toFixed(1)}%
-            </p>
-          </Card>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <Card>
+              <p className="text-sm text-gray-500">Status</p>
+              <div className="mt-1">
+                <StatusBadge status={phase.status as any} />
+              </div>
+            </Card>
 
-          <Card>
-            <p className="text-sm text-gray-500">Estimated Effort</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {phase.estimatedEffort}{" "}
-              <span className="text-sm text-gray-500">MM</span>
-            </p>
-          </Card>
+            <Card>
+              <p className="text-sm text-gray-500">Progress</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {phase.progress.toFixed(1)}%
+              </p>
+            </Card>
 
-          <Card>
-            <p className="text-sm text-gray-500">Actual Effort</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {phase.actualEffort}{" "}
-              <span className="text-sm text-gray-500">MM</span>
-            </p>
-          </Card>
+            <Card>
+              <p className="text-sm text-gray-500">Estimated Effort</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {displayEffort(phase.estimatedEffort, 'man-month')}{" "}
+                <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
+              </p>
+            </Card>
+
+            <Card>
+              <p className="text-sm text-gray-500">Actual Effort</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {displayEffort(phase.actualEffort, 'man-month')}{" "}
+                <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
+              </p>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -247,13 +293,13 @@ function PhaseDetail() {
               <Card>
                 <p className="text-sm text-gray-500">Total Planned</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {effortSummary.totalPlanned.toFixed(2)} MM
+                  {displayEffort(effortSummary.totalPlanned, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Total Actual</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {effortSummary.totalActual.toFixed(2)} MM
+                  {displayEffort(effortSummary.totalActual, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                 </p>
               </Card>
               <Card>
@@ -266,7 +312,7 @@ function PhaseDetail() {
                   }`}
                 >
                   {effortSummary.variance > 0 ? "+" : ""}
-                  {effortSummary.variance.toFixed(2)} MM
+                  {displayEffort(effortSummary.variance, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                 </p>
               </Card>
             </div>
@@ -322,10 +368,10 @@ function PhaseDetail() {
                           {format(new Date(effort.weekEndDate), "MMM dd")}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {effort.plannedEffort} MM
+                          {displayEffort(effort.plannedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {effort.actualEffort} MM
+                          {displayEffort(effort.actualEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {effort.progress.toFixed(1)}%
@@ -500,17 +546,17 @@ function PhaseDetail() {
               <Card>
                 <p className="text-sm text-gray-500">Estimated Effort</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {psfSummary.totalEstimated.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                  {displayEffort(psfSummary.totalEstimated, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Actual Effort</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {psfSummary.totalActual.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                  {displayEffort(psfSummary.totalActual, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
                 {psfSummary.variance !== 0 && (
                   <p className={`text-xs mt-1 ${psfSummary.variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {psfSummary.variance > 0 ? '+' : ''}{psfSummary.variance.toFixed(1)} hours
+                    {psfSummary.variance > 0 ? '+' : ''}{displayEffort(psfSummary.variance, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                   </p>
                 )}
               </Card>
@@ -613,14 +659,14 @@ function PhaseDetail() {
                             </div>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {psf.estimatedEffort.toFixed(1)} h
+                            {displayEffort(psf.estimatedEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {psf.actualEffort.toFixed(1)} h
+                            {displayEffort(psf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={variance > 0 ? 'text-red-600' : 'text-green-600'}>
-                              {variance > 0 ? '+' : ''}{variance.toFixed(1)} h
+                              {variance > 0 ? '+' : ''}{displayEffort(variance, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -760,7 +806,7 @@ function PhaseDetail() {
                       </div>
                     </div>
                     <div className="text-right text-sm text-gray-500">
-                      {sf.estimatedEffort.toFixed(1)} h total
+                      {displayEffort(sf.estimatedEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]} total
                     </div>
                   </label>
                 ))}

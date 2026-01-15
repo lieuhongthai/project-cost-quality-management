@@ -85,6 +85,10 @@ export class CreateProjectSettingsDto {
   @Type(() => Number)
   @IsNumber()
   workingDaysPerMonth: number;
+
+  @IsOptional()
+  @IsEnum(['man-hour', 'man-day', 'man-month'])
+  defaultEffortUnit?: string;
 }
 
 export class UpdateProjectSettingsDto {
@@ -102,4 +106,8 @@ export class UpdateProjectSettingsDto {
   @Type(() => Number)
   @IsNumber()
   workingDaysPerMonth?: number;
+
+  @IsOptional()
+  @IsEnum(['man-hour', 'man-day', 'man-month'])
+  defaultEffortUnit?: string;
 }

@@ -8,6 +8,12 @@ import {
 } from 'sequelize-typescript';
 import { Project } from './project.model';
 
+export enum EffortUnit {
+  MAN_HOUR = 'man-hour',
+  MAN_DAY = 'man-day',
+  MAN_MONTH = 'man-month',
+}
+
 @Table({
   tableName: 'project_settings',
   timestamps: true,
@@ -48,6 +54,13 @@ export class ProjectSettings extends Model {
     defaultValue: 22,
   })
   workingDaysPerMonth: number;
+
+  @Column({
+    type: DataType.ENUM('man-hour', 'man-day', 'man-month'),
+    allowNull: false,
+    defaultValue: 'man-hour',
+  })
+  defaultEffortUnit: string;
 
   @BelongsTo(() => Project)
   project: Project;

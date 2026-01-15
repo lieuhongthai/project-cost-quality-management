@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { projectApi, phaseApi, screenFunctionApi, memberApi } from '@/services/api';
 import {
   Card,
@@ -12,9 +12,16 @@ import {
   EmptyState,
   Input,
 } from '@/components/common';
+import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
-import type { ScreenFunction, Member } from '@/types';
+import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
+import {
+  convertEffort,
+  formatEffort,
+  EFFORT_UNIT_LABELS,
+  DEFAULT_WORK_SETTINGS,
+} from '@/utils/effortUtils';
 
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetail,
@@ -40,6 +47,12 @@ function ProjectDetail() {
     role: '',
     status: '',
     search: '',
+  });
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [settingsForm, setSettingsForm] = useState({
+    workingHoursPerDay: 8,
+    workingDaysPerMonth: 20,
+    defaultEffortUnit: 'man-hour' as EffortUnit,
   });
 
   const { data: project, isLoading } = useQuery({
@@ -98,6 +111,32 @@ function ProjectDetail() {
     },
   });
 
+  const { data: projectSettings } = useQuery({
+    queryKey: ['projectSettings', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await projectApi.getSettings(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  // Sync settings form with fetched project settings
+  useEffect(() => {
+    if (projectSettings) {
+      setSettingsForm({
+        workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
+        workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
+        defaultEffortUnit: projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+      });
+      setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
+    }
+  }, [projectSettings]);
+
+  // Helper to convert effort to display unit
+  const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
+    const converted = convertEffort(value, sourceUnit, effortUnit, settingsForm);
+    return formatEffort(converted, effortUnit);
+  };
+
   const deleteScreenFunctionMutation = useMutation({
     mutationFn: (id: number) => screenFunctionApi.delete(id),
     onSuccess: () => {
@@ -122,6 +161,18 @@ function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['phases', parseInt(projectId)] });
     },
   });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (data: Partial<ProjectSettings>) =>
+      projectApi.updateSettings(parseInt(projectId), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projectSettings', parseInt(projectId)] });
+    },
+  });
+
+  const handleSaveSettings = () => {
+    updateSettingsMutation.mutate(settingsForm);
+  };
 
   const handleMovePhase = (index: number, direction: 'up' | 'down') => {
     if (!phases) return;
@@ -203,50 +254,60 @@ function ProjectDetail() {
         </div>
 
         {/* Stats */}
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <div className="mt-1">
-                  <StatusBadge status={project.status as any} />
+        <div className="mt-6">
+          {/* Effort Unit Selector */}
+          <div className="flex items-center justify-end mb-4 gap-2">
+            <span className="text-sm text-gray-500">Display effort in:</span>
+            <EffortUnitSelector value={effortUnit} onChange={setEffortUnit} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <div className="mt-1">
+                    <StatusBadge status={project.status as any} />
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card>
-            <p className="text-sm text-gray-500">Progress</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {project.progress.toFixed(1)}%
-            </p>
-            <ProgressBar progress={project.progress} />
-          </Card>
+            <Card>
+              <p className="text-sm text-gray-500">Progress</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {project.progress.toFixed(1)}%
+              </p>
+              <ProgressBar progress={project.progress} />
+            </Card>
 
-          <Card>
-            <p className="text-sm text-gray-500">Estimated Effort</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {project.estimatedEffort} <span className="text-sm text-gray-500">MM</span>
-            </p>
-          </Card>
+            <Card>
+              <p className="text-sm text-gray-500">Estimated Effort</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {displayEffort(project.estimatedEffort, 'man-month')}{' '}
+                <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
+              </p>
+            </Card>
 
-          <Card>
-            <p className="text-sm text-gray-500">Actual Effort</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {project.actualEffort} <span className="text-sm text-gray-500">MM</span>
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {project.actualEffort > project.estimatedEffort ? (
-                <span className="text-red-600">
-                  +{(project.actualEffort - project.estimatedEffort).toFixed(2)} MM over
-                </span>
-              ) : (
-                <span className="text-green-600">
-                  {(project.estimatedEffort - project.actualEffort).toFixed(2)} MM remaining
-                </span>
-              )}
-            </p>
-          </Card>
+            <Card>
+              <p className="text-sm text-gray-500">Actual Effort</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {displayEffort(project.actualEffort, 'man-month')}{' '}
+                <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {project.actualEffort > project.estimatedEffort ? (
+                  <span className="text-red-600">
+                    +{displayEffort(project.actualEffort - project.estimatedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]} over
+                  </span>
+                ) : (
+                  <span className="text-green-600">
+                    {displayEffort(project.estimatedEffort - project.actualEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]} remaining
+                  </span>
+                )}
+              </p>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -317,7 +378,7 @@ function ProjectDetail() {
                       <div className="mt-2 flex items-center gap-4">
                         <StatusBadge status={phase.status as any} />
                         <span className="text-sm text-gray-500">
-                          {phase.actualEffort}/{phase.estimatedEffort} MM
+                          {displayEffort(phase.actualEffort, 'man-month')}/{displayEffort(phase.estimatedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </span>
                       </div>
                     </div>
@@ -418,7 +479,7 @@ function ProjectDetail() {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {phase.actualEffort}/{phase.estimatedEffort} MM
+                        {displayEffort(phase.actualEffort, 'man-month')}/{displayEffort(phase.estimatedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {format(new Date(phase.startDate), 'MMM dd, yyyy')}
@@ -466,17 +527,17 @@ function ProjectDetail() {
               <Card>
                 <p className="text-sm text-gray-500">Estimated Effort</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {sfSummary.totalEstimated.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                  {displayEffort(sfSummary.totalEstimated, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Actual Effort</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {sfSummary.totalActual.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                  {displayEffort(sfSummary.totalActual, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
                 {sfSummary.variance !== 0 && (
                   <p className={`text-xs mt-1 ${sfSummary.variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {sfSummary.variance > 0 ? '+' : ''}{sfSummary.variance.toFixed(1)} hours ({sfSummary.variancePercentage.toFixed(1)}%)
+                    {sfSummary.variance > 0 ? '+' : ''}{displayEffort(sfSummary.variance, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]} ({sfSummary.variancePercentage.toFixed(1)}%)
                   </p>
                 )}
               </Card>
@@ -606,7 +667,7 @@ function ProjectDetail() {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {sf.estimatedEffort.toFixed(1)} / {sf.actualEffort.toFixed(1)} h
+                          {displayEffort(sf.estimatedEffort, 'man-hour')} / {displayEffort(sf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <div className="flex gap-2">
@@ -868,9 +929,113 @@ function ProjectDetail() {
       )}
 
       {activeTab === 'settings' && (
-        <Card title="Project Settings">
-          <p className="text-gray-500">Settings will be displayed here</p>
-        </Card>
+        <div className="space-y-6">
+          <Card title="Work Time Configuration">
+            <p className="text-sm text-gray-500 mb-6">
+              Configure working hours and days to accurately calculate effort conversions between man-hours, man-days, and man-months.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Working Hours per Day
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={settingsForm.workingHoursPerDay}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, workingHoursPerDay: parseInt(e.target.value) || 8 })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Standard: 8 hours/day
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Working Days per Month
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={settingsForm.workingDaysPerMonth}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, workingDaysPerMonth: parseInt(e.target.value) || 20 })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Standard: 20-22 days/month
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Default Effort Unit
+                </label>
+                <EffortUnitDropdown
+                  value={settingsForm.defaultEffortUnit}
+                  onChange={(unit) => setSettingsForm({ ...settingsForm, defaultEffortUnit: unit })}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Default display unit for efforts
+                </p>
+              </div>
+            </div>
+
+            {/* Conversion Preview */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Conversion Preview</h4>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center p-3 bg-white rounded border">
+                  <p className="text-2xl font-bold text-primary-600">1</p>
+                  <p className="text-gray-500">Man-Month</p>
+                </div>
+                <div className="text-center p-3 bg-white rounded border">
+                  <p className="text-2xl font-bold text-primary-600">{settingsForm.workingDaysPerMonth}</p>
+                  <p className="text-gray-500">Man-Days</p>
+                </div>
+                <div className="text-center p-3 bg-white rounded border">
+                  <p className="text-2xl font-bold text-primary-600">{settingsForm.workingHoursPerDay * settingsForm.workingDaysPerMonth}</p>
+                  <p className="text-gray-500">Man-Hours</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                1 MM = {settingsForm.workingDaysPerMonth} MD = {settingsForm.workingHoursPerDay * settingsForm.workingDaysPerMonth} MH
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleSaveSettings}
+                disabled={updateSettingsMutation.isPending}
+              >
+                {updateSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </div>
+            {updateSettingsMutation.isSuccess && (
+              <p className="text-sm text-green-600 mt-2 text-right">Settings saved successfully!</p>
+            )}
+          </Card>
+
+          {/* Current Settings Summary */}
+          <Card title="Current Conversion Rates">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">From Man-Hours</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>1 MH = {(1 / settingsForm.workingHoursPerDay).toFixed(4)} MD</li>
+                  <li>1 MH = {(1 / (settingsForm.workingHoursPerDay * settingsForm.workingDaysPerMonth)).toFixed(6)} MM</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">From Man-Days</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>1 MD = {settingsForm.workingHoursPerDay} MH</li>
+                  <li>1 MD = {(1 / settingsForm.workingDaysPerMonth).toFixed(4)} MM</li>
+                </ul>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Modals */}

@@ -13,12 +13,15 @@ export interface Project {
   settings?: ProjectSettings;
 }
 
+export type EffortUnit = 'man-hour' | 'man-day' | 'man-month';
+
 export interface ProjectSettings {
   id: number;
   projectId: number;
   numberOfMembers: number;
   workingHoursPerDay: number;
   workingDaysPerMonth: number;
+  defaultEffortUnit: EffortUnit;
 }
 
 export interface Phase {
