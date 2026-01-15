@@ -28,12 +28,12 @@ export const databaseProviders = [
         username: process.env.DB_USER || "postgres",
         password: process.env.DB_PASSWORD || "postgres",
         database: process.env.DB_NAME || "project_cost_quality",
-        dialectOptions: {
+        dialectOptions: process.env.DB_SSL === "true" ? {
           ssl: {
-            require: process.env.DB_SSL === "true",
+            require: true,
             rejectUnauthorized: process.env.DB_REJECT_UNAUTHORIZED === "true",
           },
-        },
+        } : {},
         logging: false,
       });
 
