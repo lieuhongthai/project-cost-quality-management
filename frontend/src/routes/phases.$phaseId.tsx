@@ -560,6 +560,7 @@ function PhaseDetail() {
                     <tr>
                       <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Assignee</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Progress</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Est. Effort</th>
@@ -585,6 +586,16 @@ function PhaseDetail() {
                             }`}>
                               {psf.screenFunction?.type || 'N/A'}
                             </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            {psf.assignee ? (
+                              <div>
+                                <p className="font-medium text-gray-900">{psf.assignee.name}</p>
+                                <p className="text-xs text-gray-500">{psf.assignee.role}</p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">Unassigned</span>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={`px-2 py-1 text-xs rounded ${
@@ -788,9 +799,10 @@ function PhaseDetail() {
         onClose={() => setEditingPSF(null)}
         title="Update Effort Details"
       >
-        {editingPSF && (
+        {editingPSF && phase && (
           <PhaseScreenFunctionForm
             phaseId={parseInt(phaseId)}
+            projectId={phase.projectId}
             phaseScreenFunction={editingPSF}
             onSuccess={() => setEditingPSF(null)}
             onCancel={() => setEditingPSF(null)}

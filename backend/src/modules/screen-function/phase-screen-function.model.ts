@@ -8,6 +8,7 @@ import {
 } from 'sequelize-typescript';
 import { Phase } from '../phase/phase.model';
 import { ScreenFunction } from './screen-function.model';
+import { Member } from '../member/member.model';
 
 export enum PhaseScreenFunctionStatus {
   NOT_STARTED = 'Not Started',
@@ -73,9 +74,19 @@ export class PhaseScreenFunction extends Model {
   })
   note: string;
 
+  @ForeignKey(() => Member)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+  })
+  assigneeId: number;
+
   @BelongsTo(() => Phase)
   phase: Phase;
 
   @BelongsTo(() => ScreenFunction)
   screenFunction: ScreenFunction;
+
+  @BelongsTo(() => Member)
+  assignee: Member;
 }

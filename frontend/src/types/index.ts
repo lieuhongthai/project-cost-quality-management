@@ -160,6 +160,7 @@ export interface PhaseScreenFunction {
   id: number;
   phaseId: number;
   screenFunctionId: number;
+  assigneeId?: number;
   estimatedEffort: number;
   actualEffort: number;
   progress: number;
@@ -169,6 +170,7 @@ export interface PhaseScreenFunction {
   updatedAt: string;
   phase?: Phase;
   screenFunction?: ScreenFunction;
+  assignee?: Member;
 }
 
 export interface ScreenFunctionSummary {
@@ -211,4 +213,44 @@ export interface PhaseScreenFunctionSummary {
 
 export interface ScreenFunctionWithPhases extends ScreenFunction {
   phaseLinks: PhaseScreenFunction[];
+}
+
+// Member types
+export type MemberRole = 'PM' | 'TL' | 'BA' | 'DEV' | 'QA' | 'Comtor' | 'Designer' | 'DevOps' | 'Other';
+export type MemberStatus = 'Active' | 'Inactive' | 'On Leave';
+export type MemberAvailability = 'Full-time' | 'Part-time' | 'Contract';
+
+export interface Member {
+  id: number;
+  projectId: number;
+  name: string;
+  email?: string;
+  role: MemberRole;
+  yearsOfExperience?: number;
+  skills: string[];
+  hourlyRate?: number;
+  availability: MemberAvailability;
+  status: MemberStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberSummary {
+  total: number;
+  byRole: Record<MemberRole, number>;
+  byStatus: Record<MemberStatus, number>;
+  byAvailability: Record<MemberAvailability, number>;
+  averageExperience: number;
+  totalHourlyRate: number;
+}
+
+export interface MemberWorkload {
+  memberId: number;
+  memberName: string;
+  totalAssigned: number;
+  totalEstimatedEffort: number;
+  totalActualEffort: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  pendingTasks: number;
 }

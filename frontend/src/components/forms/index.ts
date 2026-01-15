@@ -6,3 +6,4 @@ export { ReportForm } from './ReportForm';
 export { CommentaryForm } from './CommentaryForm';
 export { ScreenFunctionForm } from './ScreenFunctionForm';
 export { PhaseScreenFunctionForm } from './PhaseScreenFunctionForm';
+export { MemberForm } from './MemberForm';

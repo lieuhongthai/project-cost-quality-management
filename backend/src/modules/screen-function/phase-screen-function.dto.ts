@@ -34,6 +34,11 @@ export class CreatePhaseScreenFunctionDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  assigneeId?: number;
 }
 
 export class UpdatePhaseScreenFunctionDto {
@@ -59,6 +64,11 @@ export class UpdatePhaseScreenFunctionDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  assigneeId?: number;
 }
 
 export class BulkCreatePhaseScreenFunctionDto {
@@ -126,4 +136,9 @@ export class BulkUpdateItemDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  assigneeId?: number;
 }

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { projectApi, phaseApi, screenFunctionApi } from '@/services/api';
+import { projectApi, phaseApi, screenFunctionApi, memberApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -12,9 +12,9 @@ import {
   EmptyState,
   Input,
 } from '@/components/common';
-import { ProjectForm, PhaseForm, ScreenFunctionForm } from '@/components/forms';
+import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
-import type { ScreenFunction } from '@/types';
+import type { ScreenFunction, Member } from '@/types';
 
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetail,
@@ -23,14 +23,21 @@ export const Route = createFileRoute('/projects/$projectId')({
 function ProjectDetail() {
   const { projectId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'members' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [editingPhase, setEditingPhase] = useState<any>(null);
   const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
   const [editingScreenFunction, setEditingScreenFunction] = useState<ScreenFunction | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [sfFilter, setSfFilter] = useState<{ type: string; status: string; search: string }>({
     type: '',
+    status: '',
+    search: '',
+  });
+  const [memberFilter, setMemberFilter] = useState<{ role: string; status: string; search: string }>({
+    role: '',
     status: '',
     search: '',
   });
@@ -67,11 +74,44 @@ function ProjectDetail() {
     },
   });
 
+  const { data: members } = useQuery({
+    queryKey: ['members', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await memberApi.getByProject(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const { data: memberSummary } = useQuery({
+    queryKey: ['memberSummary', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await memberApi.getSummary(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const { data: projectWorkload } = useQuery({
+    queryKey: ['projectWorkload', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await memberApi.getProjectWorkload(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   const deleteScreenFunctionMutation = useMutation({
     mutationFn: (id: number) => screenFunctionApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screenFunctions', parseInt(projectId)] });
       queryClient.invalidateQueries({ queryKey: ['screenFunctionSummary', parseInt(projectId)] });
+    },
+  });
+
+  const deleteMemberMutation = useMutation({
+    mutationFn: (id: number) => memberApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['memberSummary', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['projectWorkload', parseInt(projectId)] });
     },
   });
 
@@ -123,6 +163,7 @@ function ProjectDetail() {
     { id: 'overview' as const, name: 'Overview' },
     { id: 'phases' as const, name: 'Phases' },
     { id: 'screen-functions' as const, name: 'Screen/Function' },
+    { id: 'members' as const, name: 'Members' },
     { id: 'settings' as const, name: 'Settings' },
   ];
 
@@ -133,6 +174,19 @@ function ProjectDetail() {
     if (sfFilter.search && !sf.name.toLowerCase().includes(sfFilter.search.toLowerCase())) return false;
     return true;
   });
+
+  // Filter members
+  const filteredMembers = members?.filter((m) => {
+    if (memberFilter.role && m.role !== memberFilter.role) return false;
+    if (memberFilter.status && m.status !== memberFilter.status) return false;
+    if (memberFilter.search && !m.name.toLowerCase().includes(memberFilter.search.toLowerCase())) return false;
+    return true;
+  });
+
+  // Get workload for a member
+  const getMemberWorkload = (memberId: number) => {
+    return projectWorkload?.find((w) => w.memberId === memberId);
+  };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -596,6 +650,223 @@ function ProjectDetail() {
         </div>
       )}
 
+      {activeTab === 'members' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          {memberSummary && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+              <Card>
+                <p className="text-sm text-gray-500">Total Members</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{memberSummary.total}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {memberSummary.byStatus.Active} Active
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Average Experience</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {memberSummary.averageExperience.toFixed(1)} <span className="text-sm text-gray-500">years</span>
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Total Hourly Rate</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  ${memberSummary.totalHourlyRate.toFixed(2)}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">By Availability</p>
+                <div className="mt-1 text-sm">
+                  <span className="text-green-600">{memberSummary.byAvailability['Full-time']} FT</span>
+                  {' / '}
+                  <span className="text-blue-600">{memberSummary.byAvailability['Part-time']} PT</span>
+                  {' / '}
+                  <span className="text-yellow-600">{memberSummary.byAvailability['Contract']} C</span>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Role Breakdown */}
+          {memberSummary && (
+            <div className="grid grid-cols-9 gap-2">
+              {Object.entries(memberSummary.byRole).map(([role, count]) => (
+                <div key={role} className="bg-gray-50 p-2 rounded-lg text-center">
+                  <p className="text-lg font-bold text-gray-700">{count as number}</p>
+                  <p className="text-xs text-gray-500">{role}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Member List */}
+          <Card
+            title="Team Members"
+            actions={
+              <Button onClick={() => setShowAddMember(true)}>
+                Add Member
+              </Button>
+            }
+          >
+            {/* Filters */}
+            <div className="mb-4 flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  placeholder="Search by name..."
+                  value={memberFilter.search}
+                  onChange={(e) => setMemberFilter({ ...memberFilter, search: e.target.value })}
+                />
+              </div>
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                value={memberFilter.role}
+                onChange={(e) => setMemberFilter({ ...memberFilter, role: e.target.value })}
+              >
+                <option value="">All Roles</option>
+                <option value="PM">PM</option>
+                <option value="TL">TL</option>
+                <option value="BA">BA</option>
+                <option value="DEV">DEV</option>
+                <option value="QA">QA</option>
+                <option value="Comtor">Comtor</option>
+                <option value="Designer">Designer</option>
+                <option value="DevOps">DevOps</option>
+                <option value="Other">Other</option>
+              </select>
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                value={memberFilter.status}
+                onChange={(e) => setMemberFilter({ ...memberFilter, status: e.target.value })}
+              >
+                <option value="">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </div>
+
+            {/* Table */}
+            {filteredMembers && filteredMembers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead>
+                    <tr>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Role</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Availability</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Experience</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Workload</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredMembers.map((member) => {
+                      const workload = getMemberWorkload(member.id);
+                      return (
+                        <tr key={member.id} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                            <div>
+                              <p className="font-medium text-gray-900">{member.name}</p>
+                              {member.email && (
+                                <p className="text-gray-500 text-xs">{member.email}</p>
+                              )}
+                              {member.skills && member.skills.length > 0 && (
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                  {member.skills.slice(0, 3).map((skill, idx) => (
+                                    <span key={idx} className="px-1.5 py-0.5 text-xs bg-gray-100 rounded">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                  {member.skills.length > 3 && (
+                                    <span className="text-xs text-gray-400">+{member.skills.length - 3}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={`px-2 py-1 text-xs rounded font-medium ${
+                              member.role === 'PM' ? 'bg-purple-100 text-purple-800' :
+                              member.role === 'TL' ? 'bg-blue-100 text-blue-800' :
+                              member.role === 'DEV' ? 'bg-green-100 text-green-800' :
+                              member.role === 'QA' ? 'bg-yellow-100 text-yellow-800' :
+                              member.role === 'BA' ? 'bg-orange-100 text-orange-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              member.status === 'Active' ? 'bg-green-100 text-green-800' :
+                              member.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {member.status}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {member.availability}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {member.yearsOfExperience ? `${member.yearsOfExperience} years` : '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            {workload ? (
+                              <div className="text-xs">
+                                <p className="font-medium">{workload.totalAssigned} tasks</p>
+                                <p className="text-gray-500">
+                                  {workload.completedTasks} done / {workload.inProgressTasks} active
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">No tasks</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setEditingMember(member)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this member?')) {
+                                    deleteMemberMutation.mutate(member.id);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                title="No members yet"
+                description="Add team members to track workload and assign tasks"
+                action={
+                  <Button onClick={() => setShowAddMember(true)}>
+                    Add First Member
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+        </div>
+      )}
+
       {activeTab === 'settings' && (
         <Card title="Project Settings">
           <p className="text-gray-500">Settings will be displayed here</p>
@@ -655,6 +926,28 @@ function ProjectDetail() {
           onCancel={() => {
             setShowAddScreenFunction(false);
             setEditingScreenFunction(null);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showAddMember || !!editingMember}
+        onClose={() => {
+          setShowAddMember(false);
+          setEditingMember(null);
+        }}
+        title={editingMember ? "Edit Member" : "Add Member"}
+      >
+        <MemberForm
+          projectId={parseInt(projectId)}
+          member={editingMember || undefined}
+          onSuccess={() => {
+            setShowAddMember(false);
+            setEditingMember(null);
+          }}
+          onCancel={() => {
+            setShowAddMember(false);
+            setEditingMember(null);
           }}
         />
       </Modal>

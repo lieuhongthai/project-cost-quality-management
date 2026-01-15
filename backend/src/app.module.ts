@@ -9,6 +9,7 @@ import { ReportModule } from './modules/report/report.module';
 import { CommentaryModule } from './modules/commentary/commentary.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ScreenFunctionModule } from './modules/screen-function/screen-function.module';
+import { MemberModule } from './modules/member/member.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ScreenFunctionModule } from './modules/screen-function/screen-function.
     CommentaryModule,
     MetricsModule,
     ScreenFunctionModule,
+    MemberModule,
   ],
 })
 export class AppModule {}

@@ -15,6 +15,9 @@ import type {
   ScreenFunctionSummary,
   PhaseScreenFunctionSummary,
   ScreenFunctionWithPhases,
+  Member,
+  MemberSummary,
+  MemberWorkload,
 } from '../types';
 
 const api = axios.create({
@@ -141,6 +144,19 @@ export const phaseScreenFunctionApi = {
   bulkUpdate: (data: { items: Array<{ id: number; estimatedEffort?: number; actualEffort?: number; progress?: number; status?: string; note?: string }> }) =>
     api.put<PhaseScreenFunction[]>('/phase-screen-functions/bulk', data),
   getSummary: (phaseId: number) => api.get<PhaseScreenFunctionSummary>(`/phase-screen-functions/phase/${phaseId}/summary`),
+};
+
+// Member APIs
+export const memberApi = {
+  getAll: () => api.get<Member[]>('/members'),
+  getByProject: (projectId: number) => api.get<Member[]>(`/members/project/${projectId}`),
+  getOne: (id: number) => api.get<Member>(`/members/${id}`),
+  create: (data: Partial<Member>) => api.post<Member>('/members', data),
+  update: (id: number, data: Partial<Member>) => api.put<Member>(`/members/${id}`, data),
+  delete: (id: number) => api.delete(`/members/${id}`),
+  getSummary: (projectId: number) => api.get<MemberSummary>(`/members/project/${projectId}/summary`),
+  getMemberWorkload: (memberId: number) => api.get<MemberWorkload>(`/members/${memberId}/workload`),
+  getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
 };
 
 export default api;

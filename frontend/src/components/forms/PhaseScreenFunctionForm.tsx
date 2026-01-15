@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { phaseScreenFunctionApi } from '@/services/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { phaseScreenFunctionApi, memberApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
 import type { PhaseScreenFunction, PhaseScreenFunctionStatus } from '@/types';
 
 interface PhaseScreenFunctionFormProps {
   phaseId: number;
+  projectId: number;
   phaseScreenFunction: PhaseScreenFunction;
   onSuccess: () => void;
   onCancel: () => void;
@@ -20,6 +21,7 @@ const STATUS_OPTIONS: { value: PhaseScreenFunctionStatus; label: string }[] = [
 
 export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = ({
   phaseId,
+  projectId,
   phaseScreenFunction,
   onSuccess,
   onCancel,
@@ -31,8 +33,27 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
     progress: phaseScreenFunction.progress || 0,
     status: phaseScreenFunction.status || 'Not Started' as PhaseScreenFunctionStatus,
     note: phaseScreenFunction.note || '',
+    assigneeId: phaseScreenFunction.assigneeId || '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch project members for assignee dropdown
+  const { data: members } = useQuery({
+    queryKey: ['members', projectId],
+    queryFn: async () => {
+      const response = await memberApi.getByProject(projectId);
+      return response.data;
+    },
+  });
+
+  // Create member options for select dropdown
+  const memberOptions = [
+    { value: '', label: 'Unassigned' },
+    ...(members?.filter(m => m.status === 'Active').map(m => ({
+      value: String(m.id),
+      label: `${m.name} (${m.role})`,
+    })) || []),
+  ];
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<PhaseScreenFunction>) =>
@@ -41,6 +62,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
       queryClient.invalidateQueries({ queryKey: ['phaseScreenFunctions', phaseId] });
       queryClient.invalidateQueries({ queryKey: ['phaseScreenFunctionSummary', phaseId] });
       queryClient.invalidateQueries({ queryKey: ['screenFunction', phaseScreenFunction.screenFunctionId] });
+      queryClient.invalidateQueries({ queryKey: ['projectWorkload', projectId] });
       onSuccess();
     },
   });
@@ -75,6 +97,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
       progress: Number(formData.progress) || 0,
       status: formData.status,
       note: formData.note,
+      assigneeId: formData.assigneeId ? Number(formData.assigneeId) : undefined,
     });
   };
 
@@ -180,6 +203,15 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
           disabled={isLoading}
         />
       </div>
+
+      <Select
+        label="Assignee"
+        name="assigneeId"
+        value={String(formData.assigneeId)}
+        onChange={handleChange}
+        options={memberOptions}
+        disabled={isLoading}
+      />
 
       {/* Variance indicator */}
       {formData.estimatedEffort > 0 && (

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException 
 import { PhaseScreenFunction } from './phase-screen-function.model';
 import { ScreenFunction } from './screen-function.model';
 import { Phase } from '../phase/phase.model';
+import { Member } from '../member/member.model';
 import {
   CreatePhaseScreenFunctionDto,
   UpdatePhaseScreenFunctionDto,
@@ -24,6 +25,7 @@ export class PhaseScreenFunctionService {
       include: [
         { model: Phase, as: 'phase' },
         { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
       ],
     });
   }
@@ -31,7 +33,10 @@ export class PhaseScreenFunctionService {
   async findByPhase(phaseId: number): Promise<PhaseScreenFunction[]> {
     return this.phaseScreenFunctionRepository.findAll({
       where: { phaseId },
-      include: [{ model: ScreenFunction, as: 'screenFunction' }],
+      include: [
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
+      ],
       order: [[{ model: ScreenFunction, as: 'screenFunction' }, 'displayOrder', 'ASC']],
     });
   }
@@ -39,7 +44,10 @@ export class PhaseScreenFunctionService {
   async findByScreenFunction(screenFunctionId: number): Promise<PhaseScreenFunction[]> {
     return this.phaseScreenFunctionRepository.findAll({
       where: { screenFunctionId },
-      include: [{ model: Phase, as: 'phase' }],
+      include: [
+        { model: Phase, as: 'phase' },
+        { model: Member, as: 'assignee' },
+      ],
       order: [[{ model: Phase, as: 'phase' }, 'displayOrder', 'ASC']],
     });
   }
@@ -49,6 +57,7 @@ export class PhaseScreenFunctionService {
       include: [
         { model: Phase, as: 'phase' },
         { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
       ],
     });
 
@@ -160,6 +169,7 @@ export class PhaseScreenFunctionService {
       if (item.progress !== undefined) updateData.progress = item.progress;
       if (item.status !== undefined) updateData.status = item.status;
       if (item.note !== undefined) updateData.note = item.note;
+      if (item.assigneeId !== undefined) updateData.assigneeId = item.assigneeId;
 
       await psf.update(updateData);
       results.push(psf);

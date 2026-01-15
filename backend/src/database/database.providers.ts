@@ -9,6 +9,7 @@ import { ProjectSettings } from "../modules/project/project-settings.model";
 import { Metrics } from "../modules/metrics/metrics.model";
 import { ScreenFunction } from "../modules/screen-function/screen-function.model";
 import { PhaseScreenFunction } from "../modules/screen-function/phase-screen-function.model";
+import { Member } from "../modules/member/member.model";
 
 export const databaseProviders = [
   {
@@ -47,6 +48,7 @@ export const databaseProviders = [
         Metrics,
         ScreenFunction,
         PhaseScreenFunction,
+        Member,
       ]);
 
       await sequelize.sync({alter: true });
