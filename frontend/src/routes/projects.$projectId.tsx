@@ -657,42 +657,42 @@ function ProjectDetail() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
               <Card>
                 <p className="text-sm text-gray-500">Total Members</p>
-                <p className="mt-1 text-2xl font-semibold text-gray-900">{memberSummary.total}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{memberSummary.total || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {memberSummary.byStatus.Active} Active
+                  {memberSummary.byStatus?.Active || 0} Active
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Average Experience</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {memberSummary.averageExperience.toFixed(1)} <span className="text-sm text-gray-500">years</span>
+                  {(memberSummary.averageExperience || 0).toFixed(1)} <span className="text-sm text-gray-500">years</span>
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Total Hourly Rate</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  ${memberSummary.totalHourlyRate.toFixed(2)}
+                  ${(memberSummary.totalHourlyRate || 0).toFixed(2)}
                 </p>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">By Availability</p>
                 <div className="mt-1 text-sm">
-                  <span className="text-green-600">{memberSummary.byAvailability['Full-time']} FT</span>
+                  <span className="text-green-600">{memberSummary.byAvailability?.['Full-time'] || 0} FT</span>
                   {' / '}
-                  <span className="text-blue-600">{memberSummary.byAvailability['Part-time']} PT</span>
+                  <span className="text-blue-600">{memberSummary.byAvailability?.['Part-time'] || 0} PT</span>
                   {' / '}
-                  <span className="text-yellow-600">{memberSummary.byAvailability['Contract']} C</span>
+                  <span className="text-yellow-600">{memberSummary.byAvailability?.['Contract'] || 0} C</span>
                 </div>
               </Card>
             </div>
           )}
 
           {/* Role Breakdown */}
-          {memberSummary && (
+          {memberSummary && memberSummary.byRole && (
             <div className="grid grid-cols-9 gap-2">
               {Object.entries(memberSummary.byRole).map(([role, count]) => (
                 <div key={role} className="bg-gray-50 p-2 rounded-lg text-center">
-                  <p className="text-lg font-bold text-gray-700">{count as number}</p>
+                  <p className="text-lg font-bold text-gray-700">{(count as number) || 0}</p>
                   <p className="text-xs text-gray-500">{role}</p>
                 </div>
               ))}

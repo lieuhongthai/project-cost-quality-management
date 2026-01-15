@@ -59,10 +59,26 @@ export class MemberService {
   async getProjectSummary(projectId: number) {
     const members = await this.findByProject(projectId);
 
-    const byRole: Record<string, number> = {};
+    const byRole: Record<string, number> = {
+      PM: 0,
+      TL: 0,
+      BA: 0,
+      DEV: 0,
+      QA: 0,
+      Comtor: 0,
+      Designer: 0,
+      DevOps: 0,
+      Other: 0,
+    };
     const byStatus: Record<string, number> = {
       Active: 0,
       Inactive: 0,
+      'On Leave': 0,
+    };
+    const byAvailability: Record<string, number> = {
+      'Full-time': 0,
+      'Part-time': 0,
+      Contract: 0,
     };
 
     let totalHourlyRate = 0;
@@ -76,6 +92,9 @@ export class MemberService {
       // Count by status
       byStatus[member.status] = (byStatus[member.status] || 0) + 1;
 
+      // Count by availability
+      byAvailability[member.availability] = (byAvailability[member.availability] || 0) + 1;
+
       // Sum hourly rates
       totalHourlyRate += member.hourlyRate || 0;
 
@@ -86,49 +105,65 @@ export class MemberService {
       }
     }
 
-    // Collect all unique skills
-    const allSkills = new Set<string>();
-    members.forEach((m) => {
-      if (m.skills) {
-        m.skills.forEach((skill) => allSkills.add(skill));
-      }
-    });
-
     return {
       total: members.length,
-      active: byStatus.Active,
-      inactive: byStatus.Inactive,
       byRole,
-      avgHourlyRate: members.length > 0 ? totalHourlyRate / members.length : 0,
-      avgExperience: membersWithExperience > 0 ? totalExperience / membersWithExperience : 0,
-      totalHourlyCost: totalHourlyRate,
-      skills: Array.from(allSkills),
+      byStatus,
+      byAvailability,
+      averageExperience: membersWithExperience > 0 ? totalExperience / membersWithExperience : 0,
+      totalHourlyRate,
     };
   }
 
-  // Get workload for each member (will be enhanced when linked to PhaseScreenFunction)
+  // Get workload for a specific member
   async getMemberWorkload(memberId: number) {
     const member = await this.findOne(memberId);
 
-    // This will be enhanced to calculate actual workload from assigned tasks
+    // Import PhaseScreenFunction to calculate workload
+    const { PhaseScreenFunction } = await import('../screen-function/phase-screen-function.model');
+
+    const assignments = await PhaseScreenFunction.findAll({
+      where: { assigneeId: memberId },
+    });
+
+    let totalEstimatedEffort = 0;
+    let totalActualEffort = 0;
+    let completedTasks = 0;
+    let inProgressTasks = 0;
+    let pendingTasks = 0;
+
+    for (const assignment of assignments) {
+      totalEstimatedEffort += assignment.estimatedEffort || 0;
+      totalActualEffort += assignment.actualEffort || 0;
+
+      if (assignment.status === 'Completed') {
+        completedTasks++;
+      } else if (assignment.status === 'In Progress') {
+        inProgressTasks++;
+      } else if (assignment.status === 'Not Started') {
+        pendingTasks++;
+      }
+    }
+
     return {
-      member,
-      assignedTasks: 0,
-      totalEstimatedEffort: 0,
-      totalActualEffort: 0,
-      capacityHoursPerWeek: (member.availability / 100) * 40, // Assuming 40h work week
-      utilizationPercentage: 0,
+      memberId: member.id,
+      memberName: member.name,
+      totalAssigned: assignments.length,
+      totalEstimatedEffort,
+      totalActualEffort,
+      completedTasks,
+      inProgressTasks,
+      pendingTasks,
     };
   }
 
   // Get all members' workload for a project
   async getProjectWorkload(projectId: number) {
-    const members = await this.findActiveByProject(projectId);
+    const members = await this.findByProject(projectId);
 
     const workloads = await Promise.all(
       members.map(async (member) => {
-        const workload = await this.getMemberWorkload(member.id);
-        return workload;
+        return this.getMemberWorkload(member.id);
       }),
     );
 
