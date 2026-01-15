@@ -7,6 +7,8 @@ import { Report } from "../modules/report/report.model";
 import { Commentary } from "../modules/commentary/commentary.model";
 import { ProjectSettings } from "../modules/project/project-settings.model";
 import { Metrics } from "../modules/metrics/metrics.model";
+import { ScreenFunction } from "../modules/screen-function/screen-function.model";
+import { PhaseScreenFunction } from "../modules/screen-function/phase-screen-function.model";
 
 export const databaseProviders = [
   {
@@ -43,6 +45,8 @@ export const databaseProviders = [
         Commentary,
         ProjectSettings,
         Metrics,
+        ScreenFunction,
+        PhaseScreenFunction,
       ]);
 
       await sequelize.sync({alter: true });

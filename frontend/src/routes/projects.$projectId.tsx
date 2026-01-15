@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { projectApi, phaseApi } from '@/services/api';
+import { projectApi, phaseApi, screenFunctionApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -10,9 +10,11 @@ import {
   Button,
   Modal,
   EmptyState,
+  Input,
 } from '@/components/common';
-import { ProjectForm, PhaseForm } from '@/components/forms';
+import { ProjectForm, PhaseForm, ScreenFunctionForm } from '@/components/forms';
 import { format } from 'date-fns';
+import type { ScreenFunction } from '@/types';
 
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetail,
@@ -21,10 +23,17 @@ export const Route = createFileRoute('/projects/$projectId')({
 function ProjectDetail() {
   const { projectId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [editingPhase, setEditingPhase] = useState<any>(null);
+  const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
+  const [editingScreenFunction, setEditingScreenFunction] = useState<ScreenFunction | null>(null);
+  const [sfFilter, setSfFilter] = useState<{ type: string; status: string; search: string }>({
+    type: '',
+    status: '',
+    search: '',
+  });
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', parseInt(projectId)],
@@ -39,6 +48,30 @@ function ProjectDetail() {
     queryFn: async () => {
       const response = await phaseApi.getByProject(parseInt(projectId));
       return response.data;
+    },
+  });
+
+  const { data: screenFunctions } = useQuery({
+    queryKey: ['screenFunctions', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getByProject(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const { data: sfSummary } = useQuery({
+    queryKey: ['screenFunctionSummary', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getSummary(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const deleteScreenFunctionMutation = useMutation({
+    mutationFn: (id: number) => screenFunctionApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['screenFunctions', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['screenFunctionSummary', parseInt(projectId)] });
     },
   });
 
@@ -89,8 +122,17 @@ function ProjectDetail() {
   const tabs = [
     { id: 'overview' as const, name: 'Overview' },
     { id: 'phases' as const, name: 'Phases' },
+    { id: 'screen-functions' as const, name: 'Screen/Function' },
     { id: 'settings' as const, name: 'Settings' },
   ];
+
+  // Filter screen functions
+  const filteredScreenFunctions = screenFunctions?.filter((sf) => {
+    if (sfFilter.type && sf.type !== sfFilter.type) return false;
+    if (sfFilter.status && sf.status !== sfFilter.status) return false;
+    if (sfFilter.search && !sf.name.toLowerCase().includes(sfFilter.search.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -355,6 +397,205 @@ function ProjectDetail() {
         </Card>
       )}
 
+      {activeTab === 'screen-functions' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          {sfSummary && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+              <Card>
+                <p className="text-sm text-gray-500">Total Items</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{sfSummary.total}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {sfSummary.byType.Screen} Screens, {sfSummary.byType.Function} Functions
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Estimated Effort</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {sfSummary.totalEstimated.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Actual Effort</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {sfSummary.totalActual.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                </p>
+                {sfSummary.variance !== 0 && (
+                  <p className={`text-xs mt-1 ${sfSummary.variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {sfSummary.variance > 0 ? '+' : ''}{sfSummary.variance.toFixed(1)} hours ({sfSummary.variancePercentage.toFixed(1)}%)
+                  </p>
+                )}
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Average Progress</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{sfSummary.avgProgress.toFixed(1)}%</p>
+                <ProgressBar progress={sfSummary.avgProgress} />
+              </Card>
+            </div>
+          )}
+
+          {/* Status breakdown */}
+          {sfSummary && (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-gray-400">{sfSummary.byStatus['Not Started']}</p>
+                <p className="text-sm text-gray-500">Not Started</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-blue-600">{sfSummary.byStatus['In Progress']}</p>
+                <p className="text-sm text-gray-500">In Progress</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-green-600">{sfSummary.byStatus['Completed']}</p>
+                <p className="text-sm text-gray-500">Completed</p>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content */}
+          <Card
+            title="Screen/Function List"
+            actions={
+              <Button onClick={() => setShowAddScreenFunction(true)}>
+                Add Screen/Function
+              </Button>
+            }
+          >
+            {/* Filters */}
+            <div className="mb-4 flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  placeholder="Search by name..."
+                  value={sfFilter.search}
+                  onChange={(e) => setSfFilter({ ...sfFilter, search: e.target.value })}
+                />
+              </div>
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                value={sfFilter.type}
+                onChange={(e) => setSfFilter({ ...sfFilter, type: e.target.value })}
+              >
+                <option value="">All Types</option>
+                <option value="Screen">Screen</option>
+                <option value="Function">Function</option>
+              </select>
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                value={sfFilter.status}
+                onChange={(e) => setSfFilter({ ...sfFilter, status: e.target.value })}
+              >
+                <option value="">All Status</option>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            {/* Table */}
+            {filteredScreenFunctions && filteredScreenFunctions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead>
+                    <tr>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Priority</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Complexity</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Progress</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Effort (Est/Act)</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredScreenFunctions.map((sf) => (
+                      <tr key={sf.id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                          <div>
+                            <p className="font-medium text-gray-900">{sf.name}</p>
+                            {sf.description && (
+                              <p className="text-gray-500 text-xs truncate max-w-xs">{sf.description}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {sf.type}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            sf.priority === 'High' ? 'bg-red-100 text-red-800' :
+                            sf.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {sf.priority}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {sf.complexity}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            sf.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                            sf.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {sf.status}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <div className="w-24">
+                            <ProgressBar progress={sf.progress} showLabel />
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {sf.estimatedEffort.toFixed(1)} / {sf.actualEffort.toFixed(1)} h
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setEditingScreenFunction(sf)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this item?')) {
+                                  deleteScreenFunctionMutation.mutate(sf.id);
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                title="No screen/function yet"
+                description="Add screens and functions to track detailed effort per phase"
+                action={
+                  <Button onClick={() => setShowAddScreenFunction(true)}>
+                    Add First Item
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+        </div>
+      )}
+
       {activeTab === 'settings' && (
         <Card title="Project Settings">
           <p className="text-gray-500">Settings will be displayed here</p>
@@ -392,6 +633,28 @@ function ProjectDetail() {
           onCancel={() => {
             setShowAddPhase(false);
             setEditingPhase(null);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showAddScreenFunction || !!editingScreenFunction}
+        onClose={() => {
+          setShowAddScreenFunction(false);
+          setEditingScreenFunction(null);
+        }}
+        title={editingScreenFunction ? "Edit Screen/Function" : "Add Screen/Function"}
+      >
+        <ScreenFunctionForm
+          projectId={parseInt(projectId)}
+          screenFunction={editingScreenFunction || undefined}
+          onSuccess={() => {
+            setShowAddScreenFunction(false);
+            setEditingScreenFunction(null);
+          }}
+          onCancel={() => {
+            setShowAddScreenFunction(false);
+            setEditingScreenFunction(null);
           }}
         />
       </Modal>

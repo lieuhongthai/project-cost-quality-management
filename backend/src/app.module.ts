@@ -8,6 +8,7 @@ import { TestingModule } from './modules/testing/testing.module';
 import { ReportModule } from './modules/report/report.module';
 import { CommentaryModule } from './modules/commentary/commentary.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { ScreenFunctionModule } from './modules/screen-function/screen-function.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
     ReportModule,
     CommentaryModule,
     MetricsModule,
+    ScreenFunctionModule,
   ],
 })
 export class AppModule {}

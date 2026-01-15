@@ -10,6 +10,11 @@ import type {
   Metrics,
   EffortSummary,
   TestingSummary,
+  ScreenFunction,
+  PhaseScreenFunction,
+  ScreenFunctionSummary,
+  PhaseScreenFunctionSummary,
+  ScreenFunctionWithPhases,
 } from '../types';
 
 const api = axios.create({
@@ -99,10 +104,43 @@ export const commentaryApi = {
 export const metricsApi = {
   getByReport: (reportId: number) => api.get<Metrics[]>(`/metrics/report/${reportId}`),
   getOne: (id: number) => api.get<Metrics>(`/metrics/${id}`),
-  calculatePhase: (phaseId: number, reportId: number) => 
+  calculatePhase: (phaseId: number, reportId: number) =>
     api.post<Metrics>(`/metrics/phase/${phaseId}?reportId=${reportId}`),
-  calculateProject: (projectId: number, reportId: number) => 
+  calculateProject: (projectId: number, reportId: number) =>
     api.post<Metrics>(`/metrics/project/${projectId}?reportId=${reportId}`),
+};
+
+// Screen/Function APIs
+export const screenFunctionApi = {
+  getAll: () => api.get<ScreenFunction[]>('/screen-functions'),
+  getByProject: (projectId: number) => api.get<ScreenFunction[]>(`/screen-functions/project/${projectId}`),
+  getOne: (id: number) => api.get<ScreenFunction>(`/screen-functions/${id}`),
+  create: (data: Partial<ScreenFunction>) => api.post<ScreenFunction>('/screen-functions', data),
+  update: (id: number, data: Partial<ScreenFunction>) => api.put<ScreenFunction>(`/screen-functions/${id}`, data),
+  delete: (id: number) => api.delete(`/screen-functions/${id}`),
+  reorder: (items: Array<{ id: number; displayOrder: number }>) =>
+    api.put('/screen-functions/reorder', { items }),
+  getSummary: (projectId: number) => api.get<ScreenFunctionSummary>(`/screen-functions/project/${projectId}/summary`),
+};
+
+// Phase-ScreenFunction APIs
+export const phaseScreenFunctionApi = {
+  getAll: () => api.get<PhaseScreenFunction[]>('/phase-screen-functions'),
+  getByPhase: (phaseId: number) => api.get<PhaseScreenFunction[]>(`/phase-screen-functions/phase/${phaseId}`),
+  getByScreenFunction: (screenFunctionId: number) =>
+    api.get<PhaseScreenFunction[]>(`/phase-screen-functions/screen-function/${screenFunctionId}`),
+  getProjectWithPhases: (projectId: number) =>
+    api.get<ScreenFunctionWithPhases[]>(`/phase-screen-functions/project/${projectId}/with-phases`),
+  getOne: (id: number) => api.get<PhaseScreenFunction>(`/phase-screen-functions/${id}`),
+  create: (data: Partial<PhaseScreenFunction>) => api.post<PhaseScreenFunction>('/phase-screen-functions', data),
+  update: (id: number, data: Partial<PhaseScreenFunction>) =>
+    api.put<PhaseScreenFunction>(`/phase-screen-functions/${id}`, data),
+  delete: (id: number) => api.delete(`/phase-screen-functions/${id}`),
+  bulkCreate: (data: { phaseId: number; items: Array<{ screenFunctionId: number; estimatedEffort?: number; note?: string }> }) =>
+    api.post<PhaseScreenFunction[]>('/phase-screen-functions/bulk', data),
+  bulkUpdate: (data: { items: Array<{ id: number; estimatedEffort?: number; actualEffort?: number; progress?: number; status?: string; note?: string }> }) =>
+    api.put<PhaseScreenFunction[]>('/phase-screen-functions/bulk', data),
+  getSummary: (phaseId: number) => api.get<PhaseScreenFunctionSummary>(`/phase-screen-functions/phase/${phaseId}/summary`),
 };
 
 export default api;

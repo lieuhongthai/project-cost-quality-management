@@ -74,6 +74,7 @@ export interface Report {
   id: number;
   projectId: number;
   scope: 'Weekly' | 'Phase' | 'Project';
+  phaseId?: number;
   phaseName?: string;
   weekNumber?: number;
   year?: number;
@@ -129,4 +130,85 @@ export interface TestingSummary {
   overallDefectRate: number;
   avgTimePerTestCase: number;
   testCasesPerHour: number;
+}
+
+// Screen/Function types
+export type ScreenFunctionType = 'Screen' | 'Function';
+export type Priority = 'High' | 'Medium' | 'Low';
+export type Complexity = 'Simple' | 'Medium' | 'Complex';
+export type ScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed';
+export type PhaseScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
+export interface ScreenFunction {
+  id: number;
+  projectId: number;
+  name: string;
+  type: ScreenFunctionType;
+  description?: string;
+  priority: Priority;
+  complexity: Complexity;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: ScreenFunctionStatus;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhaseScreenFunction {
+  id: number;
+  phaseId: number;
+  screenFunctionId: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: PhaseScreenFunctionStatus;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+  phase?: Phase;
+  screenFunction?: ScreenFunction;
+}
+
+export interface ScreenFunctionSummary {
+  total: number;
+  totalEstimated: number;
+  totalActual: number;
+  avgProgress: number;
+  variance: number;
+  variancePercentage: number;
+  byType: {
+    Screen: number;
+    Function: number;
+  };
+  byStatus: {
+    'Not Started': number;
+    'In Progress': number;
+    'Completed': number;
+  };
+  byPriority: {
+    High: number;
+    Medium: number;
+    Low: number;
+  };
+}
+
+export interface PhaseScreenFunctionSummary {
+  total: number;
+  totalEstimated: number;
+  totalActual: number;
+  avgProgress: number;
+  variance: number;
+  variancePercentage: number;
+  byStatus: {
+    'Not Started': number;
+    'In Progress': number;
+    'Completed': number;
+    'Skipped': number;
+  };
+}
+
+export interface ScreenFunctionWithPhases extends ScreenFunction {
+  phaseLinks: PhaseScreenFunction[];
 }

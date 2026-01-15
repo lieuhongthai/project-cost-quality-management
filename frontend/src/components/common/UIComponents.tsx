@@ -102,11 +102,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 };
 
 // Progress Bar Component
-interface ProgressBarProps {
+export interface ProgressBarProps {
   progress: number;
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
   color?: 'primary' | 'success' | 'warning' | 'danger';
+  className?: string;
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -114,6 +115,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   showLabel = false,
   size = 'md',
   color = 'primary',
+  className = '',
 }) => {
   const sizeClasses = {
     sm: 'h-1',
@@ -131,7 +133,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${className}`}>
       <div className={`w-full bg-gray-200 rounded-full ${sizeClasses[size]}`}>
         <div
           className={`${colorClasses[color]} ${sizeClasses[size]} rounded-full transition-all duration-300`}

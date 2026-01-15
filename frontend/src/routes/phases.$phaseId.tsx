@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { phaseApi, effortApi, testingApi } from "@/services/api";
+import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi } from "@/services/api";
 import {
   Card,
   LoadingSpinner,
   StatusBadge,
+  ProgressBar,
   Button,
   Modal,
   EmptyState,
 } from "@/components/common";
-import { EffortForm, TestingForm } from "@/components/forms";
+import { EffortForm, TestingForm, PhaseScreenFunctionForm } from "@/components/forms";
 import { ProgressChart, TestingQualityChart } from "@/components/charts";
 import { format } from "date-fns";
+import type { PhaseScreenFunction } from "@/types";
 
 export const Route = createFileRoute("/phases/$phaseId")({
   component: PhaseDetail,
@@ -20,11 +22,15 @@ export const Route = createFileRoute("/phases/$phaseId")({
 
 function PhaseDetail() {
   const { phaseId } = Route.useParams();
-  const [activeTab, setActiveTab] = useState<"efforts" | "testing">("efforts");
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"efforts" | "testing" | "screen-functions">("efforts");
   const [showAddEffort, setShowAddEffort] = useState(false);
   const [showAddTesting, setShowAddTesting] = useState(false);
   const [editingEffort, setEditingEffort] = useState<any>(null);
   const [editingTesting, setEditingTesting] = useState<any>(null);
+  const [editingPSF, setEditingPSF] = useState<PhaseScreenFunction | null>(null);
+  const [showLinkScreenFunction, setShowLinkScreenFunction] = useState(false);
+  const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
 
   const { data: phase, isLoading } = useQuery({
     queryKey: ["phase", parseInt(phaseId)],
@@ -66,6 +72,58 @@ function PhaseDetail() {
     },
   });
 
+  // Screen/Function queries
+  const { data: phaseScreenFunctions } = useQuery({
+    queryKey: ["phaseScreenFunctions", parseInt(phaseId)],
+    queryFn: async () => {
+      const response = await phaseScreenFunctionApi.getByPhase(parseInt(phaseId));
+      return response.data;
+    },
+  });
+
+  const { data: psfSummary } = useQuery({
+    queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)],
+    queryFn: async () => {
+      const response = await phaseScreenFunctionApi.getSummary(parseInt(phaseId));
+      return response.data;
+    },
+  });
+
+  // Get all screen functions for the project (to show unlinked ones)
+  const { data: allScreenFunctions } = useQuery({
+    queryKey: ["projectScreenFunctions", phase?.projectId],
+    queryFn: async () => {
+      if (!phase?.projectId) return [];
+      const response = await screenFunctionApi.getByProject(phase.projectId);
+      return response.data;
+    },
+    enabled: !!phase?.projectId,
+  });
+
+  // Mutations
+  const linkMutation = useMutation({
+    mutationFn: (data: { phaseId: number; items: Array<{ screenFunctionId: number; estimatedEffort?: number }> }) =>
+      phaseScreenFunctionApi.bulkCreate(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctions", parseInt(phaseId)] });
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)] });
+      setShowLinkScreenFunction(false);
+      setSelectedSFIds([]);
+    },
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: (id: number) => phaseScreenFunctionApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctions", parseInt(phaseId)] });
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)] });
+    },
+  });
+
+  // Get unlinked screen functions
+  const linkedSFIds = phaseScreenFunctions?.map(psf => psf.screenFunctionId) || [];
+  const unlinkedScreenFunctions = allScreenFunctions?.filter(sf => !linkedSFIds.includes(sf.id)) || [];
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -102,7 +160,24 @@ function PhaseDetail() {
   const tabs = [
     { id: "efforts" as const, name: "Efforts" },
     { id: "testing" as const, name: "Testing" },
+    { id: "screen-functions" as const, name: "Screen/Function" },
   ];
+
+  const handleLinkScreenFunctions = () => {
+    if (selectedSFIds.length === 0) return;
+    linkMutation.mutate({
+      phaseId: parseInt(phaseId),
+      items: selectedSFIds.map(id => ({ screenFunctionId: id })),
+    });
+  };
+
+  const toggleSFSelection = (sfId: number) => {
+    setSelectedSFIds(prev =>
+      prev.includes(sfId)
+        ? prev.filter(id => id !== sfId)
+        : [...prev, sfId]
+    );
+  };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -413,6 +488,173 @@ function PhaseDetail() {
         </div>
       )}
 
+      {activeTab === "screen-functions" && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          {psfSummary && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+              <Card>
+                <p className="text-sm text-gray-500">Linked Items</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{psfSummary.total}</p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Estimated Effort</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {psfSummary.totalEstimated.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Actual Effort</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {psfSummary.totalActual.toFixed(1)} <span className="text-sm text-gray-500">hours</span>
+                </p>
+                {psfSummary.variance !== 0 && (
+                  <p className={`text-xs mt-1 ${psfSummary.variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {psfSummary.variance > 0 ? '+' : ''}{psfSummary.variance.toFixed(1)} hours
+                  </p>
+                )}
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Average Progress</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{psfSummary.avgProgress.toFixed(1)}%</p>
+                <ProgressBar progress={psfSummary.avgProgress} />
+              </Card>
+            </div>
+          )}
+
+          {/* Status breakdown */}
+          {psfSummary && psfSummary.total > 0 && (
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-gray-400">{psfSummary.byStatus['Not Started']}</p>
+                <p className="text-sm text-gray-500">Not Started</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-blue-600">{psfSummary.byStatus['In Progress']}</p>
+                <p className="text-sm text-gray-500">In Progress</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-green-600">{psfSummary.byStatus['Completed']}</p>
+                <p className="text-sm text-gray-500">Completed</p>
+              </div>
+              <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-yellow-600">{psfSummary.byStatus['Skipped']}</p>
+                <p className="text-sm text-gray-500">Skipped</p>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content */}
+          <Card
+            title="Screen/Function in this Phase"
+            actions={
+              <Button size="sm" onClick={() => setShowLinkScreenFunction(true)}>
+                Link Screen/Function
+              </Button>
+            }
+          >
+            {phaseScreenFunctions && phaseScreenFunctions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead>
+                    <tr>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Progress</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Est. Effort</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Act. Effort</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Variance</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {phaseScreenFunctions.map((psf) => {
+                      const variance = psf.actualEffort - psf.estimatedEffort;
+                      return (
+                        <tr key={psf.id} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                            <p className="font-medium text-gray-900">{psf.screenFunction?.name || 'Unknown'}</p>
+                            {psf.note && (
+                              <p className="text-gray-500 text-xs truncate max-w-xs">{psf.note}</p>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              psf.screenFunction?.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {psf.screenFunction?.type || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              psf.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                              psf.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                              psf.status === 'Skipped' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {psf.status}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <div className="w-20">
+                              <ProgressBar progress={psf.progress} showLabel />
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {psf.estimatedEffort.toFixed(1)} h
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {psf.actualEffort.toFixed(1)} h
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={variance > 0 ? 'text-red-600' : 'text-green-600'}>
+                              {variance > 0 ? '+' : ''}{variance.toFixed(1)} h
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setEditingPSF(psf)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => {
+                                  if (confirm('Unlink this item from phase?')) {
+                                    unlinkMutation.mutate(psf.id);
+                                  }
+                                }}
+                              >
+                                Unlink
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                title="No screen/function linked"
+                description="Link screen/functions from the project to track detailed effort in this phase"
+                action={
+                  <Button onClick={() => setShowLinkScreenFunction(true)}>
+                    Link Screen/Function
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+        </div>
+      )}
+
       {/* Modals */}
       <Modal
         isOpen={showAddEffort || !!editingEffort}
@@ -456,6 +698,104 @@ function PhaseDetail() {
             setEditingTesting(null);
           }}
         />
+      </Modal>
+
+      {/* Link Screen/Function Modal */}
+      <Modal
+        isOpen={showLinkScreenFunction}
+        onClose={() => {
+          setShowLinkScreenFunction(false);
+          setSelectedSFIds([]);
+        }}
+        title="Link Screen/Function to Phase"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {unlinkedScreenFunctions.length > 0 ? (
+            <>
+              <p className="text-sm text-gray-500">
+                Select screen/functions to link to this phase. You can add estimated effort after linking.
+              </p>
+              <div className="max-h-96 overflow-y-auto border rounded-lg divide-y">
+                {unlinkedScreenFunctions.map((sf) => (
+                  <label
+                    key={sf.id}
+                    className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSFIds.includes(sf.id)}
+                      onChange={() => toggleSFSelection(sf.id)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    />
+                    <div className="ml-3 flex-1">
+                      <p className="font-medium text-gray-900">{sf.name}</p>
+                      <div className="flex gap-2 mt-1">
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {sf.type}
+                        </span>
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          sf.priority === 'High' ? 'bg-red-100 text-red-800' :
+                          sf.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {sf.priority}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {sf.complexity}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-gray-500">
+                      {sf.estimatedEffort.toFixed(1)} h total
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowLinkScreenFunction(false);
+                    setSelectedSFIds([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleLinkScreenFunctions}
+                  disabled={selectedSFIds.length === 0 || linkMutation.isPending}
+                  loading={linkMutation.isPending}
+                >
+                  Link {selectedSFIds.length > 0 ? `(${selectedSFIds.length})` : ''}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              title="No unlinked items"
+              description="All screen/functions in this project are already linked to this phase, or no items exist yet."
+            />
+          )}
+        </div>
+      </Modal>
+
+      {/* Edit Phase Screen Function Modal */}
+      <Modal
+        isOpen={!!editingPSF}
+        onClose={() => setEditingPSF(null)}
+        title="Update Effort Details"
+      >
+        {editingPSF && (
+          <PhaseScreenFunctionForm
+            phaseId={parseInt(phaseId)}
+            phaseScreenFunction={editingPSF}
+            onSuccess={() => setEditingPSF(null)}
+            onCancel={() => setEditingPSF(null)}
+          />
+        )}
       </Modal>
     </div>
   );
