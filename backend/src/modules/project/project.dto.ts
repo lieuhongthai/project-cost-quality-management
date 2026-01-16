@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProjectDto {
@@ -89,6 +89,14 @@ export class CreateProjectSettingsDto {
   @IsOptional()
   @IsEnum(['man-hour', 'man-day', 'man-month'])
   defaultEffortUnit?: string;
+
+  @IsOptional()
+  @IsArray()
+  nonWorkingDays?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+  @IsOptional()
+  @IsArray()
+  holidays?: string[]; // Array of YYYY-MM-DD strings
 }
 
 export class UpdateProjectSettingsDto {
@@ -110,4 +118,12 @@ export class UpdateProjectSettingsDto {
   @IsOptional()
   @IsEnum(['man-hour', 'man-day', 'man-month'])
   defaultEffortUnit?: string;
+
+  @IsOptional()
+  @IsArray()
+  nonWorkingDays?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+  @IsOptional()
+  @IsArray()
+  holidays?: string[]; // Array of YYYY-MM-DD strings
 }

@@ -14,6 +14,9 @@ export enum EffortUnit {
   MAN_MONTH = 'man-month',
 }
 
+// Days of week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+export const DEFAULT_NON_WORKING_DAYS = [0, 6]; // Sunday and Saturday
+
 @Table({
   tableName: 'project_settings',
   timestamps: true,
@@ -61,6 +64,23 @@ export class ProjectSettings extends Model {
     defaultValue: 'man-hour',
   })
   defaultEffortUnit: string;
+
+  // Non-working days of the week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+  // Default: Saturday (6) and Sunday (0)
+  @Column({
+    type: DataType.ARRAY(DataType.INTEGER),
+    allowNull: false,
+    defaultValue: [0, 6],
+  })
+  nonWorkingDays: number[];
+
+  // Holidays (array of date strings in YYYY-MM-DD format)
+  @Column({
+    type: DataType.ARRAY(DataType.STRING),
+    allowNull: false,
+    defaultValue: [],
+  })
+  holidays: string[];
 
   @BelongsTo(() => Project)
   project: Project;

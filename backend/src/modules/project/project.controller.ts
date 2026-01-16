@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
@@ -18,6 +19,21 @@ export class ProjectController {
   @Get()
   findAll() {
     return this.projectService.findAll();
+  }
+
+  // Calculate end date based on start date and estimated effort
+  @Post('calculate-end-date')
+  calculateEndDate(
+    @Body()
+    body: {
+      startDate: string;
+      estimatedEffortDays: number;
+      projectId?: number;
+      nonWorkingDays?: number[];
+      holidays?: string[];
+    },
+  ) {
+    return this.projectService.calculateEndDate(body);
   }
 
   // Project Settings endpoints - MUST be before :id routes

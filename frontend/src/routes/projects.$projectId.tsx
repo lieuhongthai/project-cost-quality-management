@@ -16,6 +16,7 @@ import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/Effo
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
+import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
 import {
   convertEffort,
   formatEffort,
@@ -57,7 +58,10 @@ function ProjectDetail() {
     workingHoursPerDay: 8,
     workingDaysPerMonth: 20,
     defaultEffortUnit: 'man-hour' as EffortUnit,
+    nonWorkingDays: DEFAULT_NON_WORKING_DAYS as number[],
+    holidays: [] as string[],
   });
+  const [newHoliday, setNewHoliday] = useState('');
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', parseInt(projectId)],
@@ -150,6 +154,8 @@ function ProjectDetail() {
         workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
         workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
         defaultEffortUnit: projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+        nonWorkingDays: projectSettings.nonWorkingDays || DEFAULT_NON_WORKING_DAYS,
+        holidays: projectSettings.holidays || [],
       });
       setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
     }
@@ -1140,6 +1146,117 @@ function ProjectDetail() {
                   <li>1 MD = {(1 / settingsForm.workingDaysPerMonth).toFixed(4)} MM</li>
                 </ul>
               </div>
+            </div>
+          </Card>
+
+          {/* Work Calendar Settings */}
+          <Card title="Work Calendar">
+            <p className="text-sm text-gray-500 mb-6">
+              Configure non-working days and holidays to accurately calculate project end dates.
+            </p>
+
+            {/* Non-Working Days */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Non-Working Days of Week
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((day) => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() => {
+                      const isSelected = settingsForm.nonWorkingDays.includes(day.value);
+                      setSettingsForm({
+                        ...settingsForm,
+                        nonWorkingDays: isSelected
+                          ? settingsForm.nonWorkingDays.filter((d) => d !== day.value)
+                          : [...settingsForm.nonWorkingDays, day.value].sort((a, b) => a - b),
+                      });
+                    }}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      settingsForm.nonWorkingDays.includes(day.value)
+                        ? 'bg-red-100 border-red-300 text-red-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Selected days (shown in red) will be skipped when calculating project end dates.
+                Default: Saturday and Sunday.
+              </p>
+            </div>
+
+            {/* Holidays */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Holidays
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="date"
+                  value={newHoliday}
+                  onChange={(e) => setNewHoliday(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (newHoliday && !settingsForm.holidays.includes(newHoliday)) {
+                      setSettingsForm({
+                        ...settingsForm,
+                        holidays: [...settingsForm.holidays, newHoliday].sort(),
+                      });
+                      setNewHoliday('');
+                    }
+                  }}
+                  disabled={!newHoliday}
+                >
+                  Add Holiday
+                </Button>
+              </div>
+
+              {settingsForm.holidays.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {settingsForm.holidays.map((holiday) => (
+                    <span
+                      key={holiday}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm"
+                    >
+                      {format(new Date(holiday), 'MMM dd, yyyy')}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsForm({
+                            ...settingsForm,
+                            holidays: settingsForm.holidays.filter((h) => h !== holiday),
+                          });
+                        }}
+                        className="ml-1 text-orange-500 hover:text-orange-700"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic">No holidays added yet.</p>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Add specific dates that should be treated as non-working days (e.g., national holidays, company events).
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleSaveSettings}
+                disabled={updateSettingsMutation.isPending}
+              >
+                {updateSettingsMutation.isPending ? 'Saving...' : 'Save Calendar Settings'}
+              </Button>
             </div>
           </Card>
         </div>

@@ -34,11 +34,20 @@ export const projectApi = {
   create: (data: Partial<Project>) => api.post<Project>('/projects', data),
   update: (id: number, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
   delete: (id: number) => api.delete(`/projects/${id}`),
-  
+
   // Settings
   getSettings: (id: number) => api.get<ProjectSettings>(`/projects/${id}/settings`),
   createSettings: (data: Partial<ProjectSettings>) => api.post<ProjectSettings>('/projects/settings', data),
   updateSettings: (id: number, data: Partial<ProjectSettings>) => api.put<ProjectSettings>(`/projects/${id}/settings`, data),
+
+  // Calculate end date based on start date and estimated effort
+  calculateEndDate: (data: {
+    startDate: string;
+    estimatedEffortDays: number;
+    projectId?: number;
+    nonWorkingDays?: number[];
+    holidays?: string[];
+  }) => api.post<{ endDate: string; workingDays: number; totalDays: number }>('/projects/calculate-end-date', data),
 };
 
 // Phase APIs

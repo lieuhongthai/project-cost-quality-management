@@ -22,7 +22,22 @@ export interface ProjectSettings {
   workingHoursPerDay: number;
   workingDaysPerMonth: number;
   defaultEffortUnit: EffortUnit;
+  nonWorkingDays: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  holidays: string[]; // Array of YYYY-MM-DD strings
 }
+
+// Days of week constants
+export const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday', short: 'Sun' },
+  { value: 1, label: 'Monday', short: 'Mon' },
+  { value: 2, label: 'Tuesday', short: 'Tue' },
+  { value: 3, label: 'Wednesday', short: 'Wed' },
+  { value: 4, label: 'Thursday', short: 'Thu' },
+  { value: 5, label: 'Friday', short: 'Fri' },
+  { value: 6, label: 'Saturday', short: 'Sat' },
+];
+
+export const DEFAULT_NON_WORKING_DAYS = [0, 6]; // Sunday and Saturday
 
 export interface Phase {
   id: number;

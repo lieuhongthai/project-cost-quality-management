@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Project } from './project.model';
-import { ProjectSettings } from './project-settings.model';
+import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
 import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
 import { PhaseService } from '../phase/phase.service';
@@ -61,6 +61,8 @@ export class ProjectService {
       workingHoursPerDay: 8,
       workingDaysPerMonth: 20,
       defaultEffortUnit: 'man-hour',
+      nonWorkingDays: DEFAULT_NON_WORKING_DAYS,
+      holidays: [],
     } as any);
 
     return project;
@@ -110,6 +112,8 @@ export class ProjectService {
         workingHoursPerDay: 8,
         workingDaysPerMonth: 20,
         defaultEffortUnit: 'man-hour',
+        nonWorkingDays: DEFAULT_NON_WORKING_DAYS,
+        holidays: [],
         ...updateSettingsDto,
       } as any);
       return settings;
@@ -132,10 +136,82 @@ export class ProjectService {
         workingHoursPerDay: 8,
         workingDaysPerMonth: 20,
         defaultEffortUnit: 'man-hour',
+        nonWorkingDays: DEFAULT_NON_WORKING_DAYS,
+        holidays: [],
       } as any);
     }
 
     return settings;
+  }
+
+  /**
+   * Calculate end date based on start date and estimated effort
+   * Skips non-working days (weekends) and holidays
+   */
+  async calculateEndDate(params: {
+    startDate: string;
+    estimatedEffortDays: number;
+    projectId?: number;
+    nonWorkingDays?: number[];
+    holidays?: string[];
+  }): Promise<{ endDate: string; workingDays: number; totalDays: number }> {
+    const { startDate, estimatedEffortDays, projectId } = params;
+
+    // Get non-working days and holidays from settings or params
+    let nonWorkingDays = params.nonWorkingDays ?? DEFAULT_NON_WORKING_DAYS;
+    let holidays: string[] = params.holidays ?? [];
+
+    // If projectId is provided, get settings from database
+    if (projectId) {
+      const settings = await this.getSettings(projectId);
+      nonWorkingDays = settings.nonWorkingDays || DEFAULT_NON_WORKING_DAYS;
+      holidays = settings.holidays || [];
+    }
+
+    // Convert holidays to Set for faster lookup
+    const holidaySet = new Set(holidays);
+
+    // Start from the given date
+    const start = new Date(startDate);
+    let currentDate = new Date(start);
+    let workingDaysCount = 0;
+
+    // If estimated effort is 0 or negative, return start date
+    if (estimatedEffortDays <= 0) {
+      return {
+        endDate: startDate,
+        workingDays: 0,
+        totalDays: 0,
+      };
+    }
+
+    // Count working days until we reach the estimated effort
+    while (workingDaysCount < estimatedEffortDays) {
+      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
+      const dateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Check if this is a working day
+      const isNonWorkingDay = nonWorkingDays.includes(dayOfWeek);
+      const isHoliday = holidaySet.has(dateStr);
+
+      if (!isNonWorkingDay && !isHoliday) {
+        workingDaysCount++;
+      }
+
+      // Move to next day if we haven't reached the target
+      if (workingDaysCount < estimatedEffortDays) {
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    // Calculate total calendar days
+    const totalDays = Math.floor((currentDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    return {
+      endDate: currentDate.toISOString().split('T')[0],
+      workingDays: workingDaysCount,
+      totalDays,
+    };
   }
 
   /**

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '@/services/api';
 import { Button, Input, DateInput, TextArea } from '../common';
 import type { Project, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
+import { DEFAULT_NON_WORKING_DAYS } from '@/types';
 
 interface ProjectFormProps {
   project?: Project;
@@ -15,7 +16,7 @@ interface ProjectFormProps {
 
 export const ProjectForm: React.FC<ProjectFormProps> = ({
   project,
-  effortUnit = 'man-month',
+  effortUnit = 'man-hour',
   workSettings,
   onSuccess,
   onCancel,
@@ -35,6 +36,8 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isCalculatingEndDate, setIsCalculatingEndDate] = useState(false);
+  const [autoCalculate, setAutoCalculate] = useState(true);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Project>) => projectApi.create(data),
@@ -52,6 +55,57 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       onSuccess();
     },
   });
+
+  // Calculate end date when start date or estimated effort changes
+  const calculateEndDate = useCallback(async () => {
+    if (!formData.startDate || formData.estimatedEffort <= 0 || !autoCalculate) {
+      return;
+    }
+
+    setIsCalculatingEndDate(true);
+    try {
+      // Convert effort to man-days for calculation
+      const effortInDays = convertEffort(
+        formData.estimatedEffort,
+        effortUnit,
+        'man-day',
+        workSettings
+      );
+
+      // Round to whole days
+      const wholeDays = Math.ceil(effortInDays);
+
+      if (wholeDays <= 0) {
+        return;
+      }
+
+      const response = await projectApi.calculateEndDate({
+        startDate: formData.startDate,
+        estimatedEffortDays: wholeDays,
+        projectId: project?.id,
+        nonWorkingDays: workSettings?.nonWorkingDays || DEFAULT_NON_WORKING_DAYS,
+        holidays: workSettings?.holidays || [],
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        endDate: response.data.endDate,
+      }));
+    } catch (error) {
+      console.error('Error calculating end date:', error);
+    } finally {
+      setIsCalculatingEndDate(false);
+    }
+  }, [formData.startDate, formData.estimatedEffort, effortUnit, workSettings, project?.id, autoCalculate]);
+
+  // Auto-calculate end date when start date or effort changes
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      calculateEndDate();
+    }, 500); // Debounce to avoid too many API calls
+
+    return () => clearTimeout(debounceTimer);
+  }, [calculateEndDate]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -116,6 +170,12 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     }
   };
 
+  // Handle manual end date change - disable auto-calculate
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAutoCalculate(false);
+    handleChange(e);
+  };
+
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -149,14 +209,33 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           disabled={isLoading}
         />
 
-        <DateInput
-          label="End Date"
-          name="endDate"
-          value={formData.endDate}
-          onChange={handleChange}
-          error={errors.endDate}
-          disabled={isLoading}
-        />
+        <div className="relative">
+          <DateInput
+            label="End Date"
+            name="endDate"
+            value={formData.endDate}
+            onChange={handleEndDateChange}
+            error={errors.endDate}
+            disabled={isLoading}
+          />
+          {isCalculatingEndDate && (
+            <div className="absolute right-2 top-8 text-xs text-gray-500">
+              Calculating...
+            </div>
+          )}
+          {!autoCalculate && formData.endDate && (
+            <button
+              type="button"
+              onClick={() => {
+                setAutoCalculate(true);
+                calculateEndDate();
+              }}
+              className="absolute right-2 top-8 text-xs text-primary-600 hover:text-primary-700"
+            >
+              Auto-calculate
+            </button>
+          )}
+        </div>
       </div>
 
       <Input
@@ -170,6 +249,13 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         required
         disabled={isLoading}
       />
+
+      {formData.startDate && formData.estimatedEffort > 0 && (
+        <p className="text-xs text-gray-500">
+          End date is auto-calculated based on start date, estimated effort, and work calendar settings
+          (excluding weekends and holidays).
+        </p>
+      )}
 
       <div className="flex justify-end gap-2 pt-4">
         <Button
