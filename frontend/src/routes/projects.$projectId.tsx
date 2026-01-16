@@ -888,7 +888,7 @@ function ProjectDetail() {
               </select>
             </div>
 
-            {/* Table */}
+            {/* Table - Grouped by Role */}
             {filteredMembers && filteredMembers.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-300">
@@ -896,102 +896,127 @@ function ProjectDetail() {
                     <tr>
                       <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Role</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Experience</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Availability</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Experience</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Workload</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredMembers.map((member) => {
-                      const workload = getMemberWorkload(member.id);
-                      return (
-                        <tr key={member.id} className="hover:bg-gray-50">
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                            <div>
-                              <p className="font-medium text-gray-900">{member.name}</p>
-                              {member.email && (
-                                <p className="text-gray-500 text-xs">{member.email}</p>
-                              )}
-                              {member.skills && member.skills.length > 0 && (
-                                <div className="flex gap-1 mt-1 flex-wrap">
-                                  {member.skills.slice(0, 3).map((skill, idx) => (
-                                    <span key={idx} className="px-1.5 py-0.5 text-xs bg-gray-100 rounded">
-                                      {skill}
-                                    </span>
-                                  ))}
-                                  {member.skills.length > 3 && (
-                                    <span className="text-xs text-gray-400">+{member.skills.length - 3}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <span className={`px-2 py-1 text-xs rounded font-medium ${
-                              member.role === 'PM' ? 'bg-purple-100 text-purple-800' :
-                              member.role === 'TL' ? 'bg-blue-100 text-blue-800' :
-                              member.role === 'DEV' ? 'bg-green-100 text-green-800' :
-                              member.role === 'QA' ? 'bg-yellow-100 text-yellow-800' :
-                              member.role === 'BA' ? 'bg-orange-100 text-orange-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {member.role}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              member.status === 'Active' ? 'bg-green-100 text-green-800' :
-                              member.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {member.status}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {member.availability}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {member.yearsOfExperience ? `${member.yearsOfExperience} years` : '-'}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            {workload ? (
-                              <div className="text-xs">
-                                <p className="font-medium">{workload.totalAssigned} tasks</p>
-                                <p className="text-gray-500">
-                                  {workload.completedTasks} done / {workload.inProgressTasks} active
-                                </p>
+                    {(() => {
+                      // Group members by role for visual separation
+                      let currentRole = '';
+                      return filteredMembers.map((member, index) => {
+                        const workload = getMemberWorkload(member.id);
+                        const isNewRole = member.role !== currentRole;
+                        if (isNewRole) currentRole = member.role;
+
+                        // Experience level indicator
+                        const expYears = member.yearsOfExperience || 0;
+                        const expLevel = expYears >= 10 ? 'Senior+' : expYears >= 5 ? 'Senior' : expYears >= 3 ? 'Mid' : expYears >= 1 ? 'Junior' : 'Fresher';
+                        const expColor = expYears >= 10 ? 'text-purple-600' : expYears >= 5 ? 'text-blue-600' : expYears >= 3 ? 'text-green-600' : 'text-gray-600';
+
+                        return (
+                          <tr
+                            key={member.id}
+                            className={`hover:bg-gray-50 ${isNewRole && index > 0 ? 'border-t-2 border-gray-300' : ''}`}
+                          >
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                              <div>
+                                <p className="font-medium text-gray-900">{member.name}</p>
+                                {member.email && (
+                                  <p className="text-gray-500 text-xs">{member.email}</p>
+                                )}
+                                {member.skills && member.skills.length > 0 && (
+                                  <div className="flex gap-1 mt-1 flex-wrap">
+                                    {member.skills.slice(0, 3).map((skill, idx) => (
+                                      <span key={idx} className="px-1.5 py-0.5 text-xs bg-gray-100 rounded">
+                                        {skill}
+                                      </span>
+                                    ))}
+                                    {member.skills.length > 3 && (
+                                      <span className="text-xs text-gray-400">+{member.skills.length - 3}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            ) : (
-                              <span className="text-gray-400">No tasks</span>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setEditingMember(member)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => {
-                                  if (confirm('Are you sure you want to delete this member?')) {
-                                    deleteMemberMutation.mutate(member.id);
-                                  }
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              <span className={`px-2 py-1 text-xs rounded font-medium ${
+                                member.role === 'PM' ? 'bg-purple-100 text-purple-800' :
+                                member.role === 'TL' ? 'bg-blue-100 text-blue-800' :
+                                member.role === 'DEV' ? 'bg-green-100 text-green-800' :
+                                member.role === 'QA' ? 'bg-yellow-100 text-yellow-800' :
+                                member.role === 'BA' ? 'bg-orange-100 text-orange-800' :
+                                member.role === 'Comtor' ? 'bg-pink-100 text-pink-800' :
+                                member.role === 'Designer' ? 'bg-indigo-100 text-indigo-800' :
+                                member.role === 'DevOps' ? 'bg-cyan-100 text-cyan-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {member.role}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              <div className="flex flex-col">
+                                <span className={`font-semibold ${expColor}`}>
+                                  {member.yearsOfExperience ? `${member.yearsOfExperience} years` : '-'}
+                                </span>
+                                {member.yearsOfExperience && (
+                                  <span className={`text-xs ${expColor}`}>{expLevel}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              <span className={`px-2 py-1 text-xs rounded ${
+                                member.status === 'Active' ? 'bg-green-100 text-green-800' :
+                                member.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {member.status}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {member.availability}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              {workload ? (
+                                <div className="text-xs">
+                                  <p className="font-medium">{workload.totalAssigned} tasks</p>
+                                  <p className="text-gray-500">
+                                    {workload.completedTasks} done / {workload.inProgressTasks} active
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No tasks</span>
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setEditingMember(member)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => {
+                                    if (confirm('Are you sure you want to delete this member?')) {
+                                      deleteMemberMutation.mutate(member.id);
+                                    }
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>

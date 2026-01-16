@@ -1,7 +1,20 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Member } from './member.model';
 import { CreateMemberDto, UpdateMemberDto } from './member.dto';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
+
+// Role priority order for sorting (lower number = higher priority)
+const ROLE_PRIORITY: Record<string, number> = {
+  'PM': 1,
+  'TL': 2,
+  'BA': 3,
+  'DEV': 4,
+  'QA': 5,
+  'Comtor': 6,
+  'Designer': 7,
+  'DevOps': 8,
+  'Other': 9,
+};
 
 @Injectable()
 export class MemberService {
@@ -10,24 +23,45 @@ export class MemberService {
     private memberRepository: typeof Member,
   ) {}
 
-  async findAll(): Promise<Member[]> {
-    return this.memberRepository.findAll({
-      order: [['name', 'ASC']],
+  /**
+   * Sort members by role priority and years of experience
+   */
+  private sortByRoleAndExperience(members: Member[]): Member[] {
+    return members.sort((a, b) => {
+      // First sort by role priority
+      const priorityA = ROLE_PRIORITY[a.role] || 99;
+      const priorityB = ROLE_PRIORITY[b.role] || 99;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      // Then sort by years of experience (descending)
+      const expA = a.yearsOfExperience || 0;
+      const expB = b.yearsOfExperience || 0;
+      if (expA !== expB) {
+        return expB - expA;
+      }
+      // Finally sort by name alphabetically
+      return a.name.localeCompare(b.name);
     });
+  }
+
+  async findAll(): Promise<Member[]> {
+    const members = await this.memberRepository.findAll();
+    return this.sortByRoleAndExperience(members);
   }
 
   async findByProject(projectId: number): Promise<Member[]> {
-    return this.memberRepository.findAll({
+    const members = await this.memberRepository.findAll({
       where: { projectId },
-      order: [['name', 'ASC']],
     });
+    return this.sortByRoleAndExperience(members);
   }
 
   async findActiveByProject(projectId: number): Promise<Member[]> {
-    return this.memberRepository.findAll({
+    const members = await this.memberRepository.findAll({
       where: { projectId, status: 'Active' },
-      order: [['name', 'ASC']],
     });
+    return this.sortByRoleAndExperience(members);
   }
 
   async findOne(id: number): Promise<Member> {
