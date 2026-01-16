@@ -20,7 +20,7 @@ export class CreatePhaseDto {
   projectId: number;
 
   @IsNotEmpty()
-  @IsEnum(['Functional Design', 'Coding', 'Unit Test', 'Integration Test', 'System Test'])
+  @IsString()
   name: string;
 
   @IsNotEmpty()
@@ -41,7 +41,7 @@ export class CreatePhaseDto {
 
 export class UpdatePhaseDto {
   @IsOptional()
-  @IsEnum(['Functional Design', 'Coding', 'Unit Test', 'Integration Test', 'System Test'])
+  @IsString()
   name?: string;
 
   @IsOptional()
