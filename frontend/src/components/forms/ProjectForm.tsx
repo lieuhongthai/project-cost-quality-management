@@ -2,26 +2,37 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '@/services/api';
 import { Button, Input, DateInput, TextArea } from '../common';
-import type { Project } from '@/types';
+import type { Project, EffortUnit, ProjectSettings } from '@/types';
+import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 
 interface ProjectFormProps {
   project?: Project;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 export const ProjectForm: React.FC<ProjectFormProps> = ({
   project,
+  effortUnit = 'man-month',
+  workSettings,
   onSuccess,
   onCancel,
 }) => {
   const queryClient = useQueryClient();
+
+  // Convert existing effort from man-months to display unit for editing
+  const initialEffort = project?.estimatedEffort
+    ? convertEffort(project.estimatedEffort, 'man-month', effortUnit, workSettings)
+    : 0;
+
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
     startDate: project?.startDate ? project.startDate.split('T')[0] : '',
     endDate: project?.endDate ? project.endDate.split('T')[0] : '',
-    estimatedEffort: project?.estimatedEffort || 0,
+    estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -72,8 +83,17 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
 
     if (!validate()) return;
 
+    // Convert effort from display unit back to man-months for storage
+    const effortInManMonths = convertEffort(
+      formData.estimatedEffort,
+      effortUnit,
+      'man-month',
+      workSettings
+    );
+
     const submitData = {
       ...formData,
+      estimatedEffort: effortInManMonths,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
     };
@@ -140,10 +160,10 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       </div>
 
       <Input
-        label="Estimated Effort (Man-Months)"
+        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
         name="estimatedEffort"
         type="number"
-        step="0.1"
+        step="0.01"
         value={formData.estimatedEffort}
         onChange={handleChange}
         error={errors.estimatedEffort}

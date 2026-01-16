@@ -1046,6 +1046,8 @@ function ProjectDetail() {
       >
         <ProjectForm
           project={project}
+          effortUnit={effortUnit}
+          workSettings={settingsForm}
           onSuccess={() => setShowEditProject(false)}
           onCancel={() => setShowEditProject(false)}
         />
