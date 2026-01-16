@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi, projectApi } from "@/services/api";
@@ -47,6 +47,17 @@ function PhaseDetail() {
       const response = await phaseApi.getOne(parseInt(phaseId));
       return response.data;
     },
+  });
+
+  // Get project details for breadcrumb
+  const { data: project } = useQuery({
+    queryKey: ["project", phase?.projectId],
+    queryFn: async () => {
+      if (!phase?.projectId) return null;
+      const response = await projectApi.getOne(phase.projectId);
+      return response.data;
+    },
+    enabled: !!phase?.projectId,
   });
 
   const { data: efforts } = useQuery({
@@ -229,10 +240,73 @@ function PhaseDetail() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
+      {/* Breadcrumb Navigation */}
+      <nav className="flex items-center space-x-2 text-sm mb-4">
+        <Link
+          to="/projects"
+          className="text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          Projects
+        </Link>
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {project ? (
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: String(phase.projectId) }}
+            className="text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            {project.name}
+          </Link>
+        ) : (
+          <span className="text-gray-400">Loading...</span>
+        )}
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-gray-900 font-medium">{phase.name}</span>
+      </nav>
+
+      {/* Back Button */}
+      <div className="mb-4">
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId: String(phase.projectId) }}
+          className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors group"
+        >
+          <svg
+            className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to {project?.name || 'Project'}
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">{phase.name}</h1>
-        <p className="mt-2 text-gray-600">Phase Details and Tracking</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{phase.name}</h1>
+            <p className="mt-1 text-gray-600">Phase Details and Tracking</p>
+          </div>
+          {project && (
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Project</p>
+              <Link
+                to="/projects/$projectId"
+                params={{ projectId: String(phase.projectId) }}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                {project.name}
+              </Link>
+            </div>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="mt-6">
