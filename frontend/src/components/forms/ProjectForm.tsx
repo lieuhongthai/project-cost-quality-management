@@ -5,6 +5,7 @@ import { Button, Input, DateInput, TextArea } from '../common';
 import type { Project, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 import { DEFAULT_NON_WORKING_DAYS } from '@/types';
+import { format } from 'date-fns';
 
 interface ProjectFormProps {
   project?: Project;
@@ -36,8 +37,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isCalculatingEndDate, setIsCalculatingEndDate] = useState(false);
-  const [autoCalculate, setAutoCalculate] = useState(true);
+
+  // Suggested end date (shown as reference, not auto-filled)
+  const [suggestedEndDate, setSuggestedEndDate] = useState<string | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Project>) => projectApi.create(data),
@@ -56,13 +60,14 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     },
   });
 
-  // Calculate end date when start date or estimated effort changes
-  const calculateEndDate = useCallback(async () => {
-    if (!formData.startDate || formData.estimatedEffort <= 0 || !autoCalculate) {
+  // Calculate suggested end date
+  const calculateSuggestedEndDate = useCallback(async () => {
+    if (!formData.startDate || formData.estimatedEffort <= 0) {
+      setSuggestedEndDate(null);
       return;
     }
 
-    setIsCalculatingEndDate(true);
+    setIsCalculating(true);
     try {
       // Convert effort to man-days for calculation
       const effortInDays = convertEffort(
@@ -76,6 +81,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       const wholeDays = Math.ceil(effortInDays);
 
       if (wholeDays <= 0) {
+        setSuggestedEndDate(null);
         return;
       }
 
@@ -87,25 +93,25 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         holidays: workSettings?.holidays || [],
       });
 
-      setFormData((prev) => ({
-        ...prev,
-        endDate: response.data.endDate,
-      }));
+      setSuggestedEndDate(response.data.endDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
+      setSuggestedEndDate(null);
     } finally {
-      setIsCalculatingEndDate(false);
+      setIsCalculating(false);
     }
-  }, [formData.startDate, formData.estimatedEffort, effortUnit, workSettings, project?.id, autoCalculate]);
+  }, [formData.startDate, formData.estimatedEffort, effortUnit, workSettings, project?.id]);
 
-  // Auto-calculate end date when start date or effort changes
+  // Calculate suggestion when start date or effort changes
   useEffect(() => {
+    if (!showSuggestion) return;
+
     const debounceTimer = setTimeout(() => {
-      calculateEndDate();
-    }, 500); // Debounce to avoid too many API calls
+      calculateSuggestedEndDate();
+    }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [calculateEndDate]);
+  }, [calculateSuggestedEndDate, showSuggestion]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -168,15 +174,31 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
+
+    // Show suggestion when start date or effort changes
+    if (name === 'startDate' || name === 'estimatedEffort') {
+      setShowSuggestion(true);
+    }
   };
 
-  // Handle manual end date change - disable auto-calculate
-  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAutoCalculate(false);
-    handleChange(e);
+  // Use suggested end date
+  const useSuggestedDate = () => {
+    if (suggestedEndDate) {
+      setFormData((prev) => ({ ...prev, endDate: suggestedEndDate }));
+      setShowSuggestion(false);
+    }
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
+
+  // Format suggested date for display
+  const formatSuggestedDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), 'MMM dd, yyyy (EEEE)');
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -209,33 +231,14 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           disabled={isLoading}
         />
 
-        <div className="relative">
-          <DateInput
-            label="End Date"
-            name="endDate"
-            value={formData.endDate}
-            onChange={handleEndDateChange}
-            error={errors.endDate}
-            disabled={isLoading}
-          />
-          {isCalculatingEndDate && (
-            <div className="absolute right-2 top-8 text-xs text-gray-500">
-              Calculating...
-            </div>
-          )}
-          {!autoCalculate && formData.endDate && (
-            <button
-              type="button"
-              onClick={() => {
-                setAutoCalculate(true);
-                calculateEndDate();
-              }}
-              className="absolute right-2 top-8 text-xs text-primary-600 hover:text-primary-700"
-            >
-              Auto-calculate
-            </button>
-          )}
-        </div>
+        <DateInput
+          label="End Date"
+          name="endDate"
+          value={formData.endDate}
+          onChange={handleChange}
+          error={errors.endDate}
+          disabled={isLoading}
+        />
       </div>
 
       <Input
@@ -250,11 +253,40 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         disabled={isLoading}
       />
 
-      {formData.startDate && formData.estimatedEffort > 0 && (
-        <p className="text-xs text-gray-500">
-          End date is auto-calculated based on start date, estimated effort, and work calendar settings
-          (excluding weekends and holidays).
-        </p>
+      {/* Suggested End Date - shown as reference */}
+      {showSuggestion && formData.startDate && formData.estimatedEffort > 0 && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-700 font-medium">
+                Suggested End Date
+              </p>
+              {isCalculating ? (
+                <p className="text-sm text-blue-600">Calculating...</p>
+              ) : suggestedEndDate ? (
+                <p className="text-lg font-semibold text-blue-800">
+                  {formatSuggestedDate(suggestedEndDate)}
+                </p>
+              ) : (
+                <p className="text-sm text-blue-600">Unable to calculate</p>
+              )}
+              <p className="text-xs text-blue-500 mt-1">
+                Based on {Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings))} working days, excluding weekends and holidays
+              </p>
+            </div>
+            {suggestedEndDate && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={useSuggestedDate}
+                disabled={isCalculating}
+              >
+                Use this date
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="flex justify-end gap-2 pt-4">
