@@ -48,9 +48,10 @@ export const phaseApi = {
   getOne: (id: number) => api.get<Phase>(`/phases/${id}`),
   create: (data: Partial<Phase>) => api.post<Phase>('/phases', data),
   update: (id: number, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
-  delete: (id: number) => api.delete(`/phases/${id}`),
+  delete: (id: number) => api.delete<{ deletedLinkedItems: number }>(`/phases/${id}`),
   reorder: (phaseOrders: Array<{ id: number; displayOrder: number }>) =>
     api.put('/phases/reorder', { phaseOrders }),
+  getStats: (id: number) => api.get<{ linkedScreenFunctions: number; totalActualEffort: number; hasData: boolean }>(`/phases/${id}/stats`),
 };
 
 // Effort APIs

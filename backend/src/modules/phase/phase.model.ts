@@ -11,13 +11,14 @@ import { Project } from '../project/project.model';
 import { Effort } from '../effort/effort.model';
 import { Testing } from '../testing/testing.model';
 
-export enum PhaseType {
-  FUNCTIONAL_DESIGN = 'Functional Design',
-  CODING = 'Coding',
-  UNIT_TEST = 'Unit Test',
-  INTEGRATION_TEST = 'Integration Test',
-  SYSTEM_TEST = 'System Test',
-}
+// Default phase names (for reference, but not enforced)
+export const DEFAULT_PHASE_NAMES = [
+  'Functional Design',
+  'Coding',
+  'Unit Test',
+  'Integration Test',
+  'System Test',
+] as const;
 
 @Table({
   tableName: 'phases',
@@ -38,14 +39,9 @@ export class Phase extends Model {
   })
   projectId: number;
 
+  // Changed from ENUM to STRING for flexibility - allows custom phase names
   @Column({
-    type: DataType.ENUM(
-      'Functional Design',
-      'Coding',
-      'Unit Test',
-      'Integration Test',
-      'System Test',
-    ),
+    type: DataType.STRING(100),
     allowNull: false,
   })
   name: string;

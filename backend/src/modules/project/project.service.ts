@@ -38,8 +38,46 @@ export class ProjectService {
     return project;
   }
 
+  // Default phases to create for new projects
+  private readonly DEFAULT_PHASES = [
+    { name: 'Functional Design', displayOrder: 1 },
+    { name: 'Coding', displayOrder: 2 },
+    { name: 'Unit Test', displayOrder: 3 },
+    { name: 'Integration Test', displayOrder: 4 },
+    { name: 'System Test', displayOrder: 5 },
+  ];
+
   async create(createProjectDto: CreateProjectDto): Promise<Project> {
-    return this.projectRepository.create(createProjectDto as any);
+    // Create the project
+    const project = await this.projectRepository.create(createProjectDto as any);
+
+    // Create default phases for the new project
+    await this.createDefaultPhases(project.id);
+
+    // Create default settings
+    await this.projectSettingsRepository.create({
+      projectId: project.id,
+      numberOfMembers: 5,
+      workingHoursPerDay: 8,
+      workingDaysPerMonth: 20,
+      defaultEffortUnit: 'man-hour',
+    } as any);
+
+    return project;
+  }
+
+  /**
+   * Create default phases for a new project
+   */
+  async createDefaultPhases(projectId: number): Promise<void> {
+    for (const phase of this.DEFAULT_PHASES) {
+      await this.phaseService.create({
+        projectId,
+        name: phase.name,
+        startDate: new Date(),
+        estimatedEffort: 0,
+      });
+    }
   }
 
   async update(id: number, updateProjectDto: UpdateProjectDto): Promise<Project> {

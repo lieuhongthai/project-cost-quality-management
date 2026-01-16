@@ -56,9 +56,44 @@ export class PhaseService {
     return phase;
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<{ deletedLinkedItems: number }> {
     const phase = await this.findOne(id);
+    const projectId = phase.projectId;
+
+    // Get count of linked items before deletion (for informational purposes)
+    const stats = await this.getPhaseStats(id);
+
+    // Destroy the phase (cascades to PhaseScreenFunctions via foreign key)
     await phase.destroy();
+
+    // Update project metrics after removing the phase
+    await this.projectService.updateProjectMetricsFromPhases(projectId);
+
+    return { deletedLinkedItems: stats.linkedScreenFunctions };
+  }
+
+  /**
+   * Get phase statistics for deletion warnings
+   */
+  async getPhaseStats(phaseId: number): Promise<{
+    linkedScreenFunctions: number;
+    totalActualEffort: number;
+    hasData: boolean;
+  }> {
+    const phase = await this.findOne(phaseId);
+
+    // Import here to avoid circular dependency issues at module load
+    const { PhaseScreenFunction } = await import('../screen-function/phase-screen-function.model');
+
+    const linkedCount = await PhaseScreenFunction.count({
+      where: { phaseId },
+    });
+
+    return {
+      linkedScreenFunctions: linkedCount,
+      totalActualEffort: phase.actualEffort || 0,
+      hasData: linkedCount > 0 || (phase.actualEffort || 0) > 0,
+    };
   }
 
   /**

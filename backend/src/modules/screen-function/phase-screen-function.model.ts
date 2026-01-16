@@ -33,6 +33,7 @@ export class PhaseScreenFunction extends Model {
   @Column({
     type: DataType.INTEGER,
     allowNull: false,
+    onDelete: 'CASCADE',
   })
   phaseId: number;
 

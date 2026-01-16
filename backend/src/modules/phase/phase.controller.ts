@@ -25,6 +25,11 @@ export class PhaseController {
     return this.phaseService.findByProject(projectId);
   }
 
+  @Get(':id/stats')
+  getStats(@Param('id', ParseIntPipe) id: number) {
+    return this.phaseService.getPhaseStats(id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.phaseService.findOne(id);
