@@ -209,7 +209,8 @@ export interface PhaseScreenFunctionSummary {
   total: number;
   totalEstimated: number;
   totalActual: number;
-  avgProgress: number;
+  progress: number; // % of completed tasks (completed / total * 100)
+  avgProgress: number; // Mean of all task progress percentages
   variance: number;
   variancePercentage: number;
   byStatus: {
@@ -218,6 +219,8 @@ export interface PhaseScreenFunctionSummary {
     'Completed': number;
     'Skipped': number;
   };
+  completedCount: number;
+  activeCount: number;
 }
 
 export interface ScreenFunctionWithPhases extends ScreenFunction {

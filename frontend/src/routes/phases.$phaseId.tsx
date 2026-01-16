@@ -622,7 +622,7 @@ function PhaseDetail() {
         <div className="space-y-6">
           {/* Summary Cards */}
           {psfSummary && (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-5">
               <Card>
                 <p className="text-sm text-gray-500">Linked Items</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{psfSummary.total}</p>
@@ -643,6 +643,16 @@ function PhaseDetail() {
                     {psfSummary.variance > 0 ? '+' : ''}{displayEffort(psfSummary.variance, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                   </p>
                 )}
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">Progress</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {(psfSummary.progress ?? 0).toFixed(1)}%
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {psfSummary.completedCount ?? psfSummary.byStatus?.Completed ?? 0}/{psfSummary.activeCount ?? psfSummary.total} completed
+                </p>
+                <ProgressBar progress={psfSummary.progress ?? 0} />
               </Card>
               <Card>
                 <p className="text-sm text-gray-500">Average Progress</p>
