@@ -113,13 +113,14 @@ export class MetricsService {
 
   async calculatePhaseMetrics(phaseId: number, reportId: number): Promise<Metrics> {
     const phase = await this.phaseService.findOne(phaseId);
-    const effortSummary = await this.effortService.getPhaseEffortSummary(phaseId);
     const testingSummary = await this.testingService.getPhaseTestingSummary(phaseId);
 
+    // Use phase's actualEffort and progress directly (updated from PhaseScreenFunction)
+    // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
       estimatedEffort: phase.estimatedEffort,
-      actualEffort: effortSummary.totalActual,
-      progress: effortSummary.avgProgress,
+      actualEffort: phase.actualEffort || 0,
+      progress: phase.progress || 0,
     });
 
     const testingMetrics = this.calculateTestingMetrics({
@@ -146,11 +147,9 @@ export class MetricsService {
   }
 
   async calculateProjectMetrics(projectId: number, reportId: number): Promise<Metrics> {
+    const project = await this.projectService.findOne(projectId);
     const phases = await this.phaseService.findByProject(projectId);
 
-    let totalEstimatedEffort = 0;
-    let totalActualEffort = 0;
-    let totalProgress = 0;
     let totalTestCases = 0;
     let totalPassed = 0;
     let totalFailed = 0;
@@ -158,12 +157,7 @@ export class MetricsService {
     let totalTestingTime = 0;
 
     for (const phase of phases) {
-      const effortSummary = await this.effortService.getPhaseEffortSummary(phase.id);
       const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
-
-      totalEstimatedEffort += phase.estimatedEffort;
-      totalActualEffort += effortSummary.totalActual;
-      totalProgress += effortSummary.avgProgress;
       totalTestCases += testingSummary.totalTestCases;
       totalPassed += testingSummary.totalPassed;
       totalFailed += testingSummary.totalFailed;
@@ -171,12 +165,12 @@ export class MetricsService {
       totalTestingTime += testingSummary.totalTestingTime;
     }
 
-    const avgProgress = phases.length > 0 ? totalProgress / phases.length : 0;
-
+    // Use project's data directly (updated from phases)
+    // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
-      estimatedEffort: totalEstimatedEffort,
-      actualEffort: totalActualEffort,
-      progress: avgProgress,
+      estimatedEffort: project.estimatedEffort,
+      actualEffort: project.actualEffort || 0,
+      progress: project.progress || 0,
     });
 
     const testingMetrics = this.calculateTestingMetrics({
