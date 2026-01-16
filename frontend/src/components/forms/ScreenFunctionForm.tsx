@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { screenFunctionApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
-import type { ScreenFunction, ScreenFunctionType, Priority, Complexity } from '@/types';
+import type { ScreenFunction, ScreenFunctionType, Priority, Complexity, EffortUnit, ProjectSettings } from '@/types';
+import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 
 interface ScreenFunctionFormProps {
   projectId: number;
   screenFunction?: ScreenFunction;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -31,17 +34,25 @@ const COMPLEXITY_OPTIONS: { value: Complexity; label: string }[] = [
 export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   projectId,
   screenFunction,
+  effortUnit = 'man-hour',
+  workSettings,
   onSuccess,
   onCancel,
 }) => {
   const queryClient = useQueryClient();
+
+  // Convert existing effort from man-hours to display unit for editing
+  const initialEffort = screenFunction?.estimatedEffort
+    ? convertEffort(screenFunction.estimatedEffort, 'man-hour', effortUnit, workSettings)
+    : 0;
+
   const [formData, setFormData] = useState({
     name: screenFunction?.name || '',
     type: screenFunction?.type || 'Screen' as ScreenFunctionType,
     description: screenFunction?.description || '',
     priority: screenFunction?.priority || 'Medium' as Priority,
     complexity: screenFunction?.complexity || 'Medium' as Complexity,
-    estimatedEffort: screenFunction?.estimatedEffort || 0,
+    estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -84,9 +95,17 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
 
     if (!validate()) return;
 
+    // Convert effort from display unit back to man-hours for storage
+    const effortInManHours = convertEffort(
+      formData.estimatedEffort,
+      effortUnit,
+      'man-hour',
+      workSettings
+    );
+
     const submitData = {
       ...formData,
-      estimatedEffort: Number(formData.estimatedEffort) || 0,
+      estimatedEffort: effortInManHours,
     };
 
     if (screenFunction) {
@@ -152,10 +171,10 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
       </div>
 
       <Input
-        label="Estimated Effort (Man-Hours)"
+        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
         name="estimatedEffort"
         type="number"
-        step="0.5"
+        step="0.01"
         min="0"
         value={formData.estimatedEffort}
         onChange={handleChange}

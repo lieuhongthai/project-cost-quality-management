@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { phaseScreenFunctionApi, memberApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
-import type { PhaseScreenFunction, PhaseScreenFunctionStatus } from '@/types';
+import type { PhaseScreenFunction, PhaseScreenFunctionStatus, EffortUnit, ProjectSettings } from '@/types';
+import { EFFORT_UNIT_FULL_LABELS, EFFORT_UNIT_LABELS, convertEffort, formatEffort } from '@/utils/effortUtils';
 
 interface PhaseScreenFunctionFormProps {
   phaseId: number;
   projectId: number;
   phaseScreenFunction: PhaseScreenFunction;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -23,13 +26,24 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
   phaseId,
   projectId,
   phaseScreenFunction,
+  effortUnit = 'man-hour',
+  workSettings,
   onSuccess,
   onCancel,
 }) => {
   const queryClient = useQueryClient();
+
+  // Convert existing effort from man-hours to display unit for editing
+  const initialEstimated = phaseScreenFunction.estimatedEffort
+    ? convertEffort(phaseScreenFunction.estimatedEffort, 'man-hour', effortUnit, workSettings)
+    : 0;
+  const initialActual = phaseScreenFunction.actualEffort
+    ? convertEffort(phaseScreenFunction.actualEffort, 'man-hour', effortUnit, workSettings)
+    : 0;
+
   const [formData, setFormData] = useState({
-    estimatedEffort: phaseScreenFunction.estimatedEffort || 0,
-    actualEffort: phaseScreenFunction.actualEffort || 0,
+    estimatedEffort: initialEstimated,
+    actualEffort: initialActual,
     progress: phaseScreenFunction.progress || 0,
     status: phaseScreenFunction.status || 'Not Started' as PhaseScreenFunctionStatus,
     note: phaseScreenFunction.note || '',
@@ -91,9 +105,23 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
 
     if (!validate()) return;
 
+    // Convert effort from display unit back to man-hours for storage
+    const estimatedInManHours = convertEffort(
+      formData.estimatedEffort,
+      effortUnit,
+      'man-hour',
+      workSettings
+    );
+    const actualInManHours = convertEffort(
+      formData.actualEffort,
+      effortUnit,
+      'man-hour',
+      workSettings
+    );
+
     updateMutation.mutate({
-      estimatedEffort: Number(formData.estimatedEffort) || 0,
-      actualEffort: Number(formData.actualEffort) || 0,
+      estimatedEffort: estimatedInManHours,
+      actualEffort: actualInManHours,
       progress: Number(formData.progress) || 0,
       status: formData.status,
       note: formData.note,
@@ -156,10 +184,10 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Estimated Effort (Man-Hours)"
+          label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
           name="estimatedEffort"
           type="number"
-          step="0.5"
+          step="0.01"
           min="0"
           value={formData.estimatedEffort}
           onChange={handleChange}
@@ -168,10 +196,10 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
         />
 
         <Input
-          label="Actual Effort (Man-Hours)"
+          label={`Actual Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
           name="actualEffort"
           type="number"
-          step="0.5"
+          step="0.01"
           min="0"
           value={formData.actualEffort}
           onChange={handleActualEffortChange}
@@ -220,7 +248,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
             ? 'bg-red-50 text-red-700'
             : 'bg-green-50 text-green-700'
         }`}>
-          Variance: {(formData.actualEffort - formData.estimatedEffort).toFixed(1)} hours
+          Variance: {formatEffort(formData.actualEffort - formData.estimatedEffort, effortUnit)} {EFFORT_UNIT_LABELS[effortUnit]}
           ({formData.estimatedEffort > 0
             ? (((formData.actualEffort - formData.estimatedEffort) / formData.estimatedEffort) * 100).toFixed(1)
             : 0}%)

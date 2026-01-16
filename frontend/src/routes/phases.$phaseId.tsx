@@ -724,6 +724,8 @@ function PhaseDetail() {
         <EffortForm
           phaseId={parseInt(phaseId)}
           effort={editingEffort}
+          effortUnit={effortUnit}
+          workSettings={workSettings}
           onSuccess={() => {
             setShowAddEffort(false);
             setEditingEffort(null);
@@ -850,6 +852,8 @@ function PhaseDetail() {
             phaseId={parseInt(phaseId)}
             projectId={phase.projectId}
             phaseScreenFunction={editingPSF}
+            effortUnit={effortUnit}
+            workSettings={workSettings}
             onSuccess={() => setEditingPSF(null)}
             onCancel={() => setEditingPSF(null)}
           />

@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { effortApi } from '@/services/api';
 import { Button, Input, DateInput } from '../common';
-import type { Effort } from '@/types';
+import type { Effort, EffortUnit, ProjectSettings } from '@/types';
 import { addDays, startOfWeek } from 'date-fns';
+import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 
 interface EffortFormProps {
   phaseId: number;
   effort?: Effort;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -15,14 +18,25 @@ interface EffortFormProps {
 export const EffortForm: React.FC<EffortFormProps> = ({
   phaseId,
   effort,
+  effortUnit = 'man-month',
+  workSettings,
   onSuccess,
   onCancel,
 }) => {
   const queryClient = useQueryClient();
+
+  // Convert existing effort from man-months to display unit for editing
+  const initialPlanned = effort?.plannedEffort
+    ? convertEffort(effort.plannedEffort, 'man-month', effortUnit, workSettings)
+    : 0;
+  const initialActual = effort?.actualEffort
+    ? convertEffort(effort.actualEffort, 'man-month', effortUnit, workSettings)
+    : 0;
+
   const [formData, setFormData] = useState({
     weekStartDate: effort?.weekStartDate ? effort.weekStartDate.split('T')[0] : '',
-    plannedEffort: effort?.plannedEffort || 0,
-    actualEffort: effort?.actualEffort || 0,
+    plannedEffort: initialPlanned,
+    actualEffort: initialActual,
     progress: effort?.progress || 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -75,11 +89,25 @@ export const EffortForm: React.FC<EffortFormProps> = ({
 
     if (!validate()) return;
 
+    // Convert effort from display unit back to man-months for storage
+    const plannedInManMonths = convertEffort(
+      formData.plannedEffort,
+      effortUnit,
+      'man-month',
+      workSettings
+    );
+    const actualInManMonths = convertEffort(
+      formData.actualEffort,
+      effortUnit,
+      'man-month',
+      workSettings
+    );
+
     if (effort) {
       // When updating, only send the editable fields
       const updateData = {
-        plannedEffort: parseFloat(formData.plannedEffort.toString()),
-        actualEffort: parseFloat(formData.actualEffort.toString()),
+        plannedEffort: plannedInManMonths,
+        actualEffort: actualInManMonths,
         progress: parseFloat(formData.progress.toString()),
       };
       updateMutation.mutate(updateData);
@@ -95,8 +123,8 @@ export const EffortForm: React.FC<EffortFormProps> = ({
         year: weekStart.getFullYear(),
         weekStartDate: weekStart.toISOString(),
         weekEndDate: weekEnd.toISOString(),
-        plannedEffort: parseFloat(formData.plannedEffort.toString()),
-        actualEffort: parseFloat(formData.actualEffort.toString()),
+        plannedEffort: plannedInManMonths,
+        actualEffort: actualInManMonths,
         progress: parseFloat(formData.progress.toString()),
       };
       createMutation.mutate(createData);
@@ -130,7 +158,7 @@ export const EffortForm: React.FC<EffortFormProps> = ({
       />
 
       <Input
-        label="Planned Effort (Man-Months)"
+        label={`Planned Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
         name="plannedEffort"
         type="number"
         step="0.01"
@@ -142,7 +170,7 @@ export const EffortForm: React.FC<EffortFormProps> = ({
       />
 
       <Input
-        label="Actual Effort (Man-Months)"
+        label={`Actual Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
         name="actualEffort"
         type="number"
         step="0.01"

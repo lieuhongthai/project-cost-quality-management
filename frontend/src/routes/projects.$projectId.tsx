@@ -1088,6 +1088,8 @@ function ProjectDetail() {
         <ScreenFunctionForm
           projectId={parseInt(projectId)}
           screenFunction={editingScreenFunction || undefined}
+          effortUnit={effortUnit}
+          workSettings={settingsForm}
           onSuccess={() => {
             setShowAddScreenFunction(false);
             setEditingScreenFunction(null);
