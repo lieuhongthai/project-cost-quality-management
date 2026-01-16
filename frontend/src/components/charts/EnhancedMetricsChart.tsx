@@ -361,7 +361,7 @@ export const EnhancedMetricsChart: React.FC<EnhancedMetricsChartProps> = ({
           <div className="flex gap-1">
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleExport('png')}
               className="text-xs"
             >
@@ -369,7 +369,7 @@ export const EnhancedMetricsChart: React.FC<EnhancedMetricsChartProps> = ({
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleExport('svg')}
               className="text-xs"
             >
@@ -381,7 +381,7 @@ export const EnhancedMetricsChart: React.FC<EnhancedMetricsChartProps> = ({
 
       {/* Chart Container */}
       <ResponsiveContainer width="100%" height={height}>
-        {renderChart()}
+        {renderChart() || <></>}
       </ResponsiveContainer>
 
       {/* Metrics Summary */}

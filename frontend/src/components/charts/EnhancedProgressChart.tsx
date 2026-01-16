@@ -358,7 +358,7 @@ export const EnhancedProgressChart: React.FC<EnhancedProgressChartProps> = ({
                 label={{ value: 'Effort (MM)', angle: -90, position: 'insideLeft' }}
               />
             )}
-            {(viewMode === 'progress' || viewMode === 'both') && viewMode !== 'effort' && (
+            {(viewMode === 'progress' || viewMode === 'both') && (
               <YAxis 
                 yAxisId="right"
                 orientation="right"
@@ -485,10 +485,10 @@ export const EnhancedProgressChart: React.FC<EnhancedProgressChartProps> = ({
 
           {/* Export Actions */}
           <div className="flex gap-1">
-            <Button size="sm" variant="outline" onClick={() => handleExport('png')}>
+            <Button size="sm" variant="secondary" onClick={() => handleExport('png')}>
               📥 PNG
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleExport('svg')}>
+            <Button size="sm" variant="secondary" onClick={() => handleExport('svg')}>
               📥 SVG
             </Button>
           </div>
@@ -519,7 +519,7 @@ export const EnhancedProgressChart: React.FC<EnhancedProgressChartProps> = ({
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={height}>
-        {renderChart()}
+        {renderChart() || <></>}
       </ResponsiveContainer>
 
       {/* Statistics Summary */}

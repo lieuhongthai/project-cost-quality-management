@@ -476,10 +476,10 @@ export const EnhancedTestingQualityChart: React.FC<EnhancedTestingQualityChartPr
 
           {/* Export */}
           <div className="flex gap-1">
-            <Button size="sm" variant="outline" onClick={() => handleExport('png')}>
+            <Button size="sm" variant="secondary" onClick={() => handleExport('png')}>
               📥 PNG
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleExport('svg')}>
+            <Button size="sm" variant="secondary" onClick={() => handleExport('svg')}>
               📥 SVG
             </Button>
           </div>
@@ -519,7 +519,7 @@ export const EnhancedTestingQualityChart: React.FC<EnhancedTestingQualityChartPr
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={height}>
-        {renderChart()}
+        {renderChart() || <></>}
       </ResponsiveContainer>
 
       {/* Statistics Summary */}
