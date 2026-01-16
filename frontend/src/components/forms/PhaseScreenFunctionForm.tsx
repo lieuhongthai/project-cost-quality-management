@@ -77,6 +77,10 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
       queryClient.invalidateQueries({ queryKey: ['phaseScreenFunctionSummary', phaseId] });
       queryClient.invalidateQueries({ queryKey: ['screenFunction', phaseScreenFunction.screenFunctionId] });
       queryClient.invalidateQueries({ queryKey: ['projectWorkload', projectId] });
+      // Invalidate phase to update Progress and Actual Effort in header
+      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
+      // Also invalidate project in case it cascades
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       onSuccess();
     },
   });

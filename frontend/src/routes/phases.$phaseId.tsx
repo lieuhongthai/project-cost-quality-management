@@ -145,6 +145,11 @@ function PhaseDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctions", parseInt(phaseId)] });
       queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)] });
+      // Invalidate phase to update Progress and Actual Effort in header
+      queryClient.invalidateQueries({ queryKey: ["phase", parseInt(phaseId)] });
+      if (phase?.projectId) {
+        queryClient.invalidateQueries({ queryKey: ["project", phase.projectId] });
+      }
       setShowLinkScreenFunction(false);
       setSelectedSFIds([]);
     },
@@ -155,6 +160,11 @@ function PhaseDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctions", parseInt(phaseId)] });
       queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)] });
+      // Invalidate phase to update Progress and Actual Effort in header
+      queryClient.invalidateQueries({ queryKey: ["phase", parseInt(phaseId)] });
+      if (phase?.projectId) {
+        queryClient.invalidateQueries({ queryKey: ["project", phase.projectId] });
+      }
     },
   });
 

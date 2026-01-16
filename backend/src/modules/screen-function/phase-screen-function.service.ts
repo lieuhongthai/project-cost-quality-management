@@ -212,11 +212,37 @@ export class PhaseScreenFunctionService {
   async getPhaseSummary(phaseId: number) {
     const links = await this.findByPhase(phaseId);
 
+    // Filter out skipped items for progress calculation
+    const activeLinks = links.filter(l => l.status !== 'Skipped');
+    const completedLinks = activeLinks.filter(l => l.status === 'Completed');
+
     const totalEstimated = links.reduce((sum, l) => sum + (l.estimatedEffort || 0), 0);
     const totalActual = links.reduce((sum, l) => sum + (l.actualEffort || 0), 0);
-    const avgProgress = links.length > 0
-      ? links.reduce((sum, l) => sum + (l.progress || 0), 0) / links.length
+
+    // Calculate task-based progress: (Completed / Active Total) * 100
+    const taskBasedProgress = activeLinks.length > 0
+      ? (completedLinks.length / activeLinks.length) * 100
       : 0;
+
+    // Calculate effort-weighted progress:
+    // Sum of (each task's progress * its estimated effort weight)
+    let effortWeightedProgress = 0;
+    const totalActiveEstimated = activeLinks.reduce((sum, l) => sum + (l.estimatedEffort || 0), 0);
+
+    if (totalActiveEstimated > 0) {
+      effortWeightedProgress = activeLinks.reduce((sum, l) => {
+        const weight = (l.estimatedEffort || 0) / totalActiveEstimated;
+        // For completed tasks, count as 100%, for others use their progress
+        const taskProgress = l.status === 'Completed' ? 100 : (l.progress || 0);
+        return sum + (taskProgress * weight);
+      }, 0);
+    } else {
+      // Fall back to task-based if no effort estimates
+      effortWeightedProgress = taskBasedProgress;
+    }
+
+    // Use effort-weighted as the main progress (more accurate for cost/time tracking)
+    const avgProgress = effortWeightedProgress;
 
     const byStatus = {
       'Not Started': links.filter(l => l.status === 'Not Started').length,
@@ -230,9 +256,13 @@ export class PhaseScreenFunctionService {
       totalEstimated,
       totalActual,
       avgProgress: Math.round(avgProgress * 100) / 100,
+      taskBasedProgress: Math.round(taskBasedProgress * 100) / 100,
+      effortWeightedProgress: Math.round(effortWeightedProgress * 100) / 100,
       variance: totalActual - totalEstimated,
       variancePercentage: totalEstimated > 0 ? Math.round(((totalActual - totalEstimated) / totalEstimated) * 10000) / 100 : 0,
       byStatus,
+      completedCount: completedLinks.length,
+      activeCount: activeLinks.length,
     };
   }
 
@@ -256,15 +286,20 @@ export class PhaseScreenFunctionService {
   /**
    * Update phase metrics (actualEffort, progress) from PhaseScreenFunction data
    * Called after any change to PhaseScreenFunction items
+   *
+   * Progress calculation:
+   * - Uses effort-weighted progress where each task contributes based on its estimated effort weight
+   * - Completed tasks count as 100% regardless of their progress field
+   * - Skipped tasks are excluded from progress calculation
    */
   async updatePhaseMetrics(phaseId: number): Promise<void> {
     const summary = await this.getPhaseSummary(phaseId);
 
-    // Update phase with the aggregated metrics
+    // Use effort-weighted progress for more accurate tracking
     await this.phaseService.updatePhaseMetricsFromScreenFunctions(
       phaseId,
       summary.totalActual,
-      summary.avgProgress,
+      summary.effortWeightedProgress,
     );
   }
 }
