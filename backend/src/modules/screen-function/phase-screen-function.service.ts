@@ -224,21 +224,23 @@ export class PhaseScreenFunctionService {
       ? (completedLinks.length / activeLinks.length) * 100
       : 0;
 
-    // Calculate effort-weighted progress:
-    // Sum of (each task's progress * its estimated effort weight)
-    let effortWeightedProgress = 0;
-    const totalActiveEstimated = activeLinks.reduce((sum, l) => sum + (l.estimatedEffort || 0), 0);
+    // Calculate effort-weighted progress with minimum weight for tasks without estimates
+    // Tasks without estimated effort get a default weight of 1 MH so they still count
+    const DEFAULT_TASK_WEIGHT = 1; // 1 MH default for tasks without effort estimate
 
-    if (totalActiveEstimated > 0) {
+    const totalWeight = activeLinks.reduce((sum, l) => {
+      return sum + ((l.estimatedEffort || 0) > 0 ? l.estimatedEffort : DEFAULT_TASK_WEIGHT);
+    }, 0);
+
+    let effortWeightedProgress = 0;
+    if (totalWeight > 0) {
       effortWeightedProgress = activeLinks.reduce((sum, l) => {
-        const weight = (l.estimatedEffort || 0) / totalActiveEstimated;
+        const taskEffort = (l.estimatedEffort || 0) > 0 ? l.estimatedEffort : DEFAULT_TASK_WEIGHT;
+        const weight = taskEffort / totalWeight;
         // For completed tasks, count as 100%, for others use their progress
         const taskProgress = l.status === 'Completed' ? 100 : (l.progress || 0);
         return sum + (taskProgress * weight);
       }, 0);
-    } else {
-      // Fall back to task-based if no effort estimates
-      effortWeightedProgress = taskBasedProgress;
     }
 
     // Use effort-weighted as the main progress (more accurate for cost/time tracking)
