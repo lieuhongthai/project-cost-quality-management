@@ -197,26 +197,27 @@ export class ProjectService {
   /**
    * Update project actualEffort and progress based on phase data
    * Called automatically when phase metrics are updated
+   *
+   * Progress = simple average of all phase progress (each phase has equal weight)
    */
   async updateProjectMetricsFromPhases(projectId: number): Promise<void> {
     const phases = await this.phaseService.findByProject(projectId);
 
+    if (phases.length === 0) {
+      return;
+    }
+
     // Calculate total actual effort (sum of all phases)
     const totalActual = phases.reduce((sum, phase) => sum + (phase.actualEffort || 0), 0);
 
-    // Calculate weighted average progress (weighted by estimatedEffort)
-    const totalEstimated = phases.reduce((sum, phase) => sum + phase.estimatedEffort, 0);
-    const weightedProgress = totalEstimated > 0
-      ? phases.reduce((sum, phase) => {
-          const weight = phase.estimatedEffort / totalEstimated;
-          return sum + (phase.progress || 0) * weight;
-        }, 0)
-      : 0;
+    // Calculate simple average progress (each phase has equal weight)
+    // Example: 5 phases with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
+    const avgProgress = phases.reduce((sum, phase) => sum + (phase.progress || 0), 0) / phases.length;
 
     await this.projectRepository.update(
       {
         actualEffort: totalActual,
-        progress: weightedProgress,
+        progress: Math.round(avgProgress * 100) / 100,
       },
       { where: { id: projectId } },
     );
