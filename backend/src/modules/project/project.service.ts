@@ -59,12 +59,22 @@ export class ProjectService {
   }
 
   async updateSettings(projectId: number, updateSettingsDto: UpdateProjectSettingsDto): Promise<ProjectSettings> {
-    const settings = await this.projectSettingsRepository.findOne({
+    // Find existing settings or create new one (upsert behavior)
+    let settings = await this.projectSettingsRepository.findOne({
       where: { projectId },
     });
 
     if (!settings) {
-      throw new NotFoundException(`Settings for project ${projectId} not found`);
+      // Create new settings with default values and apply updates
+      settings = await this.projectSettingsRepository.create({
+        projectId,
+        numberOfMembers: 5,
+        workingHoursPerDay: 8,
+        workingDaysPerMonth: 20,
+        defaultEffortUnit: 'man-hour',
+        ...updateSettingsDto,
+      } as any);
+      return settings;
     }
 
     await settings.update(updateSettingsDto);
@@ -72,12 +82,19 @@ export class ProjectService {
   }
 
   async getSettings(projectId: number): Promise<ProjectSettings> {
-    const settings = await this.projectSettingsRepository.findOne({
+    let settings = await this.projectSettingsRepository.findOne({
       where: { projectId },
     });
 
+    // Auto-create default settings if not found
     if (!settings) {
-      throw new NotFoundException(`Settings for project ${projectId} not found`);
+      settings = await this.projectSettingsRepository.create({
+        projectId,
+        numberOfMembers: 5,
+        workingHoursPerDay: 8,
+        workingDaysPerMonth: 20,
+        defaultEffortUnit: 'man-hour',
+      } as any);
     }
 
     return settings;
