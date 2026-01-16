@@ -13,7 +13,12 @@ import {
 } from "@/components/common";
 import { EffortUnitSelector } from "@/components/common/EffortUnitSelector";
 import { EffortForm, TestingForm, PhaseScreenFunctionForm } from "@/components/forms";
-import { ProgressChart, TestingQualityChart } from "@/components/charts";
+import { 
+  ProgressChart, 
+  TestingQualityChart,
+  EnhancedProgressChart,
+  EnhancedTestingQualityChart 
+} from "@/components/charts";
 import { format } from "date-fns";
 import type { PhaseScreenFunction, EffortUnit } from "@/types";
 import {
@@ -199,13 +204,14 @@ function PhaseDetail() {
     );
   }
 
-  // Prepare chart data
+  // Prepare chart data with variance
   const effortChartData =
     efforts?.map((e) => ({
       week: `Week ${e.weekNumber}`,
       planned: e.plannedEffort,
       actual: e.actualEffort,
       progress: e.progress,
+      variance: e.actualEffort - e.plannedEffort, // Add variance for enhanced chart
     })) || [];
 
   const testingChartData =
@@ -403,8 +409,14 @@ function PhaseDetail() {
           )}
 
           {effortChartData.length > 0 && (
-            <Card title="Effort Trend">
-              <ProgressChart data={effortChartData} />
+            <Card title="Effort Trend & Progress Analysis">
+              <EnhancedProgressChart 
+                data={effortChartData}
+                showVariance={true}
+                showTrendLine={true}
+                targetProgress={100}
+                height={450}
+              />
             </Card>
           )}
 
@@ -521,8 +533,15 @@ function PhaseDetail() {
           )}
 
           {testingChartData.length > 0 && (
-            <Card title="Testing Quality Trend">
-              <TestingQualityChart data={testingChartData} />
+            <Card title="Testing Quality & Pass Rate Analysis">
+              <EnhancedTestingQualityChart 
+                data={testingChartData}
+                showDefects={false}
+                showPassRate={true}
+                showTrendLine={true}
+                targetPassRate={95}
+                height={450}
+              />
             </Card>
           )}
 

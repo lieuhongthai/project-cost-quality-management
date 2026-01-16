@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TestEnhancedChartsRouteImport } from './routes/test-enhanced-charts'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,11 @@ import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as PhasesPhaseIdRouteImport } from './routes/phases.$phaseId'
 
+const TestEnhancedChartsRoute = TestEnhancedChartsRouteImport.update({
+  id: '/test-enhanced-charts',
+  path: '/test-enhanced-charts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
+  '/test-enhanced-charts': typeof TestEnhancedChartsRoute
   '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/test-enhanced-charts': typeof TestEnhancedChartsRoute
   '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
+  '/test-enhanced-charts': typeof TestEnhancedChartsRoute
   '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
     | '/'
     | '/projects'
     | '/reports'
+    | '/test-enhanced-charts'
     | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/test-enhanced-charts'
     | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/projects'
     | '/reports'
+    | '/test-enhanced-charts'
     | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
@@ -123,11 +135,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
+  TestEnhancedChartsRoute: typeof TestEnhancedChartsRoute
   PhasesPhaseIdRoute: typeof PhasesPhaseIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/test-enhanced-charts': {
+      id: '/test-enhanced-charts'
+      path: '/test-enhanced-charts'
+      fullPath: '/test-enhanced-charts'
+      preLoaderRoute: typeof TestEnhancedChartsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -218,6 +238,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
+  TestEnhancedChartsRoute: TestEnhancedChartsRoute,
   PhasesPhaseIdRoute: PhasesPhaseIdRoute,
 }
 export const routeTree = rootRouteImport
