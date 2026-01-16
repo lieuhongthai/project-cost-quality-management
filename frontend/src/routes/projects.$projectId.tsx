@@ -38,6 +38,9 @@ function ProjectDetail() {
   const [editingScreenFunction, setEditingScreenFunction] = useState<ScreenFunction | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [showCopyMembers, setShowCopyMembers] = useState(false);
+  const [selectedSourceProject, setSelectedSourceProject] = useState<number | null>(null);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [sfFilter, setSfFilter] = useState<{ type: string; status: string; search: string }>({
     type: '',
     status: '',
@@ -120,6 +123,26 @@ function ProjectDetail() {
     },
   });
 
+  // Get all projects for copy members dropdown
+  const { data: allProjects } = useQuery({
+    queryKey: ['allProjects'],
+    queryFn: async () => {
+      const response = await projectApi.getAll();
+      return response.data;
+    },
+  });
+
+  // Get members from selected source project for copying
+  const { data: sourceProjectMembers } = useQuery({
+    queryKey: ['sourceProjectMembers', selectedSourceProject],
+    queryFn: async () => {
+      if (!selectedSourceProject) return [];
+      const response = await memberApi.getByProject(selectedSourceProject);
+      return response.data;
+    },
+    enabled: !!selectedSourceProject,
+  });
+
   // Sync settings form with fetched project settings
   useEffect(() => {
     if (projectSettings) {
@@ -152,6 +175,21 @@ function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['members', parseInt(projectId)] });
       queryClient.invalidateQueries({ queryKey: ['memberSummary', parseInt(projectId)] });
       queryClient.invalidateQueries({ queryKey: ['projectWorkload', parseInt(projectId)] });
+    },
+  });
+
+  const copyMembersMutation = useMutation({
+    mutationFn: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
+      memberApi.copyFromProject(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['members', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['memberSummary', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['projectWorkload', parseInt(projectId)] });
+      setShowCopyMembers(false);
+      setSelectedSourceProject(null);
+      setSelectedMemberIds([]);
+      // Show success message
+      alert(`Copied ${result.data.copied} member(s). ${result.data.skipped > 0 ? `${result.data.skipped} skipped (already exist).` : ''}`);
     },
   });
 
@@ -803,9 +841,14 @@ function ProjectDetail() {
           <Card
             title="Team Members"
             actions={
-              <Button onClick={() => setShowAddMember(true)}>
-                Add Member
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setShowCopyMembers(true)}>
+                  Copy from Project
+                </Button>
+                <Button onClick={() => setShowAddMember(true)}>
+                  Add Member
+                </Button>
+              </div>
             }
           >
             {/* Filters */}
@@ -1209,6 +1252,187 @@ function ProjectDetail() {
             >
               Delete Phase
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Copy Members Modal */}
+      <Modal
+        isOpen={showCopyMembers}
+        onClose={() => {
+          setShowCopyMembers(false);
+          setSelectedSourceProject(null);
+          setSelectedMemberIds([]);
+        }}
+        title="Copy Members from Another Project"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Project Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Source Project
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              value={selectedSourceProject || ''}
+              onChange={(e) => {
+                setSelectedSourceProject(e.target.value ? parseInt(e.target.value) : null);
+                setSelectedMemberIds([]);
+              }}
+            >
+              <option value="">-- Select a project --</option>
+              {allProjects
+                ?.filter((p) => p.id !== parseInt(projectId))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Member Selection */}
+          {selectedSourceProject && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select Members to Copy
+                </label>
+                {sourceProjectMembers && sourceProjectMembers.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-sm text-primary-600 hover:text-primary-700"
+                    onClick={() => {
+                      if (selectedMemberIds.length === sourceProjectMembers.length) {
+                        setSelectedMemberIds([]);
+                      } else {
+                        setSelectedMemberIds(sourceProjectMembers.map((m) => m.id));
+                      }
+                    }}
+                  >
+                    {selectedMemberIds.length === sourceProjectMembers?.length
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </button>
+                )}
+              </div>
+
+              {sourceProjectMembers && sourceProjectMembers.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto border rounded-lg divide-y">
+                  {sourceProjectMembers.map((member) => {
+                    const isExisting = members?.some(
+                      (m) =>
+                        m.name.toLowerCase() === member.name.toLowerCase() &&
+                        (m.email?.toLowerCase() || '') === (member.email?.toLowerCase() || '')
+                    );
+                    return (
+                      <label
+                        key={member.id}
+                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                          isExisting ? 'opacity-50' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMemberIds.includes(member.id)}
+                          onChange={() => {
+                            if (selectedMemberIds.includes(member.id)) {
+                              setSelectedMemberIds(selectedMemberIds.filter((id) => id !== member.id));
+                            } else {
+                              setSelectedMemberIds([...selectedMemberIds, member.id]);
+                            }
+                          }}
+                          disabled={isExisting}
+                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <span
+                              className={`px-2 py-0.5 text-xs rounded font-medium ${
+                                member.role === 'PM'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : member.role === 'TL'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : member.role === 'DEV'
+                                  ? 'bg-green-100 text-green-800'
+                                  : member.role === 'QA'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {member.role}
+                            </span>
+                            {isExisting && (
+                              <span className="text-xs text-orange-600">(Already exists)</span>
+                            )}
+                          </div>
+                          {member.email && (
+                            <p className="text-sm text-gray-500">{member.email}</p>
+                          )}
+                        </div>
+                        <div className="text-right text-sm text-gray-500">
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded ${
+                              member.availability === 'Full-time'
+                                ? 'bg-green-100 text-green-800'
+                                : member.availability === 'Part-time'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {member.availability}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No members in this project
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Summary and Actions */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="text-sm text-gray-600">
+              {selectedMemberIds.length > 0 && (
+                <span>
+                  <strong>{selectedMemberIds.length}</strong> member(s) selected
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowCopyMembers(false);
+                  setSelectedSourceProject(null);
+                  setSelectedMemberIds([]);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedSourceProject && selectedMemberIds.length > 0) {
+                    copyMembersMutation.mutate({
+                      sourceProjectId: selectedSourceProject,
+                      targetProjectId: parseInt(projectId),
+                      memberIds: selectedMemberIds,
+                    });
+                  }
+                }}
+                disabled={!selectedSourceProject || selectedMemberIds.length === 0}
+                loading={copyMembersMutation.isPending}
+              >
+                Copy {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : ''}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>

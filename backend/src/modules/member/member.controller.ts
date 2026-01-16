@@ -55,6 +55,22 @@ export class MemberController {
     return this.memberService.create(createDto);
   }
 
+  @Post('copy')
+  copyMembers(
+    @Body()
+    copyDto: {
+      sourceProjectId: number;
+      targetProjectId: number;
+      memberIds: number[];
+    },
+  ) {
+    return this.memberService.copyMembersFromProject(
+      copyDto.sourceProjectId,
+      copyDto.targetProjectId,
+      copyDto.memberIds,
+    );
+  }
+
   @Put(':id')
   update(
     @Param('id', ParseIntPipe) id: number,

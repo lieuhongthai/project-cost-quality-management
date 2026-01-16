@@ -158,6 +158,8 @@ export const memberApi = {
   getSummary: (projectId: number) => api.get<MemberSummary>(`/members/project/${projectId}/summary`),
   getMemberWorkload: (memberId: number) => api.get<MemberWorkload>(`/members/${memberId}/workload`),
   getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
+  copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
+    api.post<{ copied: number; skipped: number; members: Member[] }>('/members/copy', data),
 };
 
 export default api;

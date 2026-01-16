@@ -169,4 +169,61 @@ export class MemberService {
 
     return workloads;
   }
+
+  /**
+   * Copy members from another project
+   * Creates new member records with the same data but different projectId
+   * Skips members that already exist in the target project (by name + email)
+   */
+  async copyMembersFromProject(
+    sourceProjectId: number,
+    targetProjectId: number,
+    memberIds: number[],
+  ): Promise<{ copied: number; skipped: number; members: Member[] }> {
+    const existingMembers = await this.findByProject(targetProjectId);
+    const existingKeys = new Set(
+      existingMembers.map((m) => `${m.name.toLowerCase()}-${m.email?.toLowerCase() || ''}`),
+    );
+
+    const copiedMembers: Member[] = [];
+    let skipped = 0;
+
+    for (const memberId of memberIds) {
+      try {
+        const sourceMember = await this.findOne(memberId);
+
+        // Check if member already exists in target project
+        const key = `${sourceMember.name.toLowerCase()}-${sourceMember.email?.toLowerCase() || ''}`;
+        if (existingKeys.has(key)) {
+          skipped++;
+          continue;
+        }
+
+        // Create a copy in the target project
+        const newMember = await this.memberRepository.create({
+          projectId: targetProjectId,
+          name: sourceMember.name,
+          email: sourceMember.email,
+          role: sourceMember.role,
+          availability: sourceMember.availability,
+          hourlyRate: sourceMember.hourlyRate,
+          yearsOfExperience: sourceMember.yearsOfExperience,
+          skills: sourceMember.skills,
+          status: 'Active', // New members start as active
+        } as any);
+
+        copiedMembers.push(newMember);
+        existingKeys.add(key); // Prevent duplicates within same batch
+      } catch (error) {
+        // Skip if source member not found
+        skipped++;
+      }
+    }
+
+    return {
+      copied: copiedMembers.length,
+      skipped,
+      members: copiedMembers,
+    };
+  }
 }
