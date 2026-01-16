@@ -20,6 +20,26 @@ export class ProjectController {
     return this.projectService.findAll();
   }
 
+  // Project Settings endpoints - MUST be before :id routes
+  @Post('settings')
+  createSettings(@Body() createSettingsDto: CreateProjectSettingsDto) {
+    return this.projectService.createSettings(createSettingsDto);
+  }
+
+  @Get(':id/settings')
+  getSettings(@Param('id', ParseIntPipe) id: number) {
+    return this.projectService.getSettings(id);
+  }
+
+  @Put(':id/settings')
+  updateSettings(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateSettingsDto: UpdateProjectSettingsDto,
+  ) {
+    return this.projectService.updateSettings(id, updateSettingsDto);
+  }
+
+  // Generic :id routes - MUST be after specific routes
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.projectService.findOne(id);
@@ -41,24 +61,5 @@ export class ProjectController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.projectService.remove(id);
-  }
-
-  // Project Settings endpoints
-  @Post('settings')
-  createSettings(@Body() createSettingsDto: CreateProjectSettingsDto) {
-    return this.projectService.createSettings(createSettingsDto);
-  }
-
-  @Put(':id/settings')
-  updateSettings(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateSettingsDto: UpdateProjectSettingsDto,
-  ) {
-    return this.projectService.updateSettings(id, updateSettingsDto);
-  }
-
-  @Get(':id/settings')
-  getSettings(@Param('id', ParseIntPipe) id: number) {
-    return this.projectService.getSettings(id);
   }
 }
