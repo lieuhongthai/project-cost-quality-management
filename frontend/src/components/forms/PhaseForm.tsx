@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { phaseApi } from '@/services/api';
-import { Button, Input, DateInput, Select } from '../common';
-import type { Phase, PhaseType, EffortUnit, ProjectSettings } from '@/types';
+import { Button, Input, DateInput } from '../common';
+import type { Phase, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 
 interface PhaseFormProps {
@@ -14,12 +14,18 @@ interface PhaseFormProps {
   onCancel: () => void;
 }
 
-const PHASE_OPTIONS: { value: PhaseType; label: string }[] = [
-  { value: 'Functional Design', label: 'Functional Design' },
-  { value: 'Coding', label: 'Coding' },
-  { value: 'Unit Test', label: 'Unit Test' },
-  { value: 'Integration Test', label: 'Integration Test' },
-  { value: 'System Test', label: 'System Test' },
+// Common phase name suggestions (but not enforced)
+const PHASE_SUGGESTIONS = [
+  'Functional Design',
+  'Coding',
+  'Unit Test',
+  'Integration Test',
+  'System Test',
+  'JA Test',
+  'EN Test',
+  'UAT',
+  'Performance Test',
+  'Security Test',
 ];
 
 export const PhaseForm: React.FC<PhaseFormProps> = ({
@@ -38,7 +44,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     : 0;
 
   const [formData, setFormData] = useState({
-    name: phase?.name || ('' as PhaseType),
+    name: phase?.name || '',
     startDate: phase?.startDate ? phase.startDate.split('T')[0] : '',
     endDate: phase?.endDate ? phase.endDate.split('T')[0] : '',
     estimatedEffort: initialEffort,
@@ -132,16 +138,35 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Select
-        label="Phase Name"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        options={PHASE_OPTIONS}
-        error={errors.name}
-        required
-        disabled={isLoading || !!phase}
-      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Phase Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          list="phase-suggestions"
+          placeholder="Enter phase name or select from suggestions"
+          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+            errors.name ? 'border-red-500' : 'border-gray-300'
+          } ${isLoading ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+          disabled={isLoading}
+          required
+        />
+        <datalist id="phase-suggestions">
+          {PHASE_SUGGESTIONS.map((suggestion) => (
+            <option key={suggestion} value={suggestion} />
+          ))}
+        </datalist>
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-500">{errors.name}</p>
+        )}
+        <p className="mt-1 text-xs text-gray-500">
+          Type a custom name or select from common phases
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <DateInput

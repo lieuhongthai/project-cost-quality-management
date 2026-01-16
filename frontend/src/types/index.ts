@@ -27,7 +27,7 @@ export interface ProjectSettings {
 export interface Phase {
   id: number;
   projectId: number;
-  name: PhaseType;
+  name: string; // Changed to string for flexibility - allows custom phase names
   startDate: string;
   endDate?: string;
   estimatedEffort: number;
@@ -37,12 +37,18 @@ export interface Phase {
   displayOrder: number;
 }
 
-export type PhaseType = 
+// Common phase names (for reference/suggestions, not enforced)
+export type PhaseType =
   | 'Functional Design'
   | 'Coding'
   | 'Unit Test'
   | 'Integration Test'
-  | 'System Test';
+  | 'System Test'
+  | 'JA Test'
+  | 'EN Test'
+  | 'UAT'
+  | 'Performance Test'
+  | 'Security Test';
 
 export interface Effort {
   id: number;
