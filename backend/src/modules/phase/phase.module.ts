@@ -5,9 +5,15 @@ import { phaseProviders } from './phase.providers';
 import { DatabaseModule } from '../../database/database.module';
 import { EffortModule } from '../effort/effort.module';
 import { ProjectModule } from '../project/project.module';
+import { ScreenFunctionModule } from '../screen-function/screen-function.module';
 
 @Module({
-  imports: [DatabaseModule, forwardRef(() => EffortModule), forwardRef(() => ProjectModule)],
+  imports: [
+    DatabaseModule,
+    forwardRef(() => EffortModule),
+    forwardRef(() => ProjectModule),
+    forwardRef(() => ScreenFunctionModule),
+  ],
   controllers: [PhaseController],
   providers: [PhaseService, ...phaseProviders],
   exports: [PhaseService],

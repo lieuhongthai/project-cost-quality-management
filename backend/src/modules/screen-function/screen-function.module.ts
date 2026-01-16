@@ -5,9 +5,10 @@ import { ScreenFunctionService } from './screen-function.service';
 import { PhaseScreenFunctionService } from './phase-screen-function.service';
 import { screenFunctionProviders } from './screen-function.providers';
 import { DatabaseModule } from '../../database/database.module';
+import { PhaseModule } from '../phase/phase.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, forwardRef(() => PhaseModule)],
   controllers: [ScreenFunctionController, PhaseScreenFunctionController],
   providers: [
     ScreenFunctionService,

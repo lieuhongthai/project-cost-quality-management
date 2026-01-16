@@ -10,6 +10,7 @@ import {
   BulkUpdatePhaseScreenFunctionDto,
 } from './phase-screen-function.dto';
 import { ScreenFunctionService } from './screen-function.service';
+import { PhaseService } from '../phase/phase.service';
 
 @Injectable()
 export class PhaseScreenFunctionService {
@@ -18,6 +19,8 @@ export class PhaseScreenFunctionService {
     private phaseScreenFunctionRepository: typeof PhaseScreenFunction,
     @Inject(forwardRef(() => ScreenFunctionService))
     private screenFunctionService: ScreenFunctionService,
+    @Inject(forwardRef(() => PhaseService))
+    private phaseService: PhaseService,
   ) {}
 
   async findAll(): Promise<PhaseScreenFunction[]> {
@@ -86,6 +89,9 @@ export class PhaseScreenFunctionService {
     // Update parent ScreenFunction metrics
     await this.screenFunctionService.updateScreenFunctionMetrics(createDto.screenFunctionId);
 
+    // Update parent Phase metrics
+    await this.updatePhaseMetrics(createDto.phaseId);
+
     return this.findOne(phaseScreenFunction.id);
   }
 
@@ -115,17 +121,24 @@ export class PhaseScreenFunctionService {
     // Update parent ScreenFunction metrics
     await this.screenFunctionService.updateScreenFunctionMetrics(phaseScreenFunction.screenFunctionId);
 
+    // Update parent Phase metrics
+    await this.updatePhaseMetrics(phaseScreenFunction.phaseId);
+
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     const phaseScreenFunction = await this.findOne(id);
     const screenFunctionId = phaseScreenFunction.screenFunctionId;
+    const phaseId = phaseScreenFunction.phaseId;
 
     await phaseScreenFunction.destroy();
 
     // Update parent ScreenFunction metrics
     await this.screenFunctionService.updateScreenFunctionMetrics(screenFunctionId);
+
+    // Update parent Phase metrics
+    await this.updatePhaseMetrics(phaseId);
   }
 
   async bulkCreate(bulkDto: BulkCreatePhaseScreenFunctionDto): Promise<PhaseScreenFunction[]> {
@@ -152,16 +165,23 @@ export class PhaseScreenFunctionService {
       await this.screenFunctionService.updateScreenFunctionMetrics(sfId);
     }
 
+    // Update parent Phase metrics (all items belong to same phase)
+    if (results.length > 0) {
+      await this.updatePhaseMetrics(bulkDto.phaseId);
+    }
+
     return results;
   }
 
   async bulkUpdate(bulkDto: BulkUpdatePhaseScreenFunctionDto): Promise<PhaseScreenFunction[]> {
     const results: PhaseScreenFunction[] = [];
     const screenFunctionIds = new Set<number>();
+    const phaseIds = new Set<number>();
 
     for (const item of bulkDto.items) {
       const psf = await this.findOne(item.id);
       screenFunctionIds.add(psf.screenFunctionId);
+      phaseIds.add(psf.phaseId);
 
       const updateData: any = {};
       if (item.estimatedEffort !== undefined) updateData.estimatedEffort = item.estimatedEffort;
@@ -178,6 +198,11 @@ export class PhaseScreenFunctionService {
     // Update metrics for all affected screen functions
     for (const sfId of screenFunctionIds) {
       await this.screenFunctionService.updateScreenFunctionMetrics(sfId);
+    }
+
+    // Update metrics for all affected phases
+    for (const phaseId of phaseIds) {
+      await this.updatePhaseMetrics(phaseId);
     }
 
     return results;
@@ -226,5 +251,20 @@ export class PhaseScreenFunctionService {
     );
 
     return result;
+  }
+
+  /**
+   * Update phase metrics (actualEffort, progress) from PhaseScreenFunction data
+   * Called after any change to PhaseScreenFunction items
+   */
+  async updatePhaseMetrics(phaseId: number): Promise<void> {
+    const summary = await this.getPhaseSummary(phaseId);
+
+    // Update phase with the aggregated metrics
+    await this.phaseService.updatePhaseMetricsFromScreenFunctions(
+      phaseId,
+      summary.totalActual,
+      summary.avgProgress,
+    );
   }
 }

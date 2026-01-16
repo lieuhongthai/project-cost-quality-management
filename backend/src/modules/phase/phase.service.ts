@@ -141,6 +141,41 @@ export class PhaseService {
   }
 
   /**
+   * Update phase actualEffort and progress from PhaseScreenFunction data
+   * Called when PhaseScreenFunction items are updated
+   *
+   * @param phaseId - Phase ID
+   * @param totalActualEffortHours - Total actual effort in man-hours from all linked screen/functions
+   * @param avgProgress - Average progress from all linked screen/functions
+   * @param workingHoursPerDay - Hours per day for conversion (default 8)
+   * @param workingDaysPerMonth - Days per month for conversion (default 20)
+   */
+  async updatePhaseMetricsFromScreenFunctions(
+    phaseId: number,
+    totalActualEffortHours: number,
+    avgProgress: number,
+    workingHoursPerDay: number = 8,
+    workingDaysPerMonth: number = 20,
+  ): Promise<void> {
+    const phase = await this.findOne(phaseId);
+
+    // Convert man-hours to man-months for storage
+    const hoursPerMonth = workingHoursPerDay * workingDaysPerMonth;
+    const actualEffortInMonths = totalActualEffortHours / hoursPerMonth;
+
+    await this.phaseRepository.update(
+      {
+        actualEffort: actualEffortInMonths,
+        progress: avgProgress,
+      },
+      { where: { id: phaseId } },
+    );
+
+    // Auto-update project metrics after updating phase
+    await this.projectService.updateProjectMetricsFromPhases(phase.projectId);
+  }
+
+  /**
    * Reorder phases for a project
    */
   async reorderPhases(reorderDto: ReorderPhasesDto): Promise<void> {
