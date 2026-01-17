@@ -88,6 +88,17 @@ function ReportDetail() {
     enabled: !!report?.projectId && report?.scope === 'Project',
   });
 
+  // Fetch member cost analysis for Project reports
+  const { data: memberCost } = useQuery({
+    queryKey: ['memberCost', report?.projectId],
+    queryFn: async () => {
+      if (!report?.projectId) return null;
+      const response = await metricsApi.getProjectMemberCost(report.projectId);
+      return response.data;
+    },
+    enabled: !!report?.projectId && report?.scope === 'Project',
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -685,6 +696,269 @@ function ReportDetail() {
                     </table>
                   </div>
                 </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Member Cost Analysis - Only shows if members have hourly rates */}
+          {memberCost && memberCost.byMember && memberCost.byMember.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">💵 Chi phí Nhân sự (Member Cost)</h2>
+              <p className="text-sm text-gray-500 mb-4">Chi phí thực tế dựa trên Hourly Rate và số giờ làm việc</p>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <Card className={`border-2 ${memberCost.insights.costStatus === 'under_budget' ? 'border-green-200 bg-green-50' : memberCost.insights.costStatus === 'slight_over' ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
+                  <p className="text-sm font-medium text-gray-600">Tổng chi phí thực tế</p>
+                  <p className={`text-3xl font-bold ${memberCost.insights.costStatus === 'under_budget' ? 'text-green-600' : memberCost.insights.costStatus === 'slight_over' ? 'text-yellow-600' : 'text-red-600'}`}>
+                    ${memberCost.summary.totalActualCost.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dự kiến: ${memberCost.summary.totalEstimatedCost.toLocaleString()}
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Chênh lệch chi phí</p>
+                  <p className={`text-3xl font-bold ${memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {memberCost.summary.totalCostVariance <= 0 ? '-' : '+'}${Math.abs(memberCost.summary.totalCostVariance).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {memberCost.summary.totalCostVariance <= 0 ? 'Tiết kiệm' : 'Vượt'} {Math.abs(memberCost.summary.totalCostVariancePercent)}% so với dự kiến
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Tổng giờ làm việc</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {memberCost.summary.totalActualHours.toLocaleString()}h
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dự kiến: {memberCost.summary.totalEstimatedHours.toLocaleString()}h
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Hiệu suất tổng thể</p>
+                  <p className={`text-3xl font-bold ${memberCost.summary.overallEfficiency >= 1 ? 'text-green-600' : memberCost.summary.overallEfficiency >= 0.8 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {(memberCost.summary.overallEfficiency * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {memberCost.summary.totalMembers} thành viên tham gia
+                  </p>
+                </Card>
+              </div>
+
+              {/* Insights - Top Performers & Need Support */}
+              {(memberCost.insights.topPerformers.length > 0 || memberCost.insights.needSupport.length > 0) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                  {memberCost.insights.topPerformers.length > 0 && (
+                    <Card className="bg-green-50 border border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">⭐</span>
+                        <h4 className="font-semibold text-green-800">Top Performers</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {memberCost.insights.topPerformers.map((member: any, idx: number) => (
+                          <div key={member.memberId} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                              <div>
+                                <p className="font-medium text-gray-900">{member.name}</p>
+                                <p className="text-xs text-gray-500">{member.role}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-green-600">{(member.efficiency * 100).toFixed(0)}%</p>
+                              <p className="text-xs text-gray-500">{member.efficiencyRating}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {memberCost.insights.needSupport.length > 0 && (
+                    <Card className="bg-orange-50 border border-orange-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">🤝</span>
+                        <h4 className="font-semibold text-orange-800">Cần hỗ trợ</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {memberCost.insights.needSupport.map((member: any) => (
+                          <div key={member.memberId} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                            <div>
+                              <p className="font-medium text-gray-900">{member.name}</p>
+                              <p className="text-xs text-gray-500">{member.role}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-orange-600">{(member.efficiency * 100).toFixed(0)}%</p>
+                              <p className="text-xs text-gray-500">{member.efficiencyRating}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-orange-700 mt-3">
+                        💡 Xem xét cung cấp thêm hướng dẫn hoặc đào tạo
+                      </p>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Member Cost Table */}
+              <Card title="Chi tiết theo thành viên">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">Thành viên</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">Vai trò</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Hourly Rate</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Giờ (Est/Act)</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-500">Hiệu suất</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {memberCost.byMember.map((member: any) => (
+                        <tr key={member.memberId} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-xs text-gray-500">{member.tasks.length} tasks</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700">{member.role}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            ${member.hourlyRate}/h
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            {member.totalEstimatedHours.toFixed(1)}h / {member.totalActualHours.toFixed(1)}h
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            ${member.totalEstimatedCost.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-gray-900">
+                            ${member.totalActualCost.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-medium ${member.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {member.costVariance <= 0 ? '-' : '+'}${Math.abs(member.costVariance).toLocaleString()}
+                            </span>
+                            <span className="text-xs text-gray-500 block">
+                              ({member.costVariancePercent > 0 ? '+' : ''}{member.costVariancePercent}%)
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              member.efficiencyColor === 'green' ? 'bg-green-100 text-green-800' :
+                              member.efficiencyColor === 'blue' ? 'bg-blue-100 text-blue-800' :
+                              member.efficiencyColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {(member.efficiency * 100).toFixed(0)}% - {member.efficiencyRating}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-semibold">
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 text-right text-gray-700">Tổng cộng:</td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          ${memberCost.summary.totalEstimatedCost.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-900">
+                          ${memberCost.summary.totalActualCost.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {memberCost.summary.totalCostVariance <= 0 ? '-' : '+'}${Math.abs(memberCost.summary.totalCostVariance).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            memberCost.summary.overallEfficiency >= 1 ? 'bg-green-100 text-green-800' :
+                            memberCost.summary.overallEfficiency >= 0.8 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {(memberCost.summary.overallEfficiency * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Phase Cost Breakdown */}
+              {memberCost.byPhase && memberCost.byPhase.length > 0 && (
+                <Card title="Chi phí theo Phase" className="mt-4">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">Phase</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Số thành viên</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {memberCost.byPhase.map((phase: any) => (
+                          <tr key={phase.phaseName} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{phase.phaseName}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{phase.memberCount}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">
+                              ${phase.estimatedCost.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-900">
+                              ${phase.actualCost.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className={`font-medium ${phase.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {phase.costVariance <= 0 ? '-' : '+'}${Math.abs(phase.costVariance).toLocaleString()}
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({phase.costVariancePercent > 0 ? '+' : ''}{phase.costVariancePercent}%)
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+
+              {/* Efficiency Legend */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-700 mb-2">📊 Cách đánh giá hiệu suất:</h4>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-semibold">≥120%</span>
+                    <span className="text-gray-600">Xuất sắc (làm nhanh hơn dự kiến)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">100-119%</span>
+                    <span className="text-gray-600">Tốt (đúng hoặc nhanh hơn)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">80-99%</span>
+                    <span className="text-gray-600">Đạt yêu cầu (chậm hơn một chút)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-red-100 text-red-800 font-semibold">&lt;80%</span>
+                    <span className="text-gray-600">Cần cải thiện</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Công thức: Hiệu suất = (Giờ dự kiến / Giờ thực tế) × 100%. Hiệu suất &gt; 100% nghĩa là làm nhanh hơn dự kiến.
+                </p>
               </div>
             </div>
           )}

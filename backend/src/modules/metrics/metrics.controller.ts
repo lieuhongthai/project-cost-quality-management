@@ -64,4 +64,14 @@ export class MetricsController {
   getProjectProductivityMetrics(@Param('projectId', ParseIntPipe) projectId: number) {
     return this.metricsService.getProjectProductivityMetrics(projectId);
   }
+
+  /**
+   * GET /api/metrics/project/:projectId/member-cost
+   * Get member cost analysis for a project
+   * Calculates actual payment based on hourly rate and worked hours
+   */
+  @Get('project/:projectId/member-cost')
+  getProjectMemberCostAnalysis(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.getProjectMemberCostAnalysis(projectId);
+  }
 }

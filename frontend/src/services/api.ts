@@ -126,6 +126,8 @@ export const metricsApi = {
   refreshProjectStatus: (projectId: number) => api.post(`/metrics/project/${projectId}/refresh`),
   // Productivity metrics
   getProjectProductivity: (projectId: number) => api.get(`/metrics/project/${projectId}/productivity`),
+  // Member cost analysis
+  getProjectMemberCost: (projectId: number) => api.get(`/metrics/project/${projectId}/member-cost`),
 };
 
 // Screen/Function APIs

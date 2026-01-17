@@ -642,4 +642,261 @@ export class MetricsService {
       byPhase: phaseStats,
     };
   }
+
+  /**
+   * Get member cost analysis for a project
+   * Calculates actual cost based on hourly rate and worked hours
+   * Only includes members with hourly rate > 0 who have worked on tasks
+   */
+  async getProjectMemberCostAnalysis(projectId: number) {
+    const project = await this.projectService.findOne(projectId);
+    const phases = await this.phaseService.findByProject(projectId);
+    const members = await this.memberService.findByProject(projectId);
+
+    // Filter members with hourly rate
+    const membersWithRate = members.filter(m => m.hourlyRate && m.hourlyRate > 0);
+
+    if (membersWithRate.length === 0) {
+      return null; // No members with hourly rate
+    }
+
+    // Map to track member cost details
+    const memberCostMap = new Map<number, {
+      memberId: number;
+      name: string;
+      role: string;
+      hourlyRate: number;
+      tasks: Array<{
+        taskId: number;
+        taskName: string;
+        phaseName: string;
+        estimatedHours: number;
+        actualHours: number;
+        estimatedCost: number;
+        actualCost: number;
+        status: string;
+      }>;
+      totalEstimatedHours: number;
+      totalActualHours: number;
+      totalEstimatedCost: number;
+      totalActualCost: number;
+      efficiency: number;
+      efficiencyRating: string;
+    }>();
+
+    // Initialize member cost data
+    for (const member of membersWithRate) {
+      memberCostMap.set(member.id, {
+        memberId: member.id,
+        name: member.name,
+        role: member.role,
+        hourlyRate: member.hourlyRate,
+        tasks: [],
+        totalEstimatedHours: 0,
+        totalActualHours: 0,
+        totalEstimatedCost: 0,
+        totalActualCost: 0,
+        efficiency: 0,
+        efficiencyRating: 'N/A',
+      });
+    }
+
+    // Process each phase and collect task data
+    for (const phase of phases) {
+      const psfs = await this.phaseScreenFunctionService.findByPhase(phase.id);
+
+      for (const psf of psfs) {
+        if (psf.status === 'Skipped') continue;
+        if (!psf.assigneeId || !memberCostMap.has(psf.assigneeId)) continue;
+
+        const memberData = memberCostMap.get(psf.assigneeId)!;
+        const estimatedHours = psf.estimatedEffort || 0;
+        const actualHours = psf.actualEffort || 0;
+        const estimatedCost = estimatedHours * memberData.hourlyRate;
+        const actualCost = actualHours * memberData.hourlyRate;
+
+        // Get screen function name
+        const taskName = psf.screenFunction?.name || `Task #${psf.screenFunctionId}`;
+
+        memberData.tasks.push({
+          taskId: psf.id,
+          taskName,
+          phaseName: phase.name,
+          estimatedHours,
+          actualHours,
+          estimatedCost,
+          actualCost,
+          status: psf.status,
+        });
+
+        memberData.totalEstimatedHours += estimatedHours;
+        memberData.totalActualHours += actualHours;
+        memberData.totalEstimatedCost += estimatedCost;
+        memberData.totalActualCost += actualCost;
+      }
+    }
+
+    // Calculate efficiency and rating for each member
+    const memberCostAnalysis: Array<{
+      memberId: number;
+      name: string;
+      role: string;
+      hourlyRate: number;
+      tasks: Array<{
+        taskId: number;
+        taskName: string;
+        phaseName: string;
+        estimatedHours: number;
+        actualHours: number;
+        estimatedCost: number;
+        actualCost: number;
+        status: string;
+      }>;
+      totalEstimatedHours: number;
+      totalActualHours: number;
+      totalEstimatedCost: number;
+      totalActualCost: number;
+      costVariance: number;
+      costVariancePercent: number;
+      efficiency: number;
+      efficiencyRating: string;
+      efficiencyColor: string;
+    }> = [];
+
+    for (const [memberId, data] of memberCostMap) {
+      // Only include members who have worked on tasks
+      if (data.tasks.length === 0) continue;
+
+      // Calculate efficiency: estimated / actual (>1 = faster, <1 = slower)
+      const efficiency = data.totalActualHours > 0
+        ? data.totalEstimatedHours / data.totalActualHours
+        : data.totalEstimatedHours > 0 ? 0 : 1;
+
+      // Cost variance
+      const costVariance = data.totalActualCost - data.totalEstimatedCost;
+      const costVariancePercent = data.totalEstimatedCost > 0
+        ? Math.round((costVariance / data.totalEstimatedCost) * 100)
+        : 0;
+
+      // Efficiency rating
+      let efficiencyRating: string;
+      let efficiencyColor: string;
+      if (efficiency >= 1.2) {
+        efficiencyRating = 'Xuất sắc';
+        efficiencyColor = 'green';
+      } else if (efficiency >= 1.0) {
+        efficiencyRating = 'Tốt';
+        efficiencyColor = 'blue';
+      } else if (efficiency >= 0.8) {
+        efficiencyRating = 'Đạt yêu cầu';
+        efficiencyColor = 'yellow';
+      } else {
+        efficiencyRating = 'Cần cải thiện';
+        efficiencyColor = 'red';
+      }
+
+      memberCostAnalysis.push({
+        ...data,
+        costVariance,
+        costVariancePercent,
+        efficiency: Math.round(efficiency * 100) / 100,
+        efficiencyRating,
+        efficiencyColor,
+      });
+    }
+
+    // Sort by total actual cost (highest first)
+    memberCostAnalysis.sort((a, b) => b.totalActualCost - a.totalActualCost);
+
+    // Calculate totals
+    const totalEstimatedCost = memberCostAnalysis.reduce((sum, m) => sum + m.totalEstimatedCost, 0);
+    const totalActualCost = memberCostAnalysis.reduce((sum, m) => sum + m.totalActualCost, 0);
+    const totalEstimatedHours = memberCostAnalysis.reduce((sum, m) => sum + m.totalEstimatedHours, 0);
+    const totalActualHours = memberCostAnalysis.reduce((sum, m) => sum + m.totalActualHours, 0);
+    const totalCostVariance = totalActualCost - totalEstimatedCost;
+    const totalCostVariancePercent = totalEstimatedCost > 0
+      ? Math.round((totalCostVariance / totalEstimatedCost) * 100)
+      : 0;
+
+    // Group by phase for phase cost summary
+    const phaseCostMap = new Map<string, {
+      phaseName: string;
+      estimatedCost: number;
+      actualCost: number;
+      memberCount: number;
+    }>();
+
+    for (const member of memberCostAnalysis) {
+      for (const task of member.tasks) {
+        if (!phaseCostMap.has(task.phaseName)) {
+          phaseCostMap.set(task.phaseName, {
+            phaseName: task.phaseName,
+            estimatedCost: 0,
+            actualCost: 0,
+            memberCount: 0,
+          });
+        }
+        const phaseData = phaseCostMap.get(task.phaseName)!;
+        phaseData.estimatedCost += task.estimatedCost;
+        phaseData.actualCost += task.actualCost;
+      }
+    }
+
+    // Count unique members per phase
+    for (const member of memberCostAnalysis) {
+      const phasesSeen = new Set<string>();
+      for (const task of member.tasks) {
+        if (!phasesSeen.has(task.phaseName)) {
+          phasesSeen.add(task.phaseName);
+          phaseCostMap.get(task.phaseName)!.memberCount++;
+        }
+      }
+    }
+
+    const phaseCostSummary = Array.from(phaseCostMap.values()).map(p => ({
+      ...p,
+      costVariance: p.actualCost - p.estimatedCost,
+      costVariancePercent: p.estimatedCost > 0
+        ? Math.round(((p.actualCost - p.estimatedCost) / p.estimatedCost) * 100)
+        : 0,
+    }));
+
+    // Top performers and those needing support
+    const topPerformers = memberCostAnalysis
+      .filter(m => m.efficiency >= 1.0)
+      .slice(0, 3);
+
+    const needSupport = memberCostAnalysis
+      .filter(m => m.efficiency < 0.8 && m.totalActualHours > 0)
+      .slice(0, 3);
+
+    return {
+      projectId,
+      projectName: project.name,
+      currency: 'USD',
+      summary: {
+        totalMembers: memberCostAnalysis.length,
+        totalEstimatedHours,
+        totalActualHours,
+        totalEstimatedCost,
+        totalActualCost,
+        totalCostVariance,
+        totalCostVariancePercent,
+        avgHourlyRate: memberCostAnalysis.length > 0
+          ? Math.round(memberCostAnalysis.reduce((sum, m) => sum + m.hourlyRate, 0) / memberCostAnalysis.length * 100) / 100
+          : 0,
+        overallEfficiency: totalActualHours > 0
+          ? Math.round((totalEstimatedHours / totalActualHours) * 100) / 100
+          : 1,
+      },
+      byMember: memberCostAnalysis,
+      byPhase: phaseCostSummary,
+      insights: {
+        topPerformers,
+        needSupport,
+        costStatus: totalCostVariance <= 0 ? 'under_budget' : totalCostVariancePercent <= 10 ? 'slight_over' : 'over_budget',
+        savingsOrOverrun: Math.abs(totalCostVariance),
+      },
+    };
+  }
 }
