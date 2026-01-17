@@ -55,4 +55,13 @@ export class MetricsController {
   ) {
     return this.metricsService.calculateProjectMetrics(projectId, reportId);
   }
+
+  /**
+   * GET /api/metrics/project/:projectId/productivity
+   * Get productivity metrics for a project (members, roles, phases)
+   */
+  @Get('project/:projectId/productivity')
+  getProjectProductivityMetrics(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.getProjectProductivityMetrics(projectId);
+  }
 }

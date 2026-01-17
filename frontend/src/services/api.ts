@@ -124,6 +124,8 @@ export const metricsApi = {
   // Real-time metrics (without creating a report)
   getProjectRealTime: (projectId: number) => api.get(`/metrics/project/${projectId}/realtime`),
   refreshProjectStatus: (projectId: number) => api.post(`/metrics/project/${projectId}/refresh`),
+  // Productivity metrics
+  getProjectProductivity: (projectId: number) => api.get(`/metrics/project/${projectId}/productivity`),
 };
 
 // Screen/Function APIs

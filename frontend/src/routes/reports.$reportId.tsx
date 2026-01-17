@@ -66,6 +66,17 @@ function ReportDetail() {
     enabled: !!report,
   });
 
+  // Fetch productivity metrics for Project reports
+  const { data: productivity } = useQuery({
+    queryKey: ['productivity', report?.projectId],
+    queryFn: async () => {
+      if (!report?.projectId) return null;
+      const response = await metricsApi.getProjectProductivity(report.projectId);
+      return response.data;
+    },
+    enabled: !!report?.projectId && report?.scope === 'Project',
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -294,41 +305,223 @@ function ReportDetail() {
             </div>
           </div>
 
-          {/* Detailed Metrics */}
+          {/* EVM Core Values */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Detailed Metrics</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Earned Value Management (EVM)</h2>
+            <p className="text-sm text-gray-500 mb-4">Core metrics for project performance tracking</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card className="bg-blue-50">
+                <p className="text-xs font-medium text-blue-600 mb-1">BAC</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}
+                </p>
+                <p className="text-xs text-blue-600">Budget at Completion</p>
+              </Card>
+
+              <Card className="bg-slate-50">
+                <p className="text-xs font-medium text-slate-600 mb-1">PV</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {metric.plannedValue.toFixed(2)}
+                </p>
+                <p className="text-xs text-slate-600">Planned Value</p>
+              </Card>
+
+              <Card className="bg-green-50">
+                <p className="text-xs font-medium text-green-600 mb-1">EV</p>
+                <p className="text-2xl font-bold text-green-900">
+                  {metric.earnedValue.toFixed(2)}
+                </p>
+                <p className="text-xs text-green-600">Earned Value</p>
+              </Card>
+
+              <Card className="bg-amber-50">
+                <p className="text-xs font-medium text-amber-600 mb-1">AC</p>
+                <p className="text-2xl font-bold text-amber-900">
+                  {metric.actualCost.toFixed(2)}
+                </p>
+                <p className="text-xs text-amber-600">Actual Cost</p>
+              </Card>
+
+              <Card className="bg-purple-50">
+                <p className="text-xs font-medium text-purple-600 mb-1">SPI = EV/PV</p>
+                <p className={`text-2xl font-bold ${getSPIColor(metric.schedulePerformanceIndex)}`}>
+                  {metric.schedulePerformanceIndex.toFixed(2)}
+                </p>
+                <p className="text-xs text-purple-600">Schedule Index</p>
+              </Card>
+
+              <Card className="bg-indigo-50">
+                <p className="text-xs font-medium text-indigo-600 mb-1">CPI = EV/AC</p>
+                <p className={`text-2xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
+                  {metric.costPerformanceIndex.toFixed(2)}
+                </p>
+                <p className="text-xs text-indigo-600">Cost Index</p>
+              </Card>
+            </div>
+          </div>
+
+          {/* Forecasting Section */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Project Forecasting</h2>
+            <p className="text-sm text-gray-500 mb-4">"Cuối cùng tốn bao nhiêu?" - Dự báo chi phí hoàn thành</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* EAC Card */}
+              <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-blue-700">Estimate at Completion (EAC)</p>
+                  <span className="text-xl">🎯</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-900">
+                  {(metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1))).toFixed(2)} MM
+                </p>
+                <p className="text-xs text-blue-600 mt-1">= AC + (BAC - EV) / CPI</p>
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>vs BAC: {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}</span>
+                    {(() => {
+                      const eac = metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1));
+                      const bac = metric.budgetAtCompletion || metric.plannedValue;
+                      const diff = ((eac - bac) / bac) * 100;
+                      return (
+                        <span className={diff > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                          {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <ProgressBar
+                    progress={Math.min(100, ((metric.estimateAtCompletion || metric.actualCost) / (metric.budgetAtCompletion || metric.plannedValue || 1)) * 100)}
+                    className={
+                      (metric.estimateAtCompletion || metric.actualCost) <= (metric.budgetAtCompletion || metric.plannedValue)
+                        ? 'bg-green-500'
+                        : (metric.estimateAtCompletion || metric.actualCost) <= (metric.budgetAtCompletion || metric.plannedValue) * 1.1
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                    }
+                  />
+                </div>
+              </Card>
+
+              {/* VAC Card */}
+              <Card>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Variance at Completion (VAC)</p>
+                  <span className="text-xl">📉</span>
+                </div>
+                {(() => {
+                  const vac = metric.varianceAtCompletion || ((metric.budgetAtCompletion || metric.plannedValue) - (metric.estimateAtCompletion || metric.actualCost));
+                  const isPositive = vac >= 0;
+                  return (
+                    <>
+                      <p className={`text-3xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isPositive ? '+' : ''}{vac.toFixed(2)} MM
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">= BAC - EAC</p>
+                      <div className="mt-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isPositive ? '✓ Under Budget' : '⚠ Over Budget'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Card>
+
+              {/* TCPI Card */}
+              <Card>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">To Complete Performance Index</p>
+                  <span className="text-xl">📈</span>
+                </div>
+                {(() => {
+                  const tcpi = metric.toCompletePerformanceIndex || ((metric.plannedValue - metric.earnedValue) / ((metric.budgetAtCompletion || metric.plannedValue) - metric.actualCost));
+                  const isAchievable = tcpi <= 1.1;
+                  const isHard = tcpi > 1.1 && tcpi <= 1.3;
+                  return (
+                    <>
+                      <p className={`text-3xl font-bold ${isAchievable ? 'text-green-600' : isHard ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {tcpi > 10 ? '>10' : tcpi.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">= (BAC - EV) / (BAC - AC)</p>
+                      <div className="mt-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          isAchievable ? 'bg-green-100 text-green-800' : isHard ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isAchievable ? '✓ Achievable' : isHard ? '⚠ Challenging' : '✗ Very Difficult'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Card>
+
+              {/* Status Summary */}
+              <Card className={`border-2 ${
+                (() => {
+                  const eac = metric.estimateAtCompletion || metric.actualCost;
+                  const bac = metric.budgetAtCompletion || metric.plannedValue;
+                  if (eac <= bac) return 'border-green-200 bg-green-50';
+                  if (eac <= bac * 1.1) return 'border-yellow-200 bg-yellow-50';
+                  return 'border-red-200 bg-red-50';
+                })()
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Budget Status</p>
+                  <span className="text-xl">💰</span>
+                </div>
+                {(() => {
+                  const eac = metric.estimateAtCompletion || metric.actualCost;
+                  const bac = metric.budgetAtCompletion || metric.plannedValue;
+                  const diff = eac - bac;
+                  const diffPercent = bac > 0 ? (diff / bac) * 100 : 0;
+
+                  let status, color, icon;
+                  if (diff <= 0) {
+                    status = 'Under Control';
+                    color = 'text-green-700';
+                    icon = '✓';
+                  } else if (diffPercent <= 10) {
+                    status = 'Slight Overrun';
+                    color = 'text-yellow-700';
+                    icon = '⚠';
+                  } else {
+                    status = 'Over Budget';
+                    color = 'text-red-700';
+                    icon = '✗';
+                  }
+
+                  return (
+                    <>
+                      <p className={`text-2xl font-bold ${color}`}>
+                        {icon} {status}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-2">
+                        {diff <= 0
+                          ? `Tiết kiệm được ${Math.abs(diff).toFixed(2)} MM`
+                          : `Vượt ${diff.toFixed(2)} MM (${diffPercent.toFixed(1)}%)`}
+                      </p>
+                    </>
+                  );
+                })()}
+              </Card>
+            </div>
+          </div>
+
+          {/* Quality Metrics */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Quality Metrics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📊</span>
-                  <p className="text-sm font-medium text-gray-600">Planned Value</p>
+                  <span className="text-lg">✅</span>
+                  <p className="text-sm font-medium text-gray-600">Pass Rate</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.plannedValue.toFixed(2)} MM
+                <p className={`text-3xl font-bold ${metric.passRate > 0 ? getPassRateColor(metric.passRate) : 'text-gray-400'}`}>
+                  {metric.passRate > 0 ? `${metric.passRate.toFixed(1)}%` : 'N/A'}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Expected cost of work scheduled</p>
-              </Card>
-
-              <Card>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📈</span>
-                  <p className="text-sm font-medium text-gray-600">Earned Value</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.earnedValue.toFixed(2)} MM
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Value of work completed</p>
-              </Card>
-
-              <Card>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">💵</span>
-                  <p className="text-sm font-medium text-gray-600">Actual Cost</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.actualCost.toFixed(2)} MM
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Actual cost incurred</p>
+                <p className="mt-1 text-xs text-gray-500">Test cases passed</p>
               </Card>
 
               <Card>
@@ -341,8 +534,144 @@ function ReportDetail() {
                 </p>
                 <p className="mt-1 text-xs text-gray-500">Defects per test case</p>
               </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⏱️</span>
+                  <p className="text-sm font-medium text-gray-600">Delay Rate</p>
+                </div>
+                <p className={`text-3xl font-bold ${getDelayRateColor(metric.delayRate)}`}>
+                  {metric.delayRate.toFixed(1)}%
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Tasks delayed</p>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚡</span>
+                  <p className="text-sm font-medium text-gray-600">Efficiency</p>
+                </div>
+                <p className={`text-3xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
+                  {(metric.costPerformanceIndex * 100).toFixed(0)}%
+                </p>
+                <p className="mt-1 text-xs text-gray-500">CPI as percentage</p>
+              </Card>
             </div>
           </div>
+
+          {/* Productivity Section - Only for Project reports */}
+          {productivity && productivity.byMember && productivity.byMember.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Team Productivity</h2>
+              <p className="text-sm text-gray-500 mb-4">Hiệu suất làm việc theo thành viên và vai trò</p>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <Card className="bg-gradient-to-br from-indigo-50 to-white">
+                  <p className="text-sm font-medium text-indigo-600">Team Efficiency</p>
+                  <p className={`text-3xl font-bold ${productivity.summary.efficiency >= 1 ? 'text-green-600' : productivity.summary.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {(productivity.summary.efficiency * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500">Overall team efficiency</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Tasks Completed</p>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {productivity.summary.tasksCompleted}/{productivity.summary.tasksTotal}
+                  </p>
+                  <p className="text-xs text-gray-500">{productivity.summary.completionRate}% completion rate</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Avg. Effort/Task</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {productivity.summary.avgEffortPerTask.toFixed(1)}
+                  </p>
+                  <p className="text-xs text-gray-500">Man-hours per task</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Variance</p>
+                  <p className={`text-3xl font-bold ${productivity.summary.variance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {productivity.summary.variance > 0 ? '+' : ''}{productivity.summary.variancePercent}%
+                  </p>
+                  <p className="text-xs text-gray-500">Actual vs Estimated</p>
+                </Card>
+              </div>
+
+              {/* Member Performance Table */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card title="By Member">
+                  <div className="overflow-x-auto max-h-64">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Member</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {productivity.byMember.slice(0, 10).map((member: any) => (
+                          <tr key={member.memberId} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 font-medium text-gray-900">{member.name}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">{member.role}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {member.tasksCompleted}/{member.tasksTotal}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className={`font-semibold ${member.efficiency >= 1 ? 'text-green-600' : member.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {(member.efficiency * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+
+                <Card title="By Role">
+                  <div className="overflow-x-auto max-h-64">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Members</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Avg/Task</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {productivity.byRole.map((role: any) => (
+                          <tr key={role.role} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 font-medium text-gray-900">{role.role}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">{role.memberCount}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {role.tasksCompleted}/{role.tasksTotal}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {role.avgEffortPerTask.toFixed(1)}h
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className={`font-semibold ${role.efficiency >= 1 ? 'text-green-600' : role.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {(role.efficiency * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
 
           {/* Summary Insights */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500">
@@ -380,6 +709,25 @@ function ReportDetail() {
                       <strong>Delays:</strong> {metric.delayRate.toFixed(1)}% of tasks are delayed
                       ({metric.delayRate <= 5 ? 'minimal impact' : metric.delayRate <= 20 ? 'moderate impact' : 'significant impact'})
                     </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    {(() => {
+                      const eac = metric.estimateAtCompletion || metric.actualCost;
+                      const bac = metric.budgetAtCompletion || metric.plannedValue;
+                      const diff = eac - bac;
+                      const isUnder = diff <= 0;
+                      return (
+                        <>
+                          <span className={`mt-0.5 ${isUnder ? 'text-green-600' : 'text-red-600'}`}>•</span>
+                          <span>
+                            <strong>Forecast:</strong> Dự kiến hoàn thành với {eac.toFixed(2)} MM
+                            ({isUnder
+                              ? `tiết kiệm ${Math.abs(diff).toFixed(2)} MM so với budget`
+                              : `vượt ${diff.toFixed(2)} MM (${((diff / bac) * 100).toFixed(1)}%) so với budget`})
+                          </span>
+                        </>
+                      );
+                    })()}
                   </li>
                 </ul>
               </div>
