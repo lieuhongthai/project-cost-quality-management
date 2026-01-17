@@ -11,6 +11,7 @@ import {
   Modal,
   EmptyState,
   Input,
+  HolidayImportDialog,
 } from '@/components/common';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
@@ -62,6 +63,7 @@ function ProjectDetail() {
     holidays: [] as string[],
   });
   const [newHoliday, setNewHoliday] = useState('');
+  const [showHolidayImport, setShowHolidayImport] = useState(false);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', parseInt(projectId)],
@@ -1192,9 +1194,24 @@ function ProjectDetail() {
 
             {/* Holidays */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Holidays
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Holidays
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowHolidayImport(true)}
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import từ lịch
+                  </span>
+                </Button>
+              </div>
               <div className="flex gap-2 mb-3">
                 <input
                   type="date"
@@ -1397,6 +1414,25 @@ function ProjectDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* Holiday Import Dialog */}
+      <HolidayImportDialog
+        isOpen={showHolidayImport}
+        onClose={() => setShowHolidayImport(false)}
+        onImport={(dates) => {
+          const newHolidays = [...settingsForm.holidays];
+          dates.forEach((date) => {
+            if (!newHolidays.includes(date)) {
+              newHolidays.push(date);
+            }
+          });
+          setSettingsForm({
+            ...settingsForm,
+            holidays: newHolidays.sort(),
+          });
+        }}
+        existingHolidays={settingsForm.holidays}
+      />
 
       {/* Copy Members Modal */}
       <Modal
