@@ -50,7 +50,10 @@ function ReportsList() {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4">
-        {reports?.map((report) => (
+        {reports
+          ?.slice()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .map((report) => (
           <div key={report.id} className="card hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start">
               <div>
@@ -61,7 +64,10 @@ function ReportsList() {
                   {report.weekNumber && ` - Week ${report.weekNumber}, ${report.year}`}
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  {format(new Date(report.reportDate), 'MMM dd, yyyy')}
+                  Report Date: {format(new Date(report.reportDate), 'MMM dd, yyyy')}
+                  {report.createdAt && (
+                    <span className="ml-2">• Created: {format(new Date(report.createdAt), 'MMM dd, yyyy HH:mm')}</span>
+                  )}
                 </p>
               </div>
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
@@ -31,9 +31,11 @@ export const Route = createFileRoute('/projects/$projectId')({
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'members' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [editingPhase, setEditingPhase] = useState<any>(null);
   const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
@@ -236,6 +238,14 @@ function ProjectDetail() {
     },
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: () => projectApi.delete(parseInt(projectId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      navigate({ to: '/projects' });
+    },
+  });
+
   const handleDeletePhaseClick = async (phase: { id: number; name: string }) => {
     // Fetch phase stats to show warning about linked items
     try {
@@ -342,9 +352,14 @@ function ProjectDetail() {
             <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
             <p className="mt-2 text-gray-600">{project.description}</p>
           </div>
-          <Button onClick={() => setShowEditProject(true)}>
-            Edit Project
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowEditProject(true)}>
+              Edit Project
+            </Button>
+            <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+              Delete Project
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -1783,6 +1798,60 @@ function ProjectDetail() {
                 Copy {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : ''}
               </Button>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Project Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Project"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete the project <strong>"{project.name}"</strong>?
+          </p>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-red-800 font-medium">Warning</p>
+                <p className="text-red-700 text-sm mt-1">
+                  This action will permanently delete the project and all associated data including:
+                </p>
+                <ul className="text-red-700 text-sm mt-2 ml-4 list-disc">
+                  <li>All phases and their data</li>
+                  <li>All screen/function items</li>
+                  <li>All team members</li>
+                  <li>All reports and metrics</li>
+                  <li>All testing and effort records</li>
+                </ul>
+                <p className="text-red-700 text-sm mt-2 font-medium">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteProjectMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteProjectMutation.mutate()}
+              loading={deleteProjectMutation.isPending}
+            >
+              Delete Project
+            </Button>
           </div>
         </div>
       </Modal>

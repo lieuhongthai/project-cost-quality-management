@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { reportApi, metricsApi, commentaryApi } from '@/services/api';
@@ -12,7 +12,9 @@ export const Route = createFileRoute('/reports/$reportId')({
 
 function ReportDetail() {
   const { reportId } = Route.useParams();
+  const navigate = useNavigate();
   const [showAddCommentary, setShowAddCommentary] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: report, isLoading } = useQuery({
@@ -64,6 +66,15 @@ function ReportDetail() {
       return response.data;
     },
     enabled: !!report,
+  });
+
+  // Delete report mutation
+  const deleteReportMutation = useMutation({
+    mutationFn: () => reportApi.delete(parseInt(reportId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      navigate({ to: '/reports' });
+    },
   });
 
   // Fetch productivity metrics for Project reports
@@ -173,15 +184,20 @@ function ReportDetail() {
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
           </div>
-          {metric && (
-            <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Overall Health:</span>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold text-white ${health.color}`}>
-                <span className="h-2 w-2 bg-white rounded-full"></span>
-                {health.status}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {metric && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-700">Overall Health:</span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold text-white ${health.color}`}>
+                  <span className="h-2 w-2 bg-white rounded-full"></span>
+                  {health.status}
+                </span>
+              </div>
+            )}
+            <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+              Delete Report
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -811,6 +827,57 @@ function ReportDetail() {
           onSuccess={() => setShowAddCommentary(false)}
           onCancel={() => setShowAddCommentary(false)}
         />
+      </Modal>
+
+      {/* Delete Report Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Report"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete the report <strong>"{report.title}"</strong>?
+          </p>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-yellow-800 font-medium">Warning</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  This action will permanently delete the report and all associated data including:
+                </p>
+                <ul className="text-yellow-700 text-sm mt-2 ml-4 list-disc">
+                  <li>All metrics calculated for this report</li>
+                  <li>All commentaries and analysis</li>
+                </ul>
+                <p className="text-yellow-700 text-sm mt-2 font-medium">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteReportMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteReportMutation.mutate()}
+              loading={deleteReportMutation.isPending}
+            >
+              Delete Report
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
