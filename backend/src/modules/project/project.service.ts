@@ -215,39 +215,42 @@ export class ProjectService {
   }
 
   /**
-   * Evaluate project status based on metrics
+   * Evaluate project status based on simple Actual vs Estimated comparison
    * Returns: 'Good' | 'Warning' | 'At Risk'
+   *
+   * Simplified logic:
+   * - expectedEffort = estimatedEffort × (progress / 100)
+   * - Good: actualEffort ≤ expectedEffort (efficiency ≥ 100%)
+   * - Warning: actualEffort > expectedEffort but < 120% (efficiency 83-100%)
+   * - At Risk: actualEffort ≥ 120% expectedEffort (efficiency < 83%)
    */
   evaluateProjectStatus(metrics: {
-    schedulePerformanceIndex: number;  // SPI
-    costPerformanceIndex: number;      // CPI
-    delayRate: number;                 // %
+    schedulePerformanceIndex: number;  // SPI (kept for compatibility)
+    costPerformanceIndex: number;      // CPI - this is the key metric (efficiency)
+    delayRate: number;                 // % (kept for compatibility)
     passRate: number;                  // %
   }): 'Good' | 'Warning' | 'At Risk' {
-    const { schedulePerformanceIndex: spi, costPerformanceIndex: cpi, delayRate, passRate } = metrics;
-    const thresholds = EVALUATION_THRESHOLDS.project;
+    const { costPerformanceIndex: cpi, passRate } = metrics;
 
-    // Check for At Risk conditions (highest priority)
-    if (
-      spi < thresholds.atRisk.spi.max ||
-      cpi < thresholds.atRisk.cpi.max ||
-      delayRate > thresholds.atRisk.delayRate.min ||
-      passRate < thresholds.atRisk.passRate.max
-    ) {
+    // CPI = Earned Value / Actual Cost = (Estimated × Progress) / Actual
+    // CPI >= 1.0 means on or under budget (Good)
+    // CPI 0.83-1.0 means slightly over budget (Warning) - equivalent to 100-120% actual
+    // CPI < 0.83 means significantly over budget (At Risk) - equivalent to >120% actual
+
+    // Also consider pass rate for quality issues
+    const hasQualityIssue = passRate > 0 && passRate < 80;
+
+    // At Risk: CPI < 0.83 (>20% over budget) OR serious quality issues
+    if (cpi < 0.83 || hasQualityIssue) {
       return 'At Risk';
     }
 
-    // Check for Warning conditions
-    if (
-      (spi >= thresholds.warning.spi.min && spi < thresholds.warning.spi.max) ||
-      (cpi >= thresholds.warning.cpi.min && cpi < thresholds.warning.cpi.max) ||
-      (delayRate >= thresholds.warning.delayRate.min && delayRate <= thresholds.warning.delayRate.max) ||
-      (passRate >= thresholds.warning.passRate.min && passRate < thresholds.warning.passRate.max)
-    ) {
+    // Warning: CPI 0.83-1.0 (slightly over budget) OR minor quality concerns
+    if (cpi < 1.0 || (passRate > 0 && passRate < 95)) {
       return 'Warning';
     }
 
-    // Default to Good
+    // Good: CPI >= 1.0 (on or under budget) AND good quality
     return 'Good';
   }
 

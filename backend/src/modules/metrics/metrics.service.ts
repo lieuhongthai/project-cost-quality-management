@@ -298,6 +298,7 @@ export class MetricsService {
 
   /**
    * Get human-readable reasons for the current status
+   * Simplified to focus on Efficiency (CPI) and Quality (Pass Rate)
    */
   private getStatusReasons(metrics: {
     spi: number;
@@ -307,41 +308,67 @@ export class MetricsService {
   }): { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] {
     const reasons: { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] = [];
 
-    // SPI evaluation
-    if (metrics.spi < 0.80) {
-      reasons.push({ type: 'risk', metric: 'SPI', value: metrics.spi, message: 'Tiến độ trễ nghiêm trọng (< 0.80)' });
-    } else if (metrics.spi < 0.95) {
-      reasons.push({ type: 'warning', metric: 'SPI', value: metrics.spi, message: 'Tiến độ hơi chậm (< 0.95)' });
-    } else if (metrics.spi > 0) {
-      reasons.push({ type: 'good', metric: 'SPI', value: metrics.spi, message: 'Tiến độ tốt (≥ 0.95)' });
-    }
+    // Efficiency evaluation (CPI) - Main metric
+    // CPI = Expected Effort / Actual Effort
+    // CPI >= 1.0 means actual ≤ expected (efficient)
+    // CPI < 1.0 means actual > expected (over budget)
+    const efficiencyPercent = Math.round(metrics.cpi * 100);
 
-    // CPI evaluation
-    if (metrics.cpi < 0.80) {
-      reasons.push({ type: 'risk', metric: 'CPI', value: metrics.cpi, message: 'Vượt ngân sách nghiêm trọng (< 0.80)' });
-    } else if (metrics.cpi < 0.95) {
-      reasons.push({ type: 'warning', metric: 'CPI', value: metrics.cpi, message: 'Chi phí hơi cao (< 0.95)' });
+    if (metrics.cpi >= 1.0) {
+      reasons.push({
+        type: 'good',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Công việc hiệu quả (${efficiencyPercent}% - thực tế ≤ dự kiến)`
+      });
+    } else if (metrics.cpi >= 0.83) {
+      const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
+      reasons.push({
+        type: 'warning',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Hơi vượt dự kiến (+${overBudgetPercent}% effort)`
+      });
     } else if (metrics.cpi > 0) {
-      reasons.push({ type: 'good', metric: 'CPI', value: metrics.cpi, message: 'Chi phí tốt (≥ 0.95)' });
-    }
-
-    // Delay Rate evaluation
-    if (metrics.delayRate > 20) {
-      reasons.push({ type: 'risk', metric: 'Delay', value: metrics.delayRate, message: 'Trễ tiến độ nghiêm trọng (> 20%)' });
-    } else if (metrics.delayRate > 5) {
-      reasons.push({ type: 'warning', metric: 'Delay', value: metrics.delayRate, message: 'Có dấu hiệu trễ (> 5%)' });
+      const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
+      reasons.push({
+        type: 'risk',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Vượt dự kiến nhiều (+${overBudgetPercent}% effort)`
+      });
     } else {
-      reasons.push({ type: 'good', metric: 'Delay', value: metrics.delayRate, message: 'Không trễ tiến độ (≤ 5%)' });
+      reasons.push({
+        type: 'good',
+        metric: 'Hiệu suất',
+        value: 0,
+        message: 'Chưa có dữ liệu công việc'
+      });
     }
 
     // Pass Rate evaluation (only if there are test cases)
     if (metrics.passRate > 0) {
-      if (metrics.passRate < 80) {
-        reasons.push({ type: 'risk', metric: 'Pass Rate', value: metrics.passRate, message: 'Chất lượng kém (< 80%)' });
-      } else if (metrics.passRate < 95) {
-        reasons.push({ type: 'warning', metric: 'Pass Rate', value: metrics.passRate, message: 'Cần cải thiện (< 95%)' });
+      if (metrics.passRate >= 95) {
+        reasons.push({
+          type: 'good',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Chất lượng tốt (${metrics.passRate.toFixed(1)}% pass)`
+        });
+      } else if (metrics.passRate >= 80) {
+        reasons.push({
+          type: 'warning',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Cần cải thiện (${metrics.passRate.toFixed(1)}% pass)`
+        });
       } else {
-        reasons.push({ type: 'good', metric: 'Pass Rate', value: metrics.passRate, message: 'Chất lượng tốt (≥ 95%)' });
+        reasons.push({
+          type: 'risk',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Chất lượng thấp (${metrics.passRate.toFixed(1)}% pass)`
+        });
       }
     }
 
