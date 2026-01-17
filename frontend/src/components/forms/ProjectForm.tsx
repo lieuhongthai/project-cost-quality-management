@@ -42,6 +42,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   const [suggestedEndDate, setSuggestedEndDate] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestionUsed, setSuggestionUsed] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Project>) => projectApi.create(data),
@@ -178,14 +179,17 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     // Show suggestion when start date or effort changes
     if (name === 'startDate' || name === 'estimatedEffort') {
       setShowSuggestion(true);
+      setSuggestionUsed(false);
     }
   };
 
   // Use suggested end date
   const useSuggestedDate = () => {
     if (suggestedEndDate) {
-      setFormData((prev) => ({ ...prev, endDate: suggestedEndDate }));
-      setShowSuggestion(false);
+      setFormData((prev) => {
+        return { ...prev, endDate: suggestedEndDate };
+      });
+      setSuggestionUsed(true);
     }
   };
 
@@ -253,37 +257,43 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         disabled={isLoading}
       />
 
-      {/* Suggested End Date - shown as reference */}
+      {/* Suggested End Date - shown as reference (fixed height to prevent flickering) */}
       {showSuggestion && formData.startDate && formData.estimatedEffort > 0 && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-700 font-medium">
-                Suggested End Date
+        <div className={`p-3 rounded-lg border transition-colors ${
+          suggestionUsed
+            ? 'bg-green-50 border-green-200'
+            : 'bg-blue-50 border-blue-200'
+        }`} style={{ minHeight: '80px' }}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${suggestionUsed ? 'text-green-700' : 'text-blue-700'}`}>
+                {suggestionUsed ? 'End Date Applied' : 'Suggested End Date'}
               </p>
               {isCalculating ? (
                 <p className="text-sm text-blue-600">Calculating...</p>
               ) : suggestedEndDate ? (
-                <p className="text-lg font-semibold text-blue-800">
+                <p className={`text-lg font-semibold ${suggestionUsed ? 'text-green-800' : 'text-blue-800'}`}>
                   {formatSuggestedDate(suggestedEndDate)}
                 </p>
               ) : (
-                <p className="text-sm text-blue-600">Unable to calculate</p>
+                <p className="text-sm text-gray-500">Unable to calculate</p>
               )}
-              <p className="text-xs text-blue-500 mt-1">
-                Based on {Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings))} working days, excluding weekends and holidays
+              <p className={`text-xs mt-1 ${suggestionUsed ? 'text-green-500' : 'text-blue-500'}`}>
+                Based on {Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings))} working days
               </p>
             </div>
-            {suggestedEndDate && (
+            {suggestedEndDate && !suggestionUsed && (
               <Button
                 type="button"
                 size="sm"
-                variant="secondary"
                 onClick={useSuggestedDate}
                 disabled={isCalculating}
               >
                 Use this date
               </Button>
+            )}
+            {suggestionUsed && (
+              <span className="text-green-600 text-sm font-medium">Applied!</span>
             )}
           </div>
         </div>
