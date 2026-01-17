@@ -112,18 +112,35 @@ function ReportDetail() {
   const getOverallHealth = () => {
     if (!metric) return { status: 'Unknown', color: 'bg-gray-500' };
 
-    const spi = metric.schedulePerformanceIndex;
     const cpi = metric.costPerformanceIndex;
     const passRate = metric.passRate;
-    const delayRate = metric.delayRate;
 
-    if (spi >= 0.95 && cpi >= 0.95 && passRate >= 95 && delayRate <= 5) {
-      return { status: 'Good', color: 'bg-green-500' };
-    }
-    if (spi < 0.80 || cpi < 0.80 || passRate < 80 || delayRate > 20) {
+    // Simplified logic matching Project status:
+    // 1. CPI (Efficiency) is the main metric
+    // 2. Pass Rate only considered if there is testing data (passRate > 0)
+
+    // Check for "At Risk" conditions
+    // CPI < 0.83 means > 20% over budget
+    // Pass Rate < 80% (only if there is testing data)
+    const hasBudgetRisk = cpi < 0.83;
+    const hasQualityRisk = passRate > 0 && passRate < 80;
+
+    if (hasBudgetRisk || hasQualityRisk) {
       return { status: 'At Risk', color: 'bg-red-500' };
     }
-    return { status: 'Warning', color: 'bg-yellow-500' };
+
+    // Check for "Warning" conditions
+    // CPI 0.83-1.0 means slightly over budget
+    // Pass Rate 80-95% (only if there is testing data)
+    const hasBudgetWarning = cpi >= 0.83 && cpi < 1.0;
+    const hasQualityWarning = passRate > 0 && passRate >= 80 && passRate < 95;
+
+    if (hasBudgetWarning || hasQualityWarning) {
+      return { status: 'Warning', color: 'bg-yellow-500' };
+    }
+
+    // Good: CPI >= 1.0 (efficient) AND quality is good or no testing data
+    return { status: 'Good', color: 'bg-green-500' };
   };
 
   const health = getOverallHealth();
@@ -217,22 +234,38 @@ function ReportDetail() {
                   <p className="text-sm font-medium text-gray-600">Test Pass Rate</p>
                   <span className="text-2xl">✅</span>
                 </div>
-                <p className={`text-4xl font-bold ${getPassRateColor(metric.passRate)}`}>
-                  {metric.passRate.toFixed(1)}%
-                </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  {metric.passRate >= 95 ? '✓ Excellent quality' : metric.passRate >= 80 ? '⚠ Acceptable' : '⚠ Needs attention'}
-                </p>
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Target: 95%+</span>
-                    <span>{metric.passRate >= 95 ? 'Good' : metric.passRate >= 80 ? 'Warning' : 'At Risk'}</span>
-                  </div>
-                  <ProgressBar
-                    progress={metric.passRate}
-                    className={metric.passRate >= 95 ? 'bg-green-500' : metric.passRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'}
-                  />
-                </div>
+                {metric.passRate > 0 ? (
+                  <>
+                    <p className={`text-4xl font-bold ${getPassRateColor(metric.passRate)}`}>
+                      {metric.passRate.toFixed(1)}%
+                    </p>
+                    <p className="mt-2 text-sm text-gray-500">
+                      {metric.passRate >= 95 ? '✓ Excellent quality' : metric.passRate >= 80 ? '⚠ Acceptable' : '⚠ Needs attention'}
+                    </p>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Target: 95%+</span>
+                        <span>{metric.passRate >= 95 ? 'Good' : metric.passRate >= 80 ? 'Warning' : 'At Risk'}</span>
+                      </div>
+                      <ProgressBar
+                        progress={metric.passRate}
+                        className={metric.passRate >= 95 ? 'bg-green-500' : metric.passRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-4xl font-bold text-gray-400">N/A</p>
+                    <p className="mt-2 text-sm text-gray-500">No testing data yet</p>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Target: 95%+</span>
+                        <span className="text-gray-400">--</span>
+                      </div>
+                      <ProgressBar progress={0} className="bg-gray-300" />
+                    </div>
+                  </>
+                )}
               </Card>
 
               {/* Delay Rate */}
@@ -333,10 +366,12 @@ function ReportDetail() {
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>•</span>
+                    <span className={`mt-0.5 ${metric.passRate > 0 ? (metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-400'}`}>•</span>
                     <span>
-                      <strong>Quality:</strong> Test pass rate is {metric.passRate.toFixed(1)}%
-                      ({metric.passRate >= 95 ? 'excellent' : metric.passRate >= 80 ? 'acceptable' : 'needs improvement'})
+                      <strong>Quality:</strong>{' '}
+                      {metric.passRate > 0
+                        ? `Test pass rate is ${metric.passRate.toFixed(1)}% (${metric.passRate >= 95 ? 'excellent' : metric.passRate >= 80 ? 'acceptable' : 'needs improvement'})`
+                        : 'No testing data available yet'}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
