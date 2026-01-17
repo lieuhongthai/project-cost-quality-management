@@ -30,7 +30,7 @@ export const Route = createFileRoute("/phases/$phaseId")({
 function PhaseDetail() {
   const { phaseId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"efforts" | "testing" | "screen-functions">("efforts");
+  const [activeTab, setActiveTab] = useState<"efforts" | "testing" | "screen-functions">("screen-functions");
   const [showAddEffort, setShowAddEffort] = useState(false);
   const [showAddTesting, setShowAddTesting] = useState(false);
   const [editingEffort, setEditingEffort] = useState<any>(null);
@@ -217,9 +217,9 @@ function PhaseDetail() {
     })) || [];
 
   const tabs = [
+    { id: "screen-functions" as const, name: "Screen/Function" },
     { id: "efforts" as const, name: "Efforts" },
     { id: "testing" as const, name: "Testing" },
-    { id: "screen-functions" as const, name: "Screen/Function" },
   ];
 
   const handleLinkScreenFunctions = () => {
