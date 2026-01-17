@@ -65,7 +65,7 @@ export const PhaseProgressOverview: React.FC<PhaseProgressOverviewProps> = ({ da
         <Bar
           dataKey="progress"
           radius={[0, 4, 4, 0]}
-          background={{ fill: '#f3f4f6', radius: [0, 4, 4, 0] }}
+          background={{ fill: '#f3f4f6' }}
         >
           {displayData.map((entry, index) => (
             <Cell

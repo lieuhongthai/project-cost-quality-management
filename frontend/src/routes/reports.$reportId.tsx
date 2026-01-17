@@ -77,27 +77,35 @@ function ReportDetail() {
     },
   });
 
-  // Fetch productivity metrics for Project reports
-  const { data: productivity } = useQuery({
+  // Get snapshot data from the report (frozen at time of creation)
+  // For new reports, use snapshot data. For old reports without snapshots, fall back to real-time
+  const hasSnapshot = report?.snapshotData && report?.snapshotAt;
+
+  // Fallback: Fetch real-time productivity metrics for old reports without snapshot
+  const { data: realtimeProductivity } = useQuery({
     queryKey: ['productivity', report?.projectId],
     queryFn: async () => {
       if (!report?.projectId) return null;
       const response = await metricsApi.getProjectProductivity(report.projectId);
       return response.data;
     },
-    enabled: !!report?.projectId && report?.scope === 'Project',
+    enabled: !!report?.projectId && report?.scope === 'Project' && !hasSnapshot,
   });
 
-  // Fetch member cost analysis for Project reports
-  const { data: memberCost } = useQuery({
+  // Fallback: Fetch real-time member cost for old reports without snapshot
+  const { data: realtimeMemberCost } = useQuery({
     queryKey: ['memberCost', report?.projectId],
     queryFn: async () => {
       if (!report?.projectId) return null;
       const response = await metricsApi.getProjectMemberCost(report.projectId);
       return response.data;
     },
-    enabled: !!report?.projectId && report?.scope === 'Project',
+    enabled: !!report?.projectId && report?.scope === 'Project' && !hasSnapshot,
   });
+
+  // Use snapshot data if available, otherwise fall back to real-time
+  const productivity = hasSnapshot ? report?.snapshotData?.productivity : realtimeProductivity;
+  const memberCost = hasSnapshot ? report?.snapshotData?.memberCost : realtimeMemberCost;
 
   if (isLoading) {
     return (
@@ -194,6 +202,33 @@ function ReportDetail() {
               {report.weekNumber && <span>• Week {report.weekNumber}, {report.year}</span>}
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
+            {/* Snapshot indicator */}
+            {hasSnapshot && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Snapshot: {format(new Date(report.snapshotAt!), 'dd/MM/yyyy HH:mm')}
+                </span>
+                <span className="text-gray-400 text-xs">
+                  (Dữ liệu được lưu cố định tại thời điểm tạo báo cáo)
+                </span>
+              </div>
+            )}
+            {!hasSnapshot && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Real-time
+                </span>
+                <span className="text-gray-400 text-xs">
+                  (Báo cáo cũ - hiển thị dữ liệu thời gian thực)
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {metric && (

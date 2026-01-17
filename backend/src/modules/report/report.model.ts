@@ -74,6 +74,18 @@ export class Report extends Model {
   })
   title: string;
 
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+  })
+  snapshotData: Record<string, any>; // Stores all metrics at the time of report creation
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+  })
+  snapshotAt: Date; // Timestamp when the snapshot was taken
+
   @BelongsTo(() => Project)
   project: Project;
 

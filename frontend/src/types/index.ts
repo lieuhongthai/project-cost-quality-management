@@ -106,6 +106,10 @@ export interface Report {
   title: string;
   commentaries?: Commentary[];
   metrics?: Metrics[];
+  snapshotData?: Record<string, any>; // Frozen metrics data at time of report creation
+  snapshotAt?: string; // Timestamp when snapshot was taken
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Commentary {
@@ -129,6 +133,10 @@ export interface Metrics {
   plannedValue: number; // PV - Expected cost of work scheduled
   earnedValue: number; // EV - Value of work completed
   actualCost: number; // AC - Actual cost of work performed
+  budgetAtCompletion: number; // BAC - Total budget
+  estimateAtCompletion: number; // EAC - Projected total cost
+  varianceAtCompletion: number; // VAC = BAC - EAC
+  toCompletePerformanceIndex: number; // TCPI = (BAC - EV) / (BAC - AC)
   defectRate: number;
   passRate: number;
   timePerTestCase: number;
