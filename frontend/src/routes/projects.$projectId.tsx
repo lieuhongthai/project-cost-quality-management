@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { projectApi, phaseApi, screenFunctionApi, memberApi } from '@/services/api';
+import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -126,6 +126,24 @@ function ProjectDetail() {
     queryFn: async () => {
       const response = await projectApi.getSettings(parseInt(projectId));
       return response.data;
+    },
+  });
+
+  // Get real-time metrics for project status
+  const { data: projectMetrics, refetch: refetchMetrics } = useQuery({
+    queryKey: ['projectMetrics', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await metricsApi.getProjectRealTime(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  // Mutation to refresh/update project status
+  const refreshStatusMutation = useMutation({
+    mutationFn: () => metricsApi.refreshProjectStatus(parseInt(projectId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['projectMetrics', parseInt(projectId)] });
     },
   });
 
@@ -342,11 +360,34 @@ function ProjectDetail() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center gap-2">
                     <StatusBadge status={project.status as any} />
+                    {projectMetrics && project.status !== projectMetrics.evaluatedStatus && (
+                      <button
+                        onClick={() => refreshStatusMutation.mutate()}
+                        disabled={refreshStatusMutation.isPending}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        title="Status đã thay đổi, nhấn để cập nhật"
+                      >
+                        {refreshStatusMutation.isPending ? 'Updating...' : 'Update'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
+              {/* Status reason hint */}
+              {projectMetrics?.statusReasons && (
+                <div className="mt-2 text-xs">
+                  {projectMetrics.statusReasons.filter((r: any) => r.type !== 'good').slice(0, 1).map((r: any, i: number) => (
+                    <span key={i} className={r.type === 'risk' ? 'text-red-600' : 'text-yellow-600'}>
+                      {r.message}
+                    </span>
+                  ))}
+                  {projectMetrics.statusReasons.every((r: any) => r.type === 'good') && (
+                    <span className="text-green-600">Tất cả chỉ số đều tốt</span>
+                  )}
+                </div>
+              )}
             </Card>
 
             <Card>
@@ -384,6 +425,121 @@ function ProjectDetail() {
               </p>
             </Card>
           </div>
+
+          {/* Project Health Metrics */}
+          {projectMetrics && (
+            <Card title="Project Health" actions={
+              <button
+                onClick={() => refetchMetrics()}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Refresh
+              </button>
+            }>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {/* SPI */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.spi >= 0.95 ? 'bg-green-50' :
+                  projectMetrics.schedule.spi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">SPI (Schedule)</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.spi >= 0.95 ? 'text-green-700' :
+                    projectMetrics.schedule.spi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.spi.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 0.95</p>
+                </div>
+
+                {/* CPI */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.cpi >= 0.95 ? 'bg-green-50' :
+                  projectMetrics.schedule.cpi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">CPI (Cost)</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.cpi >= 0.95 ? 'text-green-700' :
+                    projectMetrics.schedule.cpi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.cpi.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 0.95</p>
+                </div>
+
+                {/* Delay Rate */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.delayRate <= 5 ? 'bg-green-50' :
+                  projectMetrics.schedule.delayRate <= 20 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">Delay Rate</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.delayRate <= 5 ? 'text-green-700' :
+                    projectMetrics.schedule.delayRate <= 20 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.delayRate.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≤ 5%</p>
+                </div>
+
+                {/* Pass Rate */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.testing.totalTestCases === 0 ? 'bg-gray-50' :
+                  projectMetrics.testing.passRate >= 95 ? 'bg-green-50' :
+                  projectMetrics.testing.passRate >= 80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">Pass Rate</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.testing.totalTestCases === 0 ? 'text-gray-400' :
+                    projectMetrics.testing.passRate >= 95 ? 'text-green-700' :
+                    projectMetrics.testing.passRate >= 80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.testing.totalTestCases === 0 ? 'N/A' : `${projectMetrics.testing.passRate.toFixed(1)}%`}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 95%</p>
+                </div>
+              </div>
+
+              {/* Status Reasons */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Chi tiết đánh giá:</p>
+                <div className="space-y-2">
+                  {projectMetrics.statusReasons.map((reason: any, index: number) => (
+                    <div key={index} className={`flex items-center gap-2 text-sm ${
+                      reason.type === 'good' ? 'text-green-700' :
+                      reason.type === 'warning' ? 'text-yellow-700' : 'text-red-700'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        reason.type === 'good' ? 'bg-green-500' :
+                        reason.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <span className="font-medium">{reason.metric}:</span>
+                      <span>{reason.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-green-500"></span>
+                  <span>Good</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-yellow-500"></span>
+                  <span>Warning</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-red-500"></span>
+                  <span>At Risk</span>
+                </div>
+                <span className="text-gray-400">|</span>
+                <span>SPI = Earned Value / Planned Value</span>
+                <span>CPI = Earned Value / Actual Cost</span>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 

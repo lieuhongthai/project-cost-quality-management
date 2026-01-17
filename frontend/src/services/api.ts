@@ -121,6 +121,9 @@ export const metricsApi = {
     api.post<Metrics>(`/metrics/phase/${phaseId}?reportId=${reportId}`),
   calculateProject: (projectId: number, reportId: number) =>
     api.post<Metrics>(`/metrics/project/${projectId}?reportId=${reportId}`),
+  // Real-time metrics (without creating a report)
+  getProjectRealTime: (projectId: number) => api.get(`/metrics/project/${projectId}/realtime`),
+  refreshProjectStatus: (projectId: number) => api.post(`/metrics/project/${projectId}/refresh`),
 };
 
 // Screen/Function APIs

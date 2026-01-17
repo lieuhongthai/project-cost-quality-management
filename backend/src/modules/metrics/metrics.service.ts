@@ -205,4 +205,166 @@ export class MetricsService {
   async findOne(id: number): Promise<Metrics> {
     return this.metricsRepository.findByPk(id);
   }
+
+  /**
+   * Get real-time metrics for a project without creating a report
+   * This calculates metrics on-the-fly based on current data
+   */
+  async getProjectRealTimeMetrics(projectId: number) {
+    const project = await this.projectService.findOne(projectId);
+    const phases = await this.phaseService.findByProject(projectId);
+
+    // Aggregate testing data from all phases
+    let totalTestCases = 0;
+    let totalPassed = 0;
+    let totalFailed = 0;
+    let totalDefects = 0;
+    let totalTestingTime = 0;
+
+    for (const phase of phases) {
+      const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
+      totalTestCases += testingSummary.totalTestCases;
+      totalPassed += testingSummary.totalPassed;
+      totalFailed += testingSummary.totalFailed;
+      totalDefects += testingSummary.totalDefects;
+      totalTestingTime += testingSummary.totalTestingTime;
+    }
+
+    // Calculate schedule metrics
+    const scheduleMetrics = this.calculateScheduleMetrics({
+      estimatedEffort: project.estimatedEffort,
+      actualEffort: project.actualEffort || 0,
+      progress: project.progress || 0,
+    });
+
+    // Calculate testing metrics
+    const testingMetrics = this.calculateTestingMetrics({
+      totalTestCases,
+      passedTestCases: totalPassed,
+      failedTestCases: totalFailed,
+      defectsDetected: totalDefects,
+      testingTime: totalTestingTime,
+    });
+
+    // Evaluate status based on metrics
+    const evaluatedStatus = this.projectService.evaluateProjectStatus({
+      schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
+      costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
+    });
+
+    // Determine status reasons
+    const statusReasons = this.getStatusReasons({
+      spi: scheduleMetrics.schedulePerformanceIndex,
+      cpi: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
+    });
+
+    return {
+      projectId,
+      currentStatus: project.status,
+      evaluatedStatus,
+      statusReasons,
+      schedule: {
+        estimatedEffort: project.estimatedEffort,
+        actualEffort: project.actualEffort || 0,
+        progress: project.progress || 0,
+        spi: scheduleMetrics.schedulePerformanceIndex,
+        cpi: scheduleMetrics.costPerformanceIndex,
+        delayRate: scheduleMetrics.delayRate,
+        delayInManMonths: scheduleMetrics.delayInManMonths,
+        plannedValue: scheduleMetrics.plannedValue,
+        earnedValue: scheduleMetrics.earnedValue,
+        actualCost: scheduleMetrics.actualCost,
+      },
+      testing: {
+        totalTestCases,
+        passedTestCases: totalPassed,
+        failedTestCases: totalFailed,
+        defectsDetected: totalDefects,
+        passRate: testingMetrics.passRate,
+        defectRate: testingMetrics.defectRate,
+      },
+      phases: phases.map(p => ({
+        id: p.id,
+        name: p.name,
+        progress: p.progress,
+        status: p.status,
+      })),
+    };
+  }
+
+  /**
+   * Get human-readable reasons for the current status
+   */
+  private getStatusReasons(metrics: {
+    spi: number;
+    cpi: number;
+    delayRate: number;
+    passRate: number;
+  }): { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] {
+    const reasons: { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] = [];
+
+    // SPI evaluation
+    if (metrics.spi < 0.80) {
+      reasons.push({ type: 'risk', metric: 'SPI', value: metrics.spi, message: 'Tiến độ trễ nghiêm trọng (< 0.80)' });
+    } else if (metrics.spi < 0.95) {
+      reasons.push({ type: 'warning', metric: 'SPI', value: metrics.spi, message: 'Tiến độ hơi chậm (< 0.95)' });
+    } else if (metrics.spi > 0) {
+      reasons.push({ type: 'good', metric: 'SPI', value: metrics.spi, message: 'Tiến độ tốt (≥ 0.95)' });
+    }
+
+    // CPI evaluation
+    if (metrics.cpi < 0.80) {
+      reasons.push({ type: 'risk', metric: 'CPI', value: metrics.cpi, message: 'Vượt ngân sách nghiêm trọng (< 0.80)' });
+    } else if (metrics.cpi < 0.95) {
+      reasons.push({ type: 'warning', metric: 'CPI', value: metrics.cpi, message: 'Chi phí hơi cao (< 0.95)' });
+    } else if (metrics.cpi > 0) {
+      reasons.push({ type: 'good', metric: 'CPI', value: metrics.cpi, message: 'Chi phí tốt (≥ 0.95)' });
+    }
+
+    // Delay Rate evaluation
+    if (metrics.delayRate > 20) {
+      reasons.push({ type: 'risk', metric: 'Delay', value: metrics.delayRate, message: 'Trễ tiến độ nghiêm trọng (> 20%)' });
+    } else if (metrics.delayRate > 5) {
+      reasons.push({ type: 'warning', metric: 'Delay', value: metrics.delayRate, message: 'Có dấu hiệu trễ (> 5%)' });
+    } else {
+      reasons.push({ type: 'good', metric: 'Delay', value: metrics.delayRate, message: 'Không trễ tiến độ (≤ 5%)' });
+    }
+
+    // Pass Rate evaluation (only if there are test cases)
+    if (metrics.passRate > 0) {
+      if (metrics.passRate < 80) {
+        reasons.push({ type: 'risk', metric: 'Pass Rate', value: metrics.passRate, message: 'Chất lượng kém (< 80%)' });
+      } else if (metrics.passRate < 95) {
+        reasons.push({ type: 'warning', metric: 'Pass Rate', value: metrics.passRate, message: 'Cần cải thiện (< 95%)' });
+      } else {
+        reasons.push({ type: 'good', metric: 'Pass Rate', value: metrics.passRate, message: 'Chất lượng tốt (≥ 95%)' });
+      }
+    }
+
+    return reasons;
+  }
+
+  /**
+   * Update project status based on real-time metrics and return updated data
+   */
+  async refreshProjectStatus(projectId: number) {
+    const metrics = await this.getProjectRealTimeMetrics(projectId);
+
+    // Update project status if different
+    if (metrics.currentStatus !== metrics.evaluatedStatus) {
+      await this.projectService.updateProjectStatus(projectId, {
+        schedulePerformanceIndex: metrics.schedule.spi,
+        costPerformanceIndex: metrics.schedule.cpi,
+        delayRate: metrics.schedule.delayRate,
+        passRate: metrics.testing.passRate,
+      });
+      metrics.currentStatus = metrics.evaluatedStatus;
+    }
+
+    return metrics;
+  }
 }
