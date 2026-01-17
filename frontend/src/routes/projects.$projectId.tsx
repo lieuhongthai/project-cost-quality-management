@@ -1163,33 +1163,49 @@ function ProjectDetail() {
                 Non-Working Days of Week
               </label>
               <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map((day) => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => {
-                      const isSelected = settingsForm.nonWorkingDays.includes(day.value);
-                      setSettingsForm({
-                        ...settingsForm,
-                        nonWorkingDays: isSelected
-                          ? settingsForm.nonWorkingDays.filter((d) => d !== day.value)
-                          : [...settingsForm.nonWorkingDays, day.value].sort((a, b) => a - b),
-                      });
-                    }}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      settingsForm.nonWorkingDays.includes(day.value)
-                        ? 'bg-red-100 border-red-300 text-red-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
+                {DAYS_OF_WEEK.map((day) => {
+                  const isSelected = settingsForm.nonWorkingDays.includes(day.value);
+                  // Can't select if it would result in all 7 days being non-working
+                  const wouldBeAllNonWorking = !isSelected && settingsForm.nonWorkingDays.length >= 6;
+
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => {
+                        if (wouldBeAllNonWorking) return; // Prevent selecting all days
+
+                        setSettingsForm({
+                          ...settingsForm,
+                          nonWorkingDays: isSelected
+                            ? settingsForm.nonWorkingDays.filter((d) => d !== day.value)
+                            : [...settingsForm.nonWorkingDays, day.value].sort((a, b) => a - b),
+                        });
+                      }}
+                      disabled={wouldBeAllNonWorking}
+                      title={wouldBeAllNonWorking ? 'Phải có ít nhất 1 ngày làm việc trong tuần' : undefined}
+                      className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-red-100 border-red-300 text-red-700'
+                          : wouldBeAllNonWorking
+                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 Selected days (shown in red) will be skipped when calculating project end dates.
                 Default: Saturday and Sunday.
               </p>
+              {settingsForm.nonWorkingDays.length >= 6 && (
+                <p className="text-xs text-orange-600 mt-1">
+                  Phải có ít nhất 1 ngày làm việc trong tuần.
+                </p>
+              )}
             </div>
 
             {/* Holidays */}
