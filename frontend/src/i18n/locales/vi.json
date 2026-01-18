@@ -37,7 +37,10 @@
     "error": "Lỗi",
     "success": "Thành công",
     "warning": "Cảnh báo",
-    "info": "Thông tin"
+    "info": "Thông tin",
+    "created": "Ngày tạo",
+    "lastUpdated": "Cập nhật lần cuối",
+    "update": "Cập nhật"
   },
   "nav": {
     "dashboard": "Tổng quan",

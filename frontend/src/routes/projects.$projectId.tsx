@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
 import {
   Card,
@@ -30,6 +31,7 @@ export const Route = createFileRoute('/projects/$projectId')({
 });
 
 function ProjectDetail() {
+  const { t } = useTranslation();
   const { projectId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -315,11 +317,11 @@ function ProjectDetail() {
   }
 
   const tabs = [
-    { id: 'overview' as const, name: 'Overview' },
-    { id: 'phases' as const, name: 'Phases' },
-    { id: 'screen-functions' as const, name: 'Screen/Function' },
-    { id: 'members' as const, name: 'Members' },
-    { id: 'settings' as const, name: 'Settings' },
+    { id: 'overview' as const, name: t('dashboard.overview') },
+    { id: 'phases' as const, name: t('nav.phases') },
+    { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
+    { id: 'members' as const, name: t('nav.members') },
+    { id: 'settings' as const, name: t('nav.settings') },
   ];
 
   // Filter screen functions
@@ -354,10 +356,10 @@ function ProjectDetail() {
           </div>
           <div className="flex gap-2">
             <Button onClick={() => setShowEditProject(true)}>
-              Edit Project
+              {t('project.edit')}
             </Button>
             <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-              Delete Project
+              {t('project.delete')}
             </Button>
           </div>
         </div>
@@ -366,7 +368,7 @@ function ProjectDetail() {
         <div className="mt-6">
           {/* Effort Unit Selector */}
           <div className="flex items-center justify-end mb-4 gap-2">
-            <span className="text-sm text-gray-500">Display effort in:</span>
+            <span className="text-sm text-gray-500">{t('settings.defaultEffortUnit')}:</span>
             <EffortUnitSelector value={effortUnit} onChange={setEffortUnit} />
           </div>
 
@@ -374,7 +376,7 @@ function ProjectDetail() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="text-sm text-gray-500">{t('common.status')}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <StatusBadge status={project.status as any} />
                     {projectMetrics && project.status !== projectMetrics.evaluatedStatus && (
@@ -406,7 +408,7 @@ function ProjectDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Progress</p>
+              <p className="text-sm text-gray-500">{t('common.progress')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {project.progress.toFixed(1)}%
               </p>
@@ -414,7 +416,7 @@ function ProjectDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Estimated Effort</p>
+              <p className="text-sm text-gray-500">{t('project.estimatedEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(project.estimatedEffort, 'man-month')}{' '}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -422,7 +424,7 @@ function ProjectDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Actual Effort</p>
+              <p className="text-sm text-gray-500">{t('project.actualEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(project.actualEffort, 'man-month')}{' '}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -443,12 +445,12 @@ function ProjectDetail() {
 
           {/* Project Health Metrics */}
           {projectMetrics && (
-            <Card title="Project Health" actions={
+            <Card title={t('report.overallHealth')} actions={
               <button
                 onClick={() => refetchMetrics()}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
-                Refresh
+                {t('common.update')}
               </button>
             }>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -457,7 +459,7 @@ function ProjectDetail() {
                   projectMetrics.schedule.spi >= 0.95 ? 'bg-green-50' :
                   projectMetrics.schedule.spi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
                 }`}>
-                  <p className="text-xs text-gray-500 mb-1">SPI (Schedule)</p>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.spi')} ({t('metrics.schedulePerformance')})</p>
                   <p className={`text-xl font-bold ${
                     projectMetrics.schedule.spi >= 0.95 ? 'text-green-700' :
                     projectMetrics.schedule.spi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
@@ -472,7 +474,7 @@ function ProjectDetail() {
                   projectMetrics.schedule.cpi >= 0.95 ? 'bg-green-50' :
                   projectMetrics.schedule.cpi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
                 }`}>
-                  <p className="text-xs text-gray-500 mb-1">CPI (Cost)</p>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.cpi')} ({t('metrics.costPerformance')})</p>
                   <p className={`text-xl font-bold ${
                     projectMetrics.schedule.cpi >= 0.95 ? 'text-green-700' :
                     projectMetrics.schedule.cpi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
@@ -487,7 +489,7 @@ function ProjectDetail() {
                   projectMetrics.schedule.delayRate <= 5 ? 'bg-green-50' :
                   projectMetrics.schedule.delayRate <= 20 ? 'bg-yellow-50' : 'bg-red-50'
                 }`}>
-                  <p className="text-xs text-gray-500 mb-1">Delay Rate</p>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.delayRate')}</p>
                   <p className={`text-xl font-bold ${
                     projectMetrics.schedule.delayRate <= 5 ? 'text-green-700' :
                     projectMetrics.schedule.delayRate <= 20 ? 'text-yellow-700' : 'text-red-700'
@@ -503,7 +505,7 @@ function ProjectDetail() {
                   projectMetrics.testing.passRate >= 95 ? 'bg-green-50' :
                   projectMetrics.testing.passRate >= 80 ? 'bg-yellow-50' : 'bg-red-50'
                 }`}>
-                  <p className="text-xs text-gray-500 mb-1">Pass Rate</p>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.passRate')}</p>
                   <p className={`text-xl font-bold ${
                     projectMetrics.testing.totalTestCases === 0 ? 'text-gray-400' :
                     projectMetrics.testing.passRate >= 95 ? 'text-green-700' :
@@ -580,30 +582,30 @@ function ProjectDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <Card title="Project Information">
+          <Card title={t('project.overview')}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Start Date</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('project.startDate')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.startDate), 'MMM dd, yyyy')}
                 </dd>
               </div>
               {project.endDate && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">End Date</dt>
+                  <dt className="text-sm font-medium text-gray-500">{t('project.endDate')}</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {format(new Date(project.endDate), 'MMM dd, yyyy')}
                   </dd>
                 </div>
               )}
               <div>
-                <dt className="text-sm font-medium text-gray-500">Created</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('common.created')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.createdAt), 'MMM dd, yyyy')}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('common.lastUpdated')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.updatedAt), 'MMM dd, yyyy')}
                 </dd>
@@ -611,7 +613,7 @@ function ProjectDetail() {
             </dl>
           </Card>
 
-          <Card title="Phases Overview">
+          <Card title={t('phase.phaseProgress')}>
             {phases && phases.length > 0 ? (
               <div className="space-y-4">
                 {phases.map((phase) => (
