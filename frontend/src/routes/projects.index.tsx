@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { projectApi } from '../services/api'
 import { format } from 'date-fns'
-import { Button, Modal } from '../components/common'
+import { Button, Modal, LoadingSpinner } from '../components/common'
 import { ProjectForm } from '../components/forms/ProjectForm'
 
 export const Route = createFileRoute('/projects/')({
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/projects/')({
 })
 
 function ProjectsList() {
+  const { t } = useTranslation()
   const [showAddProject, setShowAddProject] = useState(false)
 
   const { data: projects, isLoading } = useQuery({
@@ -21,10 +23,19 @@ function ProjectsList() {
     },
   })
 
+  const getStatusTranslation = (status: string) => {
+    switch (status) {
+      case 'Good': return t('project.statusGood')
+      case 'Warning': return t('project.statusWarning')
+      case 'At Risk': return t('project.statusAtRisk')
+      default: return status
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading...</div>
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
@@ -33,14 +44,14 @@ function ProjectsList() {
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('project.title')}</h1>
           <p className="mt-2 text-sm text-gray-700">
-            A list of all projects including their status, progress, and effort metrics
+            {t('project.list')}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
           <Button onClick={() => setShowAddProject(true)}>
-            Add Project
+            {t('project.create')}
           </Button>
         </div>
       </div>
@@ -53,25 +64,25 @@ function ProjectsList() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                      Name
+                      {t('common.name')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Status
+                      {t('common.status')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Progress
+                      {t('common.progress')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Estimated
+                      {t('project.estimatedEffort')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Actual
+                      {t('project.actualEffort')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Start Date
+                      {t('project.startDate')}
                     </th>
                     <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{t('common.actions')}</span>
                     </th>
                   </tr>
                 </thead>
@@ -89,7 +100,7 @@ function ProjectsList() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <span className={`status-${project.status.toLowerCase().replace(` `, `-`)}`}>
-                          {project.status}
+                          {getStatusTranslation(project.status)}
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -104,10 +115,10 @@ function ProjectsList() {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {project.estimatedEffort} MM
+                        {project.estimatedEffort} {t('time.mm')}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {project.actualEffort} MM
+                        {project.actualEffort} {t('time.mm')}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {format(new Date(project.startDate), 'MMM dd, yyyy')}
@@ -118,7 +129,7 @@ function ProjectsList() {
                           params={{ projectId: project.id.toString() }}
                           className="text-primary-600 hover:text-primary-900"
                         >
-                          View
+                          {t('common.view')}
                         </Link>
                       </td>
                     </tr>
@@ -132,7 +143,7 @@ function ProjectsList() {
 
       {projects?.length === 0 && (
         <div className="mt-8 text-center">
-          <p className="text-gray-500">No projects found. Create your first project to get started.</p>
+          <p className="text-gray-500">{t('project.noProjects')}. {t('project.createFirst')}</p>
         </div>
       )}
 
@@ -140,7 +151,7 @@ function ProjectsList() {
       <Modal
         isOpen={showAddProject}
         onClose={() => setShowAddProject(false)}
-        title="Create New Project"
+        title={t('project.create')}
       >
         <ProjectForm
           onSuccess={() => setShowAddProject(false)}
