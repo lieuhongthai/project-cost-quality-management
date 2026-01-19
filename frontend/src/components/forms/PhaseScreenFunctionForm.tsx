@@ -4,6 +4,7 @@ import { phaseScreenFunctionApi, memberApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
 import type { PhaseScreenFunction, PhaseScreenFunctionStatus, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, EFFORT_UNIT_LABELS, convertEffort, formatEffort } from '@/utils/effortUtils';
+import { useTranslation } from 'react-i18next';
 
 interface PhaseScreenFunctionFormProps {
   phaseId: number;
@@ -15,13 +16,6 @@ interface PhaseScreenFunctionFormProps {
   onCancel: () => void;
 }
 
-const STATUS_OPTIONS: { value: PhaseScreenFunctionStatus; label: string }[] = [
-  { value: 'Not Started', label: 'Not Started' },
-  { value: 'In Progress', label: 'In Progress' },
-  { value: 'Completed', label: 'Completed' },
-  { value: 'Skipped', label: 'Skipped' },
-];
-
 export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = ({
   phaseId,
   projectId,
@@ -31,6 +25,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Convert existing effort from man-hours to display unit for editing
@@ -62,7 +57,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
 
   // Create member options for select dropdown
   const memberOptions = [
-    { value: '', label: 'Unassigned' },
+    { value: '', label: t('phase.detail.screenFunctions.unassigned') },
     ...(members?.filter(m => m.status === 'Active').map(m => ({
       value: String(m.id),
       label: `${m.name} (${m.role})`,
@@ -89,15 +84,15 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
     const newErrors: Record<string, string> = {};
 
     if (formData.estimatedEffort < 0) {
-      newErrors.estimatedEffort = 'Estimated effort cannot be negative';
+      newErrors.estimatedEffort = t('phaseScreenFunction.form.validation.estimatedNonNegative');
     }
 
     if (formData.actualEffort < 0) {
-      newErrors.actualEffort = 'Actual effort cannot be negative';
+      newErrors.actualEffort = t('phaseScreenFunction.form.validation.actualNonNegative');
     }
 
     if (formData.progress < 0 || formData.progress > 100) {
-      newErrors.progress = 'Progress must be between 0 and 100';
+      newErrors.progress = t('phaseScreenFunction.form.validation.progressRange');
     }
 
     setErrors(newErrors);
@@ -171,24 +166,33 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
 
   const isLoading = updateMutation.isPending;
 
-  const screenFunctionName = phaseScreenFunction.screenFunction?.name || 'Unknown';
+  const screenFunctionName = phaseScreenFunction.screenFunction?.name || t('common.unknown');
   const screenFunctionType = phaseScreenFunction.screenFunction?.type || 'Screen';
+
+  const statusOptions: { value: PhaseScreenFunctionStatus; label: string }[] = [
+    { value: 'Not Started', label: t('screenFunction.statusNotStarted') },
+    { value: 'In Progress', label: t('screenFunction.statusInProgress') },
+    { value: 'Completed', label: t('screenFunction.statusCompleted') },
+    { value: 'Skipped', label: t('screenFunction.statusSkipped') },
+  ];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-gray-50 p-3 rounded-lg mb-4">
-        <p className="text-sm text-gray-500">Screen/Function</p>
+        <p className="text-sm text-gray-500">{t('screenFunction.title')}</p>
         <p className="font-medium">
           {screenFunctionName}
           <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">
-            {screenFunctionType}
+            {screenFunctionType === 'Screen' ? t('screenFunction.typeScreen') : t('screenFunction.typeFunction')}
           </span>
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+          label={t('phaseScreenFunction.form.estimatedEffortLabel', {
+            unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+          })}
           name="estimatedEffort"
           type="number"
           step="0.01"
@@ -200,7 +204,9 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
         />
 
         <Input
-          label={`Actual Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+          label={t('phaseScreenFunction.form.actualEffortLabel', {
+            unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+          })}
           name="actualEffort"
           type="number"
           step="0.01"
@@ -214,7 +220,7 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Progress (%)"
+          label={t('phaseScreenFunction.form.progress')}
           name="progress"
           type="number"
           step="1"
@@ -227,17 +233,17 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
         />
 
         <Select
-          label="Status"
+          label={t('common.status')}
           name="status"
           value={formData.status}
           onChange={handleChange}
-          options={STATUS_OPTIONS}
+          options={statusOptions}
           disabled={isLoading}
         />
       </div>
 
       <Select
-        label="Assignee"
+        label={t('screenFunction.assignee')}
         name="assigneeId"
         value={String(formData.assigneeId)}
         onChange={handleChange}
@@ -252,19 +258,21 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
             ? 'bg-red-50 text-red-700'
             : 'bg-green-50 text-green-700'
         }`}>
-          Variance: {formatEffort(formData.actualEffort - formData.estimatedEffort, effortUnit)} {EFFORT_UNIT_LABELS[effortUnit]}
-          ({formData.estimatedEffort > 0
-            ? (((formData.actualEffort - formData.estimatedEffort) / formData.estimatedEffort) * 100).toFixed(1)
-            : 0}%)
+          {t('phaseScreenFunction.form.variance', {
+            effort: `${formatEffort(formData.actualEffort - formData.estimatedEffort, effortUnit)} ${EFFORT_UNIT_LABELS[effortUnit]}`,
+            percent: formData.estimatedEffort > 0
+              ? (((formData.actualEffort - formData.estimatedEffort) / formData.estimatedEffort) * 100).toFixed(1)
+              : '0',
+          })}
         </div>
       )}
 
       <TextArea
-        label="Note"
+        label={t('screenFunction.note')}
         name="note"
         value={formData.note}
         onChange={handleChange}
-        placeholder="Add any notes for this phase..."
+        placeholder={t('phaseScreenFunction.form.notePlaceholder')}
         rows={2}
         disabled={isLoading}
       />
@@ -276,14 +284,14 @@ export const PhaseScreenFunctionForm: React.FC<PhaseScreenFunctionFormProps> = (
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          Update
+          {t('common.update')}
         </Button>
       </div>
     </form>

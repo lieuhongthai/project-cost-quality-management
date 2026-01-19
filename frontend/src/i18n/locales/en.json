@@ -92,7 +92,24 @@
     "metrics": "Project Metrics",
     "statusGood": "Good",
     "statusWarning": "Warning",
-    "statusAtRisk": "At Risk"
+    "statusAtRisk": "At Risk",
+    "validation": {
+      "nameRequired": "Project name is required",
+      "startDateRequired": "Start date is required",
+      "estimatedEffortPositive": "Estimated effort must be greater than 0",
+      "endDateAfterStart": "End date must be after start date"
+    },
+    "form": {
+      "estimatedEffortLabel": "Estimated Effort ({{unit}})",
+      "suggestedEndDate": "Suggested End Date",
+      "endDateApplied": "End Date Applied",
+      "unableToCalculate": "Unable to calculate",
+      "suggestedEndDateHint": "Based on {{days}} working days",
+      "useSuggestedDate": "Use this date",
+      "applied": "Applied!",
+      "create": "Create Project",
+      "update": "Update Project"
+    }
   },
   "phase": {
     "title": "Phases",
@@ -250,7 +267,31 @@
     "noScreenFunctions": "No screen/function yet",
     "noScreenFunctionsDesc": "Add screens and functions to track detailed effort per phase",
     "searchPlaceholder": "Search by name...",
-    "confirmDelete": "Are you sure you want to delete this item?"
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "form": {
+      "namePlaceholder": "Enter screen/function name",
+      "estimatedEffortLabel": "Estimated Effort ({{unit}})",
+      "estimatedEffortPlaceholder": "Total estimated effort across all phases",
+      "descriptionPlaceholder": "Describe the screen/function...",
+      "validation": {
+        "nameRequired": "Name is required",
+        "typeRequired": "Type is required"
+      }
+    }
+  },
+  "phaseScreenFunction": {
+    "form": {
+      "estimatedEffortLabel": "Estimated Effort ({{unit}})",
+      "actualEffortLabel": "Actual Effort ({{unit}})",
+      "progress": "Progress (%)",
+      "notePlaceholder": "Add any notes for this phase...",
+      "variance": "Variance: {{effort}} ({{percent}}%)",
+      "validation": {
+        "estimatedNonNegative": "Estimated effort cannot be negative",
+        "actualNonNegative": "Actual effort cannot be negative",
+        "progressRange": "Progress must be between 0 and 100"
+      }
+    }
   },
   "member": {
     "title": "Members",
@@ -311,7 +352,19 @@
     "totalAssigned": "tasks",
     "done": "done",
     "active": "active",
-    "noTasks": "No tasks"
+    "noTasks": "No tasks",
+    "form": {
+      "namePlaceholder": "Enter member name",
+      "emailPlaceholder": "Enter email address",
+      "yearsPlaceholder": "Years of experience",
+      "hourlyRatePlaceholder": "Hourly rate",
+      "skillsPlaceholder": "e.g., React, Node.js, TypeScript",
+      "validation": {
+        "nameRequired": "Name is required",
+        "roleRequired": "Role is required",
+        "emailInvalid": "Invalid email format"
+      }
+    }
   },
   "report": {
     "title": "Reports",
@@ -525,6 +578,31 @@
     "savingsVsBudget": "savings {{value}} MM compared to budget",
     "overrunVsBudget": "overrun {{value}} MM ({{percent}}%) compared to budget"
   },
+  "commentary": {
+    "form": {
+      "aiTitle": "AI-Generated Commentary",
+      "aiDescription": "Let AI analyze your metrics and provide insights automatically",
+      "selectLanguage": "Select Language",
+      "languageEnglish": "English",
+      "languageVietnamese": "Vietnamese",
+      "languageJapanese": "Japanese",
+      "generateAi": "Generate AI Commentary",
+      "aiConfirm": "Generate AI commentary for this report?",
+      "or": "OR",
+      "manualTitle": "Write Manual Commentary",
+      "manualUpdateTitle": "Update Commentary",
+      "manualDescription": "Provide your own analysis and recommendations",
+      "contentLabel": "Commentary Content",
+      "contentHelper": "Provide detailed analysis, observations, and recommendations",
+      "authorLabel": "Author (Optional)",
+      "authorPlaceholder": "Your name",
+      "addAction": "📝 Add Commentary",
+      "updateAction": "💾 Update Commentary",
+      "validation": {
+        "contentRequired": "Commentary content is required"
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "projectSettings": "Project Settings",
@@ -581,6 +659,23 @@
     "manMonths": "man-months",
     "mm": "MM"
   },
+  "effort": {
+    "form": {
+      "weekStartDate": "Week Start Date",
+      "weekStartHelper": "Enter date in yyyy/mm/dd format (e.g., 2024/01/15)",
+      "plannedEffort": "Planned Effort ({{unit}})",
+      "actualEffort": "Actual Effort ({{unit}})",
+      "progress": "Progress (%)",
+      "add": "Add Effort",
+      "update": "Update Effort",
+      "validation": {
+        "weekStartRequired": "Week start date is required",
+        "plannedNonNegative": "Planned effort cannot be negative",
+        "actualNonNegative": "Actual effort cannot be negative",
+        "progressRange": "Progress must be between 0 and 100"
+      }
+    }
+  },
   "testing": {
     "title": "Testing",
     "totalTestCases": "Total Test Cases",
@@ -590,6 +685,20 @@
     "testingTime": "Testing Time",
     "passRate": "Pass Rate",
     "defectRate": "Defect Rate",
-    "noTestingData": "No testing data available"
+    "noTestingData": "No testing data available",
+    "form": {
+      "weekStartDate": "Week Start Date",
+      "weekStartHelper": "Enter date in yyyy/mm/dd format (e.g., 2024/01/15)",
+      "testingTimeHours": "Testing Time (Hours)",
+      "add": "Add Testing Data",
+      "update": "Update Testing Data",
+      "validation": {
+        "weekStartRequired": "Week start date is required",
+        "totalTestCasesPositive": "Total test cases must be greater than 0",
+        "passFailTotal": "Passed + Failed cannot exceed total test cases",
+        "testingTimeNonNegative": "Testing time cannot be negative",
+        "defectsNonNegative": "Defects detected cannot be negative"
+      }
+    }
   }
 }

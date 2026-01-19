@@ -6,6 +6,7 @@ import type { Project, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 import { DEFAULT_NON_WORKING_DAYS } from '@/types';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface ProjectFormProps {
   project?: Project;
@@ -22,6 +23,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Convert existing effort from man-months to display unit for editing
@@ -118,20 +120,20 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Project name is required';
+      newErrors.name = t('project.validation.nameRequired');
     }
 
     if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required';
+      newErrors.startDate = t('project.validation.startDateRequired');
     }
 
     if (formData.estimatedEffort <= 0) {
-      newErrors.estimatedEffort = 'Estimated effort must be greater than 0';
+      newErrors.estimatedEffort = t('project.validation.estimatedEffortPositive');
     }
 
     if (formData.endDate && formData.startDate) {
       if (new Date(formData.endDate) < new Date(formData.startDate)) {
-        newErrors.endDate = 'End date must be after start date';
+        newErrors.endDate = t('project.validation.endDateAfterStart');
       }
     }
 
@@ -207,7 +209,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
-        label="Project Name"
+        label={t('project.name')}
         name="name"
         value={formData.name}
         onChange={handleChange}
@@ -217,7 +219,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       />
 
       <TextArea
-        label="Description"
+        label={t('project.description')}
         name="description"
         value={formData.description}
         onChange={handleChange}
@@ -226,7 +228,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
 
       <div className="grid grid-cols-2 gap-4">
         <DateInput
-          label="Start Date"
+          label={t('project.startDate')}
           name="startDate"
           value={formData.startDate}
           onChange={handleChange}
@@ -236,7 +238,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
         />
 
         <DateInput
-          label="End Date"
+          label={t('project.endDate')}
           name="endDate"
           value={formData.endDate}
           onChange={handleChange}
@@ -246,7 +248,9 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
       </div>
 
       <Input
-        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+        label={t('project.form.estimatedEffortLabel', {
+          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+        })}
         name="estimatedEffort"
         type="number"
         step="0.01"
@@ -267,19 +271,23 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <p className={`text-sm font-medium ${suggestionUsed ? 'text-green-700' : 'text-blue-700'}`}>
-                {suggestionUsed ? 'End Date Applied' : 'Suggested End Date'}
+                {suggestionUsed
+                  ? t('project.form.endDateApplied')
+                  : t('project.form.suggestedEndDate')}
               </p>
               {isCalculating ? (
-                <p className="text-sm text-blue-600">Calculating...</p>
+                <p className="text-sm text-blue-600">{t('common.loading')}</p>
               ) : suggestedEndDate ? (
                 <p className={`text-lg font-semibold ${suggestionUsed ? 'text-green-800' : 'text-blue-800'}`}>
                   {formatSuggestedDate(suggestedEndDate)}
                 </p>
               ) : (
-                <p className="text-sm text-gray-500">Unable to calculate</p>
+                <p className="text-sm text-gray-500">{t('project.form.unableToCalculate')}</p>
               )}
               <p className={`text-xs mt-1 ${suggestionUsed ? 'text-green-500' : 'text-blue-500'}`}>
-                Based on {Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings))} working days
+                {t('project.form.suggestedEndDateHint', {
+                  days: Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings)),
+                })}
               </p>
             </div>
             {suggestedEndDate && !suggestionUsed && (
@@ -289,11 +297,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
                 onClick={useSuggestedDate}
                 disabled={isCalculating}
               >
-                Use this date
+                {t('project.form.useSuggestedDate')}
               </Button>
             )}
             {suggestionUsed && (
-              <span className="text-green-600 text-sm font-medium">Applied!</span>
+              <span className="text-green-600 text-sm font-medium">{t('project.form.applied')}</span>
             )}
           </div>
         </div>
@@ -306,14 +314,14 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {project ? 'Update Project' : 'Create Project'}
+          {project ? t('project.form.update') : t('project.form.create')}
         </Button>
       </div>
     </form>

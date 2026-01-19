@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { commentaryApi } from '@/services/api';
 import { Button, TextArea } from '../common';
 import type { Commentary } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface CommentaryFormProps {
   reportId: number;
@@ -17,6 +18,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     content: commentary?.content || '',
@@ -56,7 +58,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.content.trim()) {
-      newErrors.content = 'Commentary content is required';
+      newErrors.content = t('commentary.form.validation.contentRequired');
     }
 
     setErrors(newErrors);
@@ -84,7 +86,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
   };
 
   const handleGenerateAI = () => {
-    if (window.confirm('Generate AI commentary for this report?')) {
+    if (window.confirm(t('commentary.form.aiConfirm'))) {
       generateAIMutation.mutate();
     }
   };
@@ -108,10 +110,10 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             <span className="text-3xl">🤖</span>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                AI-Generated Commentary
+                {t('commentary.form.aiTitle')}
               </h3>
               <p className="text-sm text-gray-600">
-                Let AI analyze your metrics and provide insights automatically
+                {t('commentary.form.aiDescription')}
               </p>
             </div>
           </div>
@@ -119,7 +121,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Language
+                {t('commentary.form.selectLanguage')}
               </label>
               <div className="grid grid-cols-3 gap-3">
                 <button
@@ -133,7 +135,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <span className="text-xl">🇬🇧</span>
-                  <span>English</span>
+                  <span>{t('commentary.form.languageEnglish')}</span>
                 </button>
                 <button
                   type="button"
@@ -146,7 +148,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <span className="text-xl">🇻🇳</span>
-                  <span>Tiếng Việt</span>
+                  <span>{t('commentary.form.languageVietnamese')}</span>
                 </button>
                 <button
                   type="button"
@@ -159,7 +161,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <span className="text-xl">🇯🇵</span>
-                  <span>日本語</span>
+                  <span>{t('commentary.form.languageJapanese')}</span>
                 </button>
               </div>
             </div>
@@ -173,7 +175,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             >
               <span className="flex items-center justify-center gap-2">
                 <span>✨</span>
-                <span>Generate AI Commentary</span>
+                <span>{t('commentary.form.generateAi')}</span>
               </span>
             </Button>
           </div>
@@ -187,7 +189,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500 font-medium">OR</span>
+            <span className="px-4 bg-white text-gray-500 font-medium">{t('commentary.form.or')}</span>
           </div>
         </div>
       )}
@@ -199,17 +201,17 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             <span className="text-3xl">✍️</span>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                {commentary ? 'Update Commentary' : 'Write Manual Commentary'}
+                {commentary ? t('commentary.form.manualUpdateTitle') : t('commentary.form.manualTitle')}
               </h3>
               <p className="text-sm text-gray-600">
-                Provide your own analysis and recommendations
+                {t('commentary.form.manualDescription')}
               </p>
             </div>
           </div>
 
           <div className="space-y-4">
             <TextArea
-              label="Commentary Content"
+              label={t('commentary.form.contentLabel')}
               name="content"
               value={formData.content}
               onChange={handleChange}
@@ -217,12 +219,12 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
               required
               disabled={isLoading}
               rows={8}
-              helperText="Provide detailed analysis, observations, and recommendations"
+              helperText={t('commentary.form.contentHelper')}
             />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Author (Optional)
+                {t('commentary.form.authorLabel')}
               </label>
               <input
                 type="text"
@@ -230,7 +232,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
                 value={formData.author}
                 onChange={handleChange}
                 className="input w-full"
-                placeholder="Your name"
+                placeholder={t('commentary.form.authorPlaceholder')}
                 disabled={isLoading}
               />
             </div>
@@ -246,7 +248,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             disabled={isLoading}
             className="px-6"
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -254,7 +256,7 @@ export const CommentaryForm: React.FC<CommentaryFormProps> = ({
             disabled={isLoading}
             className="px-6 bg-blue-600 hover:bg-blue-700"
           >
-            {commentary ? '💾 Update Commentary' : '📝 Add Commentary'}
+            {commentary ? t('commentary.form.updateAction') : t('commentary.form.addAction')}
           </Button>
         </div>
       </form>

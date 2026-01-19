@@ -4,6 +4,7 @@ import { testingApi } from '@/services/api';
 import { Button, Input, DateInput } from '../common';
 import type { Testing } from '@/types';
 import { addDays, startOfWeek } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface TestingFormProps {
   phaseId: number;
@@ -18,6 +19,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     weekStartDate: testing?.weekStartDate ? testing.weekStartDate.split('T')[0] : '',
@@ -53,23 +55,23 @@ export const TestingForm: React.FC<TestingFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.weekStartDate) {
-      newErrors.weekStartDate = 'Week start date is required';
+      newErrors.weekStartDate = t('testing.form.validation.weekStartRequired');
     }
 
     if (formData.totalTestCases <= 0) {
-      newErrors.totalTestCases = 'Total test cases must be greater than 0';
+      newErrors.totalTestCases = t('testing.form.validation.totalTestCasesPositive');
     }
 
     if (formData.passedTestCases + formData.failedTestCases > formData.totalTestCases) {
-      newErrors.passedTestCases = 'Passed + Failed cannot exceed total test cases';
+      newErrors.passedTestCases = t('testing.form.validation.passFailTotal');
     }
 
     if (formData.testingTime < 0) {
-      newErrors.testingTime = 'Testing time cannot be negative';
+      newErrors.testingTime = t('testing.form.validation.testingTimeNonNegative');
     }
 
     if (formData.defectsDetected < 0) {
-      newErrors.defectsDetected = 'Defects detected cannot be negative';
+      newErrors.defectsDetected = t('testing.form.validation.defectsNonNegative');
     }
 
     setErrors(newErrors);
@@ -135,18 +137,18 @@ export const TestingForm: React.FC<TestingFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <DateInput
-        label="Week Start Date"
+        label={t('testing.form.weekStartDate')}
         name="weekStartDate"
         value={formData.weekStartDate}
         onChange={handleChange}
         error={errors.weekStartDate}
         required
         disabled={isLoading || !!testing}
-        helperText="Enter date in yyyy/mm/dd format (e.g., 2024/01/15)"
+        helperText={t('testing.form.weekStartHelper')}
       />
 
       <Input
-        label="Total Test Cases"
+        label={t('testing.totalTestCases')}
         name="totalTestCases"
         type="number"
         value={formData.totalTestCases}
@@ -158,7 +160,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Passed Test Cases"
+          label={t('testing.passed')}
           name="passedTestCases"
           type="number"
           value={formData.passedTestCases}
@@ -168,7 +170,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
         />
 
         <Input
-          label="Failed Test Cases"
+          label={t('testing.failed')}
           name="failedTestCases"
           type="number"
           value={formData.failedTestCases}
@@ -178,7 +180,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
       </div>
 
       <Input
-        label="Testing Time (Hours)"
+        label={t('testing.form.testingTimeHours')}
         name="testingTime"
         type="number"
         step="0.1"
@@ -189,7 +191,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
       />
 
       <Input
-        label="Defects Detected"
+        label={t('testing.defects')}
         name="defectsDetected"
         type="number"
         value={formData.defectsDetected}
@@ -205,14 +207,14 @@ export const TestingForm: React.FC<TestingFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {testing ? 'Update Testing Data' : 'Add Testing Data'}
+          {testing ? t('testing.form.update') : t('testing.form.add')}
         </Button>
       </div>
     </form>
