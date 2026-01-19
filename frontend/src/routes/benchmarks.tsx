@@ -133,6 +133,24 @@ function BenchmarksPage() {
         </div>
       </div>
 
+      <Card title={t('benchmark.explanationTitle')}>
+        <p className="text-sm text-gray-600">{t('benchmark.explanationBody')}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 p-4">
+            <p className="text-xs font-semibold uppercase text-gray-500">{t('benchmark.formulaLabel')}</p>
+            <p className="mt-2 text-sm text-gray-700">{t('benchmark.formulaDetail')}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <p className="text-xs font-semibold uppercase text-gray-500">{t('benchmark.componentsLabel')}</p>
+            <ul className="mt-2 space-y-1 text-sm text-gray-700">
+              <li>• {t('benchmark.componentsProgress')}</li>
+              <li>• {t('benchmark.componentsEffort')}</li>
+              <li>• {t('benchmark.componentsStatus')}</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
+
       <Card title={t('benchmark.selectTitle')}>
         <p className="text-sm text-gray-500 mb-4">{t('benchmark.selectHint')}</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
