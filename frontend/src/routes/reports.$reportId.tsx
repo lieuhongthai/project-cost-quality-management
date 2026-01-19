@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { reportApi, metricsApi, commentaryApi } from '@/services/api';
@@ -12,7 +12,9 @@ export const Route = createFileRoute('/reports/$reportId')({
 
 function ReportDetail() {
   const { reportId } = Route.useParams();
+  const navigate = useNavigate();
   const [showAddCommentary, setShowAddCommentary] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: report, isLoading } = useQuery({
@@ -66,6 +68,45 @@ function ReportDetail() {
     enabled: !!report,
   });
 
+  // Delete report mutation
+  const deleteReportMutation = useMutation({
+    mutationFn: () => reportApi.delete(parseInt(reportId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      navigate({ to: '/reports' });
+    },
+  });
+
+  // Get snapshot data from the report (frozen at time of creation)
+  // For new reports, use snapshot data. For old reports without snapshots, fall back to real-time
+  const hasSnapshot = report?.snapshotData && report?.snapshotAt;
+
+  // Fallback: Fetch real-time productivity metrics for old reports without snapshot
+  const { data: realtimeProductivity } = useQuery({
+    queryKey: ['productivity', report?.projectId],
+    queryFn: async () => {
+      if (!report?.projectId) return null;
+      const response = await metricsApi.getProjectProductivity(report.projectId);
+      return response.data;
+    },
+    enabled: !!report?.projectId && report?.scope === 'Project' && !hasSnapshot,
+  });
+
+  // Fallback: Fetch real-time member cost for old reports without snapshot
+  const { data: realtimeMemberCost } = useQuery({
+    queryKey: ['memberCost', report?.projectId],
+    queryFn: async () => {
+      if (!report?.projectId) return null;
+      const response = await metricsApi.getProjectMemberCost(report.projectId);
+      return response.data;
+    },
+    enabled: !!report?.projectId && report?.scope === 'Project' && !hasSnapshot,
+  });
+
+  // Use snapshot data if available, otherwise fall back to real-time
+  const productivity = hasSnapshot ? report?.snapshotData?.productivity : realtimeProductivity;
+  const memberCost = hasSnapshot ? report?.snapshotData?.memberCost : realtimeMemberCost;
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -112,18 +153,35 @@ function ReportDetail() {
   const getOverallHealth = () => {
     if (!metric) return { status: 'Unknown', color: 'bg-gray-500' };
 
-    const spi = metric.schedulePerformanceIndex;
     const cpi = metric.costPerformanceIndex;
     const passRate = metric.passRate;
-    const delayRate = metric.delayRate;
 
-    if (spi >= 0.95 && cpi >= 0.95 && passRate >= 95 && delayRate <= 5) {
-      return { status: 'Good', color: 'bg-green-500' };
-    }
-    if (spi < 0.80 || cpi < 0.80 || passRate < 80 || delayRate > 20) {
+    // Simplified logic matching Project status:
+    // 1. CPI (Efficiency) is the main metric
+    // 2. Pass Rate only considered if there is testing data (passRate > 0)
+
+    // Check for "At Risk" conditions
+    // CPI < 0.83 means > 20% over budget
+    // Pass Rate < 80% (only if there is testing data)
+    const hasBudgetRisk = cpi < 0.83;
+    const hasQualityRisk = passRate > 0 && passRate < 80;
+
+    if (hasBudgetRisk || hasQualityRisk) {
       return { status: 'At Risk', color: 'bg-red-500' };
     }
-    return { status: 'Warning', color: 'bg-yellow-500' };
+
+    // Check for "Warning" conditions
+    // CPI 0.83-1.0 means slightly over budget
+    // Pass Rate 80-95% (only if there is testing data)
+    const hasBudgetWarning = cpi >= 0.83 && cpi < 1.0;
+    const hasQualityWarning = passRate > 0 && passRate >= 80 && passRate < 95;
+
+    if (hasBudgetWarning || hasQualityWarning) {
+      return { status: 'Warning', color: 'bg-yellow-500' };
+    }
+
+    // Good: CPI >= 1.0 (efficient) AND quality is good or no testing data
+    return { status: 'Good', color: 'bg-green-500' };
   };
 
   const health = getOverallHealth();
@@ -144,16 +202,48 @@ function ReportDetail() {
               {report.weekNumber && <span>• Week {report.weekNumber}, {report.year}</span>}
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
+            {/* Snapshot indicator */}
+            {hasSnapshot && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Snapshot: {format(new Date(report.snapshotAt!), 'dd/MM/yyyy HH:mm')}
+                </span>
+                <span className="text-gray-400 text-xs">
+                  (Dữ liệu được lưu cố định tại thời điểm tạo báo cáo)
+                </span>
+              </div>
+            )}
+            {!hasSnapshot && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Real-time
+                </span>
+                <span className="text-gray-400 text-xs">
+                  (Báo cáo cũ - hiển thị dữ liệu thời gian thực)
+                </span>
+              </div>
+            )}
           </div>
-          {metric && (
-            <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Overall Health:</span>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold text-white ${health.color}`}>
-                <span className="h-2 w-2 bg-white rounded-full"></span>
-                {health.status}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {metric && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-700">Overall Health:</span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold text-white ${health.color}`}>
+                  <span className="h-2 w-2 bg-white rounded-full"></span>
+                  {health.status}
+                </span>
+              </div>
+            )}
+            <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+              Delete Report
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -217,22 +307,38 @@ function ReportDetail() {
                   <p className="text-sm font-medium text-gray-600">Test Pass Rate</p>
                   <span className="text-2xl">✅</span>
                 </div>
-                <p className={`text-4xl font-bold ${getPassRateColor(metric.passRate)}`}>
-                  {metric.passRate.toFixed(1)}%
-                </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  {metric.passRate >= 95 ? '✓ Excellent quality' : metric.passRate >= 80 ? '⚠ Acceptable' : '⚠ Needs attention'}
-                </p>
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Target: 95%+</span>
-                    <span>{metric.passRate >= 95 ? 'Good' : metric.passRate >= 80 ? 'Warning' : 'At Risk'}</span>
-                  </div>
-                  <ProgressBar
-                    progress={metric.passRate}
-                    className={metric.passRate >= 95 ? 'bg-green-500' : metric.passRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'}
-                  />
-                </div>
+                {metric.passRate > 0 ? (
+                  <>
+                    <p className={`text-4xl font-bold ${getPassRateColor(metric.passRate)}`}>
+                      {metric.passRate.toFixed(1)}%
+                    </p>
+                    <p className="mt-2 text-sm text-gray-500">
+                      {metric.passRate >= 95 ? '✓ Excellent quality' : metric.passRate >= 80 ? '⚠ Acceptable' : '⚠ Needs attention'}
+                    </p>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Target: 95%+</span>
+                        <span>{metric.passRate >= 95 ? 'Good' : metric.passRate >= 80 ? 'Warning' : 'At Risk'}</span>
+                      </div>
+                      <ProgressBar
+                        progress={metric.passRate}
+                        className={metric.passRate >= 95 ? 'bg-green-500' : metric.passRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-4xl font-bold text-gray-400">N/A</p>
+                    <p className="mt-2 text-sm text-gray-500">No testing data yet</p>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Target: 95%+</span>
+                        <span className="text-gray-400">--</span>
+                      </div>
+                      <ProgressBar progress={0} className="bg-gray-300" />
+                    </div>
+                  </>
+                )}
               </Card>
 
               {/* Delay Rate */}
@@ -261,41 +367,223 @@ function ReportDetail() {
             </div>
           </div>
 
-          {/* Detailed Metrics */}
+          {/* EVM Core Values */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Detailed Metrics</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Earned Value Management (EVM)</h2>
+            <p className="text-sm text-gray-500 mb-4">Core metrics for project performance tracking</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card className="bg-blue-50">
+                <p className="text-xs font-medium text-blue-600 mb-1">BAC</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}
+                </p>
+                <p className="text-xs text-blue-600">Budget at Completion</p>
+              </Card>
+
+              <Card className="bg-slate-50">
+                <p className="text-xs font-medium text-slate-600 mb-1">PV</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {metric.plannedValue.toFixed(2)}
+                </p>
+                <p className="text-xs text-slate-600">Planned Value</p>
+              </Card>
+
+              <Card className="bg-green-50">
+                <p className="text-xs font-medium text-green-600 mb-1">EV</p>
+                <p className="text-2xl font-bold text-green-900">
+                  {metric.earnedValue.toFixed(2)}
+                </p>
+                <p className="text-xs text-green-600">Earned Value</p>
+              </Card>
+
+              <Card className="bg-amber-50">
+                <p className="text-xs font-medium text-amber-600 mb-1">AC</p>
+                <p className="text-2xl font-bold text-amber-900">
+                  {metric.actualCost.toFixed(2)}
+                </p>
+                <p className="text-xs text-amber-600">Actual Cost</p>
+              </Card>
+
+              <Card className="bg-purple-50">
+                <p className="text-xs font-medium text-purple-600 mb-1">SPI = EV/PV</p>
+                <p className={`text-2xl font-bold ${getSPIColor(metric.schedulePerformanceIndex)}`}>
+                  {metric.schedulePerformanceIndex.toFixed(2)}
+                </p>
+                <p className="text-xs text-purple-600">Schedule Index</p>
+              </Card>
+
+              <Card className="bg-indigo-50">
+                <p className="text-xs font-medium text-indigo-600 mb-1">CPI = EV/AC</p>
+                <p className={`text-2xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
+                  {metric.costPerformanceIndex.toFixed(2)}
+                </p>
+                <p className="text-xs text-indigo-600">Cost Index</p>
+              </Card>
+            </div>
+          </div>
+
+          {/* Forecasting Section */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Project Forecasting</h2>
+            <p className="text-sm text-gray-500 mb-4">"Cuối cùng tốn bao nhiêu?" - Dự báo chi phí hoàn thành</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* EAC Card */}
+              <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-blue-700">Estimate at Completion (EAC)</p>
+                  <span className="text-xl">🎯</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-900">
+                  {(metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1))).toFixed(2)} MM
+                </p>
+                <p className="text-xs text-blue-600 mt-1">= AC + (BAC - EV) / CPI</p>
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>vs BAC: {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}</span>
+                    {(() => {
+                      const eac = metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1));
+                      const bac = metric.budgetAtCompletion || metric.plannedValue;
+                      const diff = ((eac - bac) / bac) * 100;
+                      return (
+                        <span className={diff > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                          {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <ProgressBar
+                    progress={Math.min(100, ((metric.estimateAtCompletion || metric.actualCost) / (metric.budgetAtCompletion || metric.plannedValue || 1)) * 100)}
+                    className={
+                      (metric.estimateAtCompletion || metric.actualCost) <= (metric.budgetAtCompletion || metric.plannedValue)
+                        ? 'bg-green-500'
+                        : (metric.estimateAtCompletion || metric.actualCost) <= (metric.budgetAtCompletion || metric.plannedValue) * 1.1
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                    }
+                  />
+                </div>
+              </Card>
+
+              {/* VAC Card */}
+              <Card>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Variance at Completion (VAC)</p>
+                  <span className="text-xl">📉</span>
+                </div>
+                {(() => {
+                  const vac = metric.varianceAtCompletion || ((metric.budgetAtCompletion || metric.plannedValue) - (metric.estimateAtCompletion || metric.actualCost));
+                  const isPositive = vac >= 0;
+                  return (
+                    <>
+                      <p className={`text-3xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isPositive ? '+' : ''}{vac.toFixed(2)} MM
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">= BAC - EAC</p>
+                      <div className="mt-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isPositive ? '✓ Under Budget' : '⚠ Over Budget'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Card>
+
+              {/* TCPI Card */}
+              <Card>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">To Complete Performance Index</p>
+                  <span className="text-xl">📈</span>
+                </div>
+                {(() => {
+                  const tcpi = metric.toCompletePerformanceIndex || ((metric.plannedValue - metric.earnedValue) / ((metric.budgetAtCompletion || metric.plannedValue) - metric.actualCost));
+                  const isAchievable = tcpi <= 1.1;
+                  const isHard = tcpi > 1.1 && tcpi <= 1.3;
+                  return (
+                    <>
+                      <p className={`text-3xl font-bold ${isAchievable ? 'text-green-600' : isHard ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {tcpi > 10 ? '>10' : tcpi.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">= (BAC - EV) / (BAC - AC)</p>
+                      <div className="mt-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          isAchievable ? 'bg-green-100 text-green-800' : isHard ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isAchievable ? '✓ Achievable' : isHard ? '⚠ Challenging' : '✗ Very Difficult'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Card>
+
+              {/* Status Summary */}
+              <Card className={`border-2 ${
+                (() => {
+                  const eac = metric.estimateAtCompletion || metric.actualCost;
+                  const bac = metric.budgetAtCompletion || metric.plannedValue;
+                  if (eac <= bac) return 'border-green-200 bg-green-50';
+                  if (eac <= bac * 1.1) return 'border-yellow-200 bg-yellow-50';
+                  return 'border-red-200 bg-red-50';
+                })()
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Budget Status</p>
+                  <span className="text-xl">💰</span>
+                </div>
+                {(() => {
+                  const eac = metric.estimateAtCompletion || metric.actualCost;
+                  const bac = metric.budgetAtCompletion || metric.plannedValue;
+                  const diff = eac - bac;
+                  const diffPercent = bac > 0 ? (diff / bac) * 100 : 0;
+
+                  let status, color, icon;
+                  if (diff <= 0) {
+                    status = 'Under Control';
+                    color = 'text-green-700';
+                    icon = '✓';
+                  } else if (diffPercent <= 10) {
+                    status = 'Slight Overrun';
+                    color = 'text-yellow-700';
+                    icon = '⚠';
+                  } else {
+                    status = 'Over Budget';
+                    color = 'text-red-700';
+                    icon = '✗';
+                  }
+
+                  return (
+                    <>
+                      <p className={`text-2xl font-bold ${color}`}>
+                        {icon} {status}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-2">
+                        {diff <= 0
+                          ? `Tiết kiệm được ${Math.abs(diff).toFixed(2)} MM`
+                          : `Vượt ${diff.toFixed(2)} MM (${diffPercent.toFixed(1)}%)`}
+                      </p>
+                    </>
+                  );
+                })()}
+              </Card>
+            </div>
+          </div>
+
+          {/* Quality Metrics */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Quality Metrics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📊</span>
-                  <p className="text-sm font-medium text-gray-600">Planned Value</p>
+                  <span className="text-lg">✅</span>
+                  <p className="text-sm font-medium text-gray-600">Pass Rate</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.plannedValue.toFixed(2)} MM
+                <p className={`text-3xl font-bold ${metric.passRate > 0 ? getPassRateColor(metric.passRate) : 'text-gray-400'}`}>
+                  {metric.passRate > 0 ? `${metric.passRate.toFixed(1)}%` : 'N/A'}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Expected cost of work scheduled</p>
-              </Card>
-
-              <Card>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📈</span>
-                  <p className="text-sm font-medium text-gray-600">Earned Value</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.earnedValue.toFixed(2)} MM
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Value of work completed</p>
-              </Card>
-
-              <Card>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">💵</span>
-                  <p className="text-sm font-medium text-gray-600">Actual Cost</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {metric.actualCost.toFixed(2)} MM
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Actual cost incurred</p>
+                <p className="mt-1 text-xs text-gray-500">Test cases passed</p>
               </Card>
 
               <Card>
@@ -308,8 +596,407 @@ function ReportDetail() {
                 </p>
                 <p className="mt-1 text-xs text-gray-500">Defects per test case</p>
               </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⏱️</span>
+                  <p className="text-sm font-medium text-gray-600">Delay Rate</p>
+                </div>
+                <p className={`text-3xl font-bold ${getDelayRateColor(metric.delayRate)}`}>
+                  {metric.delayRate.toFixed(1)}%
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Tasks delayed</p>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚡</span>
+                  <p className="text-sm font-medium text-gray-600">Efficiency</p>
+                </div>
+                <p className={`text-3xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
+                  {(metric.costPerformanceIndex * 100).toFixed(0)}%
+                </p>
+                <p className="mt-1 text-xs text-gray-500">CPI as percentage</p>
+              </Card>
             </div>
           </div>
+
+          {/* Productivity Section - Only for Project reports */}
+          {productivity && productivity.byMember && productivity.byMember.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Team Productivity</h2>
+              <p className="text-sm text-gray-500 mb-4">Hiệu suất làm việc theo thành viên và vai trò</p>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <Card className="bg-gradient-to-br from-indigo-50 to-white">
+                  <p className="text-sm font-medium text-indigo-600">Team Efficiency</p>
+                  <p className={`text-3xl font-bold ${productivity.summary.efficiency >= 1 ? 'text-green-600' : productivity.summary.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {(productivity.summary.efficiency * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500">Overall team efficiency</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Tasks Completed</p>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {productivity.summary.tasksCompleted}/{productivity.summary.tasksTotal}
+                  </p>
+                  <p className="text-xs text-gray-500">{productivity.summary.completionRate}% completion rate</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Avg. Effort/Task</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {productivity.summary.avgEffortPerTask.toFixed(1)}
+                  </p>
+                  <p className="text-xs text-gray-500">Man-hours per task</p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Variance</p>
+                  <p className={`text-3xl font-bold ${productivity.summary.variance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {productivity.summary.variance > 0 ? '+' : ''}{productivity.summary.variancePercent}%
+                  </p>
+                  <p className="text-xs text-gray-500">Actual vs Estimated</p>
+                </Card>
+              </div>
+
+              {/* Member Performance Table */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card title="By Member">
+                  <div className="overflow-x-auto max-h-64">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Member</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {productivity.byMember.slice(0, 10).map((member: any) => (
+                          <tr key={member.memberId} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 font-medium text-gray-900">{member.name}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">{member.role}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {member.tasksCompleted}/{member.tasksTotal}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className={`font-semibold ${member.efficiency >= 1 ? 'text-green-600' : member.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {(member.efficiency * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+
+                <Card title="By Role">
+                  <div className="overflow-x-auto max-h-64">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Members</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Avg/Task</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {productivity.byRole.map((role: any) => (
+                          <tr key={role.role} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 font-medium text-gray-900">{role.role}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">{role.memberCount}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {role.tasksCompleted}/{role.tasksTotal}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {role.avgEffortPerTask.toFixed(1)}h
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <span className={`font-semibold ${role.efficiency >= 1 ? 'text-green-600' : role.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {(role.efficiency * 100).toFixed(0)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Member Cost Analysis - Only shows if members have hourly rates */}
+          {memberCost && memberCost.byMember && memberCost.byMember.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">💵 Chi phí Nhân sự (Member Cost)</h2>
+              <p className="text-sm text-gray-500 mb-4">Chi phí thực tế dựa trên Hourly Rate và số giờ làm việc</p>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <Card className={`border-2 ${memberCost.insights.costStatus === 'under_budget' ? 'border-green-200 bg-green-50' : memberCost.insights.costStatus === 'slight_over' ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
+                  <p className="text-sm font-medium text-gray-600">Tổng chi phí thực tế</p>
+                  <p className={`text-3xl font-bold ${memberCost.insights.costStatus === 'under_budget' ? 'text-green-600' : memberCost.insights.costStatus === 'slight_over' ? 'text-yellow-600' : 'text-red-600'}`}>
+                    ${memberCost.summary.totalActualCost.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dự kiến: ${memberCost.summary.totalEstimatedCost.toLocaleString()}
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Chênh lệch chi phí</p>
+                  <p className={`text-3xl font-bold ${memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {memberCost.summary.totalCostVariance <= 0 ? '-' : '+'}${Math.abs(memberCost.summary.totalCostVariance).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {memberCost.summary.totalCostVariance <= 0 ? 'Tiết kiệm' : 'Vượt'} {Math.abs(memberCost.summary.totalCostVariancePercent)}% so với dự kiến
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Tổng giờ làm việc</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {memberCost.summary.totalActualHours.toLocaleString()}h
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dự kiến: {memberCost.summary.totalEstimatedHours.toLocaleString()}h
+                  </p>
+                </Card>
+
+                <Card>
+                  <p className="text-sm font-medium text-gray-600">Hiệu suất tổng thể</p>
+                  <p className={`text-3xl font-bold ${memberCost.summary.overallEfficiency >= 1 ? 'text-green-600' : memberCost.summary.overallEfficiency >= 0.8 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {(memberCost.summary.overallEfficiency * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {memberCost.summary.totalMembers} thành viên tham gia
+                  </p>
+                </Card>
+              </div>
+
+              {/* Insights - Top Performers & Need Support */}
+              {(memberCost.insights.topPerformers.length > 0 || memberCost.insights.needSupport.length > 0) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                  {memberCost.insights.topPerformers.length > 0 && (
+                    <Card className="bg-green-50 border border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">⭐</span>
+                        <h4 className="font-semibold text-green-800">Top Performers</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {memberCost.insights.topPerformers.map((member: any, idx: number) => (
+                          <div key={member.memberId} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                              <div>
+                                <p className="font-medium text-gray-900">{member.name}</p>
+                                <p className="text-xs text-gray-500">{member.role}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-green-600">{(member.efficiency * 100).toFixed(0)}%</p>
+                              <p className="text-xs text-gray-500">{member.efficiencyRating}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {memberCost.insights.needSupport.length > 0 && (
+                    <Card className="bg-orange-50 border border-orange-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">🤝</span>
+                        <h4 className="font-semibold text-orange-800">Cần hỗ trợ</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {memberCost.insights.needSupport.map((member: any) => (
+                          <div key={member.memberId} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                            <div>
+                              <p className="font-medium text-gray-900">{member.name}</p>
+                              <p className="text-xs text-gray-500">{member.role}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-orange-600">{(member.efficiency * 100).toFixed(0)}%</p>
+                              <p className="text-xs text-gray-500">{member.efficiencyRating}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-orange-700 mt-3">
+                        💡 Xem xét cung cấp thêm hướng dẫn hoặc đào tạo
+                      </p>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Member Cost Table */}
+              <Card title="Chi tiết theo thành viên">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">Thành viên</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">Vai trò</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Hourly Rate</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Giờ (Est/Act)</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-500">Hiệu suất</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {memberCost.byMember.map((member: any) => (
+                        <tr key={member.memberId} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-xs text-gray-500">{member.tasks.length} tasks</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700">{member.role}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            ${member.hourlyRate}/h
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            {member.totalEstimatedHours.toFixed(1)}h / {member.totalActualHours.toFixed(1)}h
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            ${member.totalEstimatedCost.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-gray-900">
+                            ${member.totalActualCost.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-medium ${member.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {member.costVariance <= 0 ? '-' : '+'}${Math.abs(member.costVariance).toLocaleString()}
+                            </span>
+                            <span className="text-xs text-gray-500 block">
+                              ({member.costVariancePercent > 0 ? '+' : ''}{member.costVariancePercent}%)
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              member.efficiencyColor === 'green' ? 'bg-green-100 text-green-800' :
+                              member.efficiencyColor === 'blue' ? 'bg-blue-100 text-blue-800' :
+                              member.efficiencyColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {(member.efficiency * 100).toFixed(0)}% - {member.efficiencyRating}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-semibold">
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 text-right text-gray-700">Tổng cộng:</td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          ${memberCost.summary.totalEstimatedCost.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-900">
+                          ${memberCost.summary.totalActualCost.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {memberCost.summary.totalCostVariance <= 0 ? '-' : '+'}${Math.abs(memberCost.summary.totalCostVariance).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            memberCost.summary.overallEfficiency >= 1 ? 'bg-green-100 text-green-800' :
+                            memberCost.summary.overallEfficiency >= 0.8 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {(memberCost.summary.overallEfficiency * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Phase Cost Breakdown */}
+              {memberCost.byPhase && memberCost.byPhase.length > 0 && (
+                <Card title="Chi phí theo Phase" className="mt-4">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">Phase</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Số thành viên</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {memberCost.byPhase.map((phase: any) => (
+                          <tr key={phase.phaseName} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{phase.phaseName}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{phase.memberCount}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">
+                              ${phase.estimatedCost.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-900">
+                              ${phase.actualCost.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className={`font-medium ${phase.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {phase.costVariance <= 0 ? '-' : '+'}${Math.abs(phase.costVariance).toLocaleString()}
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({phase.costVariancePercent > 0 ? '+' : ''}{phase.costVariancePercent}%)
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+
+              {/* Efficiency Legend */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-700 mb-2">📊 Cách đánh giá hiệu suất:</h4>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-semibold">≥120%</span>
+                    <span className="text-gray-600">Xuất sắc (làm nhanh hơn dự kiến)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">100-119%</span>
+                    <span className="text-gray-600">Tốt (đúng hoặc nhanh hơn)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">80-99%</span>
+                    <span className="text-gray-600">Đạt yêu cầu (chậm hơn một chút)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-red-100 text-red-800 font-semibold">&lt;80%</span>
+                    <span className="text-gray-600">Cần cải thiện</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Công thức: Hiệu suất = (Giờ dự kiến / Giờ thực tế) × 100%. Hiệu suất &gt; 100% nghĩa là làm nhanh hơn dự kiến.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Summary Insights */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500">
@@ -333,10 +1020,12 @@ function ReportDetail() {
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>•</span>
+                    <span className={`mt-0.5 ${metric.passRate > 0 ? (metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-400'}`}>•</span>
                     <span>
-                      <strong>Quality:</strong> Test pass rate is {metric.passRate.toFixed(1)}%
-                      ({metric.passRate >= 95 ? 'excellent' : metric.passRate >= 80 ? 'acceptable' : 'needs improvement'})
+                      <strong>Quality:</strong>{' '}
+                      {metric.passRate > 0
+                        ? `Test pass rate is ${metric.passRate.toFixed(1)}% (${metric.passRate >= 95 ? 'excellent' : metric.passRate >= 80 ? 'acceptable' : 'needs improvement'})`
+                        : 'No testing data available yet'}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -345,6 +1034,25 @@ function ReportDetail() {
                       <strong>Delays:</strong> {metric.delayRate.toFixed(1)}% of tasks are delayed
                       ({metric.delayRate <= 5 ? 'minimal impact' : metric.delayRate <= 20 ? 'moderate impact' : 'significant impact'})
                     </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    {(() => {
+                      const eac = metric.estimateAtCompletion || metric.actualCost;
+                      const bac = metric.budgetAtCompletion || metric.plannedValue;
+                      const diff = eac - bac;
+                      const isUnder = diff <= 0;
+                      return (
+                        <>
+                          <span className={`mt-0.5 ${isUnder ? 'text-green-600' : 'text-red-600'}`}>•</span>
+                          <span>
+                            <strong>Forecast:</strong> Dự kiến hoàn thành với {eac.toFixed(2)} MM
+                            ({isUnder
+                              ? `tiết kiệm ${Math.abs(diff).toFixed(2)} MM so với budget`
+                              : `vượt ${diff.toFixed(2)} MM (${((diff / bac) * 100).toFixed(1)}%) so với budget`})
+                          </span>
+                        </>
+                      );
+                    })()}
                   </li>
                 </ul>
               </div>
@@ -428,6 +1136,57 @@ function ReportDetail() {
           onSuccess={() => setShowAddCommentary(false)}
           onCancel={() => setShowAddCommentary(false)}
         />
+      </Modal>
+
+      {/* Delete Report Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Report"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete the report <strong>"{report.title}"</strong>?
+          </p>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-yellow-800 font-medium">Warning</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  This action will permanently delete the report and all associated data including:
+                </p>
+                <ul className="text-yellow-700 text-sm mt-2 ml-4 list-disc">
+                  <li>All metrics calculated for this report</li>
+                  <li>All commentaries and analysis</li>
+                </ul>
+                <p className="text-yellow-700 text-sm mt-2 font-medium">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteReportMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteReportMutation.mutate()}
+              loading={deleteReportMutation.isPending}
+            >
+              Delete Report
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -1,7 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { projectApi, phaseApi, screenFunctionApi, memberApi } from '@/services/api';
+import { useTranslation } from 'react-i18next';
+import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -11,6 +12,7 @@ import {
   Modal,
   EmptyState,
   Input,
+  HolidayImportDialog,
 } from '@/components/common';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
@@ -29,10 +31,13 @@ export const Route = createFileRoute('/projects/$projectId')({
 });
 
 function ProjectDetail() {
+  const { t } = useTranslation();
   const { projectId } = Route.useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'members' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [editingPhase, setEditingPhase] = useState<any>(null);
   const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
@@ -62,6 +67,7 @@ function ProjectDetail() {
     holidays: [] as string[],
   });
   const [newHoliday, setNewHoliday] = useState('');
+  const [showHolidayImport, setShowHolidayImport] = useState(false);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', parseInt(projectId)],
@@ -124,6 +130,24 @@ function ProjectDetail() {
     queryFn: async () => {
       const response = await projectApi.getSettings(parseInt(projectId));
       return response.data;
+    },
+  });
+
+  // Get real-time metrics for project status
+  const { data: projectMetrics, refetch: refetchMetrics } = useQuery({
+    queryKey: ['projectMetrics', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await metricsApi.getProjectRealTime(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  // Mutation to refresh/update project status
+  const refreshStatusMutation = useMutation({
+    mutationFn: () => metricsApi.refreshProjectStatus(parseInt(projectId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', parseInt(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['projectMetrics', parseInt(projectId)] });
     },
   });
 
@@ -216,6 +240,14 @@ function ProjectDetail() {
     },
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: () => projectApi.delete(parseInt(projectId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      navigate({ to: '/projects' });
+    },
+  });
+
   const handleDeletePhaseClick = async (phase: { id: number; name: string }) => {
     // Fetch phase stats to show warning about linked items
     try {
@@ -279,17 +311,17 @@ function ProjectDetail() {
   if (!project) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Project not found</p>
+        <p className="text-gray-500">{t('project.noProjects')}</p>
       </div>
     );
   }
 
   const tabs = [
-    { id: 'overview' as const, name: 'Overview' },
-    { id: 'phases' as const, name: 'Phases' },
-    { id: 'screen-functions' as const, name: 'Screen/Function' },
-    { id: 'members' as const, name: 'Members' },
-    { id: 'settings' as const, name: 'Settings' },
+    { id: 'overview' as const, name: t('dashboard.overview') },
+    { id: 'phases' as const, name: t('nav.phases') },
+    { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
+    { id: 'members' as const, name: t('nav.members') },
+    { id: 'settings' as const, name: t('nav.settings') },
   ];
 
   // Filter screen functions
@@ -322,16 +354,21 @@ function ProjectDetail() {
             <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
             <p className="mt-2 text-gray-600">{project.description}</p>
           </div>
-          <Button onClick={() => setShowEditProject(true)}>
-            Edit Project
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowEditProject(true)}>
+              {t('project.edit')}
+            </Button>
+            <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+              {t('project.delete')}
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="mt-6">
           {/* Effort Unit Selector */}
           <div className="flex items-center justify-end mb-4 gap-2">
-            <span className="text-sm text-gray-500">Display effort in:</span>
+            <span className="text-sm text-gray-500">{t('settings.defaultEffortUnit')}:</span>
             <EffortUnitSelector value={effortUnit} onChange={setEffortUnit} />
           </div>
 
@@ -339,16 +376,39 @@ function ProjectDetail() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <div className="mt-1">
+                  <p className="text-sm text-gray-500">{t('common.status')}</p>
+                  <div className="mt-1 flex items-center gap-2">
                     <StatusBadge status={project.status as any} />
+                    {projectMetrics && project.status !== projectMetrics.evaluatedStatus && (
+                      <button
+                        onClick={() => refreshStatusMutation.mutate()}
+                        disabled={refreshStatusMutation.isPending}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        title={t('metrics.statusChanged')}
+                      >
+                        {refreshStatusMutation.isPending ? t('common.loading') : t('common.update')}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
+              {/* Status reason hint */}
+              {projectMetrics?.statusReasons && (
+                <div className="mt-2 text-xs">
+                  {projectMetrics.statusReasons.filter((r: any) => r.type !== 'good').slice(0, 1).map((r: any, i: number) => (
+                    <span key={i} className={r.type === 'risk' ? 'text-red-600' : 'text-yellow-600'}>
+                      {r.message}
+                    </span>
+                  ))}
+                  {projectMetrics.statusReasons.every((r: any) => r.type === 'good') && (
+                    <span className="text-green-600">{t('metrics.allMetricsGood')}</span>
+                  )}
+                </div>
+              )}
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Progress</p>
+              <p className="text-sm text-gray-500">{t('common.progress')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {project.progress.toFixed(1)}%
               </p>
@@ -356,7 +416,7 @@ function ProjectDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Estimated Effort</p>
+              <p className="text-sm text-gray-500">{t('project.estimatedEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(project.estimatedEffort, 'man-month')}{' '}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -364,7 +424,7 @@ function ProjectDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Actual Effort</p>
+              <p className="text-sm text-gray-500">{t('project.actualEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(project.actualEffort, 'man-month')}{' '}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -382,6 +442,121 @@ function ProjectDetail() {
               </p>
             </Card>
           </div>
+
+          {/* Project Health Metrics */}
+          {projectMetrics && (
+            <Card title={t('report.overallHealth')} actions={
+              <button
+                onClick={() => refetchMetrics()}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                {t('common.update')}
+              </button>
+            }>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {/* SPI */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.spi >= 0.95 ? 'bg-green-50' :
+                  projectMetrics.schedule.spi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.spi')} ({t('metrics.schedulePerformance')})</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.spi >= 0.95 ? 'text-green-700' :
+                    projectMetrics.schedule.spi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.spi.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 0.95</p>
+                </div>
+
+                {/* CPI */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.cpi >= 0.95 ? 'bg-green-50' :
+                  projectMetrics.schedule.cpi >= 0.80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.cpi')} ({t('metrics.costPerformance')})</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.cpi >= 0.95 ? 'text-green-700' :
+                    projectMetrics.schedule.cpi >= 0.80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.cpi.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 0.95</p>
+                </div>
+
+                {/* Delay Rate */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.schedule.delayRate <= 5 ? 'bg-green-50' :
+                  projectMetrics.schedule.delayRate <= 20 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.delayRate')}</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.schedule.delayRate <= 5 ? 'text-green-700' :
+                    projectMetrics.schedule.delayRate <= 20 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.schedule.delayRate.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≤ 5%</p>
+                </div>
+
+                {/* Pass Rate */}
+                <div className={`p-3 rounded-lg ${
+                  projectMetrics.testing.totalTestCases === 0 ? 'bg-gray-50' :
+                  projectMetrics.testing.passRate >= 95 ? 'bg-green-50' :
+                  projectMetrics.testing.passRate >= 80 ? 'bg-yellow-50' : 'bg-red-50'
+                }`}>
+                  <p className="text-xs text-gray-500 mb-1">{t('metrics.passRate')}</p>
+                  <p className={`text-xl font-bold ${
+                    projectMetrics.testing.totalTestCases === 0 ? 'text-gray-400' :
+                    projectMetrics.testing.passRate >= 95 ? 'text-green-700' :
+                    projectMetrics.testing.passRate >= 80 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {projectMetrics.testing.totalTestCases === 0 ? 'N/A' : `${projectMetrics.testing.passRate.toFixed(1)}%`}
+                  </p>
+                  <p className="text-xs text-gray-500">Target: ≥ 95%</p>
+                </div>
+              </div>
+
+              {/* Status Reasons */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">{t('metrics.evaluationDetails')}:</p>
+                <div className="space-y-2">
+                  {projectMetrics.statusReasons.map((reason: any, index: number) => (
+                    <div key={index} className={`flex items-center gap-2 text-sm ${
+                      reason.type === 'good' ? 'text-green-700' :
+                      reason.type === 'warning' ? 'text-yellow-700' : 'text-red-700'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        reason.type === 'good' ? 'bg-green-500' :
+                        reason.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <span className="font-medium">{reason.metric}:</span>
+                      <span>{reason.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-green-500"></span>
+                  <span>{t('metrics.good')}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-yellow-500"></span>
+                  <span>{t('metrics.warning')}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-red-500"></span>
+                  <span>{t('metrics.atRisk')}</span>
+                </div>
+                <span className="text-gray-400">|</span>
+                <span>SPI = Earned Value / Planned Value</span>
+                <span>CPI = Earned Value / Actual Cost</span>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -407,30 +582,30 @@ function ProjectDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <Card title="Project Information">
+          <Card title={t('project.overview')}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Start Date</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('project.startDate')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.startDate), 'MMM dd, yyyy')}
                 </dd>
               </div>
               {project.endDate && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">End Date</dt>
+                  <dt className="text-sm font-medium text-gray-500">{t('project.endDate')}</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {format(new Date(project.endDate), 'MMM dd, yyyy')}
                   </dd>
                 </div>
               )}
               <div>
-                <dt className="text-sm font-medium text-gray-500">Created</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('common.created')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.createdAt), 'MMM dd, yyyy')}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dt className="text-sm font-medium text-gray-500">{t('common.lastUpdated')}</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {format(new Date(project.updatedAt), 'MMM dd, yyyy')}
                 </dd>
@@ -438,7 +613,7 @@ function ProjectDetail() {
             </dl>
           </Card>
 
-          <Card title="Phases Overview">
+          <Card title={t('phase.phaseProgress')}>
             {phases && phases.length > 0 ? (
               <div className="space-y-4">
                 {phases.map((phase) => (
@@ -464,11 +639,11 @@ function ProjectDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No phases yet"
-                description="Add phases to start tracking progress"
+                title={t('phase.noPhases')}
+                description={t('phase.createFirst')}
                 action={
                   <Button onClick={() => setShowAddPhase(true)}>
-                    Add First Phase
+                    {t('phase.create')}
                   </Button>
                 }
               />
@@ -479,10 +654,10 @@ function ProjectDetail() {
 
       {activeTab === 'phases' && (
         <Card
-          title="Phases"
+          title={t('phase.title')}
           actions={
             <Button onClick={() => setShowAddPhase(true)}>
-              Add Phase
+              {t('phase.create')}
             </Button>
           }
         >
@@ -492,25 +667,25 @@ function ProjectDetail() {
                 <thead>
                   <tr>
                     <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                      Order
+                      {t('phase.displayOrder')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Name
+                      {t('common.name')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Status
+                      {t('common.status')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Progress
+                      {t('common.progress')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Effort
+                      {t('project.estimatedEffort')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Start Date
+                      {t('project.startDate')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Actions
+                      {t('common.actions')}
                     </th>
                   </tr>
                 </thead>
@@ -565,14 +740,14 @@ function ProjectDetail() {
                             variant="secondary"
                             onClick={() => setEditingPhase(phase)}
                           >
-                            Edit
+                            {t('common.edit')}
                           </Button>
                           <Button
                             size="sm"
                             variant="danger"
                             onClick={() => handleDeletePhaseClick(phase)}
                           >
-                            Delete
+                            {t('common.delete')}
                           </Button>
                         </div>
                       </td>
@@ -583,11 +758,11 @@ function ProjectDetail() {
             </div>
           ) : (
             <EmptyState
-              title="No phases yet"
-              description="Add phases to start tracking progress"
+              title={t('phase.noPhases')}
+              description={t('phase.createFirst')}
               action={
                 <Button onClick={() => setShowAddPhase(true)}>
-                  Add First Phase
+                  {t('phase.create')}
                 </Button>
               }
             />
@@ -601,20 +776,20 @@ function ProjectDetail() {
           {sfSummary && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
               <Card>
-                <p className="text-sm text-gray-500">Total Items</p>
+                <p className="text-sm text-gray-500">{t('common.total')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{sfSummary.total}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {sfSummary.byType.Screen} Screens, {sfSummary.byType.Function} Functions
+                  {sfSummary.byType.Screen} {t('screenFunction.typeScreen')}, {sfSummary.byType.Function} {t('screenFunction.typeFunction')}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Estimated Effort</p>
+                <p className="text-sm text-gray-500">{t('project.estimatedEffort')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(sfSummary.totalEstimated, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Actual Effort</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.actualEffort')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(sfSummary.totalActual, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
@@ -625,7 +800,7 @@ function ProjectDetail() {
                 )}
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Average Progress</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.averageProgress')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{sfSummary.avgProgress.toFixed(1)}%</p>
                 <ProgressBar progress={sfSummary.avgProgress} />
               </Card>
@@ -637,25 +812,25 @@ function ProjectDetail() {
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-gray-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-gray-400">{sfSummary.byStatus['Not Started']}</p>
-                <p className="text-sm text-gray-500">Not Started</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusNotStarted')}</p>
               </div>
               <div className="bg-blue-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-blue-600">{sfSummary.byStatus['In Progress']}</p>
-                <p className="text-sm text-gray-500">In Progress</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusInProgress')}</p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-green-600">{sfSummary.byStatus['Completed']}</p>
-                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusCompleted')}</p>
               </div>
             </div>
           )}
 
           {/* Main Content */}
           <Card
-            title="Screen/Function List"
+            title={t('screenFunction.list')}
             actions={
               <Button onClick={() => setShowAddScreenFunction(true)}>
-                Add Screen/Function
+                {t('screenFunction.create')}
               </Button>
             }
           >
@@ -663,7 +838,7 @@ function ProjectDetail() {
             <div className="mb-4 flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
                 <Input
-                  placeholder="Search by name..."
+                  placeholder={t('screenFunction.searchPlaceholder')}
                   value={sfFilter.search}
                   onChange={(e) => setSfFilter({ ...sfFilter, search: e.target.value })}
                 />
@@ -673,19 +848,19 @@ function ProjectDetail() {
                 value={sfFilter.type}
                 onChange={(e) => setSfFilter({ ...sfFilter, type: e.target.value })}
               >
-                <option value="">All Types</option>
-                <option value="Screen">Screen</option>
-                <option value="Function">Function</option>
+                <option value="">{t('screenFunction.allTypes')}</option>
+                <option value="Screen">{t('screenFunction.typeScreen')}</option>
+                <option value="Function">{t('screenFunction.typeFunction')}</option>
               </select>
               <select
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                 value={sfFilter.status}
                 onChange={(e) => setSfFilter({ ...sfFilter, status: e.target.value })}
               >
-                <option value="">All Status</option>
-                <option value="Not Started">Not Started</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
+                <option value="">{t('screenFunction.allStatuses')}</option>
+                <option value="Not Started">{t('screenFunction.statusNotStarted')}</option>
+                <option value="In Progress">{t('screenFunction.statusInProgress')}</option>
+                <option value="Completed">{t('screenFunction.statusCompleted')}</option>
               </select>
             </div>
 
@@ -695,14 +870,14 @@ function ProjectDetail() {
                 <table className="min-w-full divide-y divide-gray-300">
                   <thead>
                     <tr>
-                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Priority</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Complexity</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Progress</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Effort (Est/Act)</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">{t('common.name')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.type')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.priority')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.complexity')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.status')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.progress')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.effort')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -759,18 +934,18 @@ function ProjectDetail() {
                               variant="secondary"
                               onClick={() => setEditingScreenFunction(sf)}
                             >
-                              Edit
+                              {t('common.edit')}
                             </Button>
                             <Button
                               size="sm"
                               variant="danger"
                               onClick={() => {
-                                if (confirm('Are you sure you want to delete this item?')) {
+                                if (confirm(t('screenFunction.confirmDelete'))) {
                                   deleteScreenFunctionMutation.mutate(sf.id);
                                 }
                               }}
                             >
-                              Delete
+                              {t('common.delete')}
                             </Button>
                           </div>
                         </td>
@@ -781,11 +956,11 @@ function ProjectDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No screen/function yet"
-                description="Add screens and functions to track detailed effort per phase"
+                title={t('screenFunction.noScreenFunctions')}
+                description={t('screenFunction.noScreenFunctionsDesc')}
                 action={
                   <Button onClick={() => setShowAddScreenFunction(true)}>
-                    Add First Item
+                    {t('screenFunction.addFirst')}
                   </Button>
                 }
               />
@@ -800,26 +975,26 @@ function ProjectDetail() {
           {memberSummary && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
               <Card>
-                <p className="text-sm text-gray-500">Total Members</p>
+                <p className="text-sm text-gray-500">{t('common.total')} {t('member.title')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{memberSummary.total || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {memberSummary.byStatus?.Active || 0} Active
+                  {memberSummary.byStatus?.Active || 0} {t('member.statusActive')}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Average Experience</p>
+                <p className="text-sm text-gray-500">{t('member.averageExperience')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
-                  {(memberSummary.averageExperience || 0).toFixed(1)} <span className="text-sm text-gray-500">years</span>
+                  {(memberSummary.averageExperience || 0).toFixed(1)} <span className="text-sm text-gray-500">{t('member.expYears')}</span>
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Total Hourly Rate</p>
+                <p className="text-sm text-gray-500">{t('member.totalHourlyRate')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   ${(memberSummary.totalHourlyRate || 0).toFixed(2)}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">By Availability</p>
+                <p className="text-sm text-gray-500">{t('member.byAvailability')}</p>
                 <div className="mt-1 text-sm">
                   <span className="text-green-600">{memberSummary.byAvailability?.['Full-time'] || 0} FT</span>
                   {' / '}
@@ -845,14 +1020,14 @@ function ProjectDetail() {
 
           {/* Member List */}
           <Card
-            title="Team Members"
+            title={t('member.teamMembers')}
             actions={
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setShowCopyMembers(true)}>
-                  Copy from Project
+                  {t('member.copyFromProject')}
                 </Button>
                 <Button onClick={() => setShowAddMember(true)}>
-                  Add Member
+                  {t('member.create')}
                 </Button>
               </div>
             }
@@ -861,7 +1036,7 @@ function ProjectDetail() {
             <div className="mb-4 flex flex-wrap gap-4">
               <div className="flex-1 min-w-[200px]">
                 <Input
-                  placeholder="Search by name..."
+                  placeholder={t('screenFunction.searchPlaceholder')}
                   value={memberFilter.search}
                   onChange={(e) => setMemberFilter({ ...memberFilter, search: e.target.value })}
                 />
@@ -871,26 +1046,26 @@ function ProjectDetail() {
                 value={memberFilter.role}
                 onChange={(e) => setMemberFilter({ ...memberFilter, role: e.target.value })}
               >
-                <option value="">All Roles</option>
-                <option value="PM">PM</option>
-                <option value="TL">TL</option>
-                <option value="BA">BA</option>
-                <option value="DEV">DEV</option>
-                <option value="QA">QA</option>
-                <option value="Comtor">Comtor</option>
-                <option value="Designer">Designer</option>
-                <option value="DevOps">DevOps</option>
-                <option value="Other">Other</option>
+                <option value="">{t('member.allRoles')}</option>
+                <option value="PM">{t('member.rolePM')}</option>
+                <option value="TL">{t('member.roleTL')}</option>
+                <option value="BA">{t('member.roleBA')}</option>
+                <option value="DEV">{t('member.roleDEV')}</option>
+                <option value="QA">{t('member.roleQA')}</option>
+                <option value="Comtor">{t('member.roleComtor')}</option>
+                <option value="Designer">{t('member.roleDesigner')}</option>
+                <option value="DevOps">{t('member.roleDevOps')}</option>
+                <option value="Other">{t('member.roleOther')}</option>
               </select>
               <select
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                 value={memberFilter.status}
                 onChange={(e) => setMemberFilter({ ...memberFilter, status: e.target.value })}
               >
-                <option value="">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="On Leave">On Leave</option>
+                <option value="">{t('member.allStatuses')}</option>
+                <option value="Active">{t('member.statusActive')}</option>
+                <option value="Inactive">{t('member.statusInactive')}</option>
+                <option value="On Leave">{t('member.statusOnLeave')}</option>
               </select>
             </div>
 
@@ -900,13 +1075,13 @@ function ProjectDetail() {
                 <table className="min-w-full divide-y divide-gray-300">
                   <thead>
                     <tr>
-                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Role</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Experience</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Availability</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Workload</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">{t('common.name')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.role')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.experience')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.status')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.availability')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.workload')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -966,7 +1141,7 @@ function ProjectDetail() {
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex flex-col">
                                 <span className={`font-semibold ${expColor}`}>
-                                  {member.yearsOfExperience ? `${member.yearsOfExperience} years` : '-'}
+                                  {member.yearsOfExperience ? `${member.yearsOfExperience} ${t('member.expYears')}` : '-'}
                                 </span>
                                 {member.yearsOfExperience && (
                                   <span className={`text-xs ${expColor}`}>{expLevel}</span>
@@ -988,13 +1163,13 @@ function ProjectDetail() {
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               {workload ? (
                                 <div className="text-xs">
-                                  <p className="font-medium">{workload.totalAssigned} tasks</p>
+                                  <p className="font-medium">{workload.totalAssigned} {t('member.totalAssigned')}</p>
                                   <p className="text-gray-500">
-                                    {workload.completedTasks} done / {workload.inProgressTasks} active
+                                    {workload.completedTasks} {t('member.done')} / {workload.inProgressTasks} {t('member.active')}
                                   </p>
                                 </div>
                               ) : (
-                                <span className="text-gray-400">No tasks</span>
+                                <span className="text-gray-400">{t('member.noTasks')}</span>
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -1004,18 +1179,18 @@ function ProjectDetail() {
                                   variant="secondary"
                                   onClick={() => setEditingMember(member)}
                                 >
-                                  Edit
+                                  {t('common.edit')}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="danger"
                                   onClick={() => {
-                                    if (confirm('Are you sure you want to delete this member?')) {
+                                    if (confirm(t('member.delete') + '?')) {
                                       deleteMemberMutation.mutate(member.id);
                                     }
                                   }}
                                 >
-                                  Delete
+                                  {t('common.delete')}
                                 </Button>
                               </div>
                             </td>
@@ -1028,11 +1203,11 @@ function ProjectDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No members yet"
-                description="Add team members to track workload and assign tasks"
+                title={t('member.noMembers')}
+                description={t('member.noMembersDesc')}
                 action={
                   <Button onClick={() => setShowAddMember(true)}>
-                    Add First Member
+                    {t('member.addFirstMember')}
                   </Button>
                 }
               />
@@ -1043,14 +1218,14 @@ function ProjectDetail() {
 
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          <Card title="Work Time Configuration">
+          <Card title={t('settings.workTimeConfig')}>
             <p className="text-sm text-gray-500 mb-6">
-              Configure working hours and days to accurately calculate effort conversions between man-hours, man-days, and man-months.
+              {t('settings.workTimeConfigDesc')}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Working Hours per Day
+                  {t('settings.workingHoursPerDay')}
                 </label>
                 <input
                   type="number"
@@ -1061,12 +1236,12 @@ function ProjectDetail() {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Standard: 8 hours/day
+                  {t('settings.standard')}: 8 {t('time.hours')}/{t('time.days')}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Working Days per Month
+                  {t('settings.workingDaysPerMonth')}
                 </label>
                 <input
                   type="number"
@@ -1077,12 +1252,12 @@ function ProjectDetail() {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Standard: 20-22 days/month
+                  {t('settings.standard')}: 20-22 {t('time.days')}/{t('time.months')}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Effort Unit
+                  {t('settings.defaultEffortUnit')}
                 </label>
                 <EffortUnitDropdown
                   value={settingsForm.defaultEffortUnit}
@@ -1096,7 +1271,7 @@ function ProjectDetail() {
 
             {/* Conversion Preview */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Conversion Preview</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">{t('settings.conversionPreview')}</h4>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-white rounded border">
                   <p className="text-2xl font-bold text-primary-600">1</p>
@@ -1121,26 +1296,26 @@ function ProjectDetail() {
                 onClick={handleSaveSettings}
                 disabled={updateSettingsMutation.isPending}
               >
-                {updateSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+                {updateSettingsMutation.isPending ? t('common.loading') : t('settings.saveSettings')}
               </Button>
             </div>
             {updateSettingsMutation.isSuccess && (
-              <p className="text-sm text-green-600 mt-2 text-right">Settings saved successfully!</p>
+              <p className="text-sm text-green-600 mt-2 text-right">{t('settings.settingsSaved')}</p>
             )}
           </Card>
 
           {/* Current Settings Summary */}
-          <Card title="Current Conversion Rates">
+          <Card title={t('settings.currentConversionRates')}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">From Man-Hours</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">{t('settings.fromManHours')}</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>1 MH = {(1 / settingsForm.workingHoursPerDay).toFixed(4)} MD</li>
                   <li>1 MH = {(1 / (settingsForm.workingHoursPerDay * settingsForm.workingDaysPerMonth)).toFixed(6)} MM</li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">From Man-Days</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">{t('settings.fromManDays')}</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>1 MD = {settingsForm.workingHoursPerDay} MH</li>
                   <li>1 MD = {(1 / settingsForm.workingDaysPerMonth).toFixed(4)} MM</li>
@@ -1150,51 +1325,81 @@ function ProjectDetail() {
           </Card>
 
           {/* Work Calendar Settings */}
-          <Card title="Work Calendar">
+          <Card title={t('settings.workCalendar')}>
             <p className="text-sm text-gray-500 mb-6">
-              Configure non-working days and holidays to accurately calculate project end dates.
+              {t('settings.workCalendarDesc')}
             </p>
 
             {/* Non-Working Days */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Non-Working Days of Week
+                {t('settings.nonWorkingDaysOfWeek')}
               </label>
               <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map((day) => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => {
-                      const isSelected = settingsForm.nonWorkingDays.includes(day.value);
-                      setSettingsForm({
-                        ...settingsForm,
-                        nonWorkingDays: isSelected
-                          ? settingsForm.nonWorkingDays.filter((d) => d !== day.value)
-                          : [...settingsForm.nonWorkingDays, day.value].sort((a, b) => a - b),
-                      });
-                    }}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      settingsForm.nonWorkingDays.includes(day.value)
-                        ? 'bg-red-100 border-red-300 text-red-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
+                {DAYS_OF_WEEK.map((day) => {
+                  const isSelected = settingsForm.nonWorkingDays.includes(day.value);
+                  // Can't select if it would result in all 7 days being non-working
+                  const wouldBeAllNonWorking = !isSelected && settingsForm.nonWorkingDays.length >= 6;
+
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => {
+                        if (wouldBeAllNonWorking) return; // Prevent selecting all days
+
+                        setSettingsForm({
+                          ...settingsForm,
+                          nonWorkingDays: isSelected
+                            ? settingsForm.nonWorkingDays.filter((d) => d !== day.value)
+                            : [...settingsForm.nonWorkingDays, day.value].sort((a, b) => a - b),
+                        });
+                      }}
+                      disabled={wouldBeAllNonWorking}
+                      title={wouldBeAllNonWorking ? t('settings.atLeastOneWorkingDay') : undefined}
+                      className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-red-100 border-red-300 text-red-700'
+                          : wouldBeAllNonWorking
+                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Selected days (shown in red) will be skipped when calculating project end dates.
-                Default: Saturday and Sunday.
+                {t('settings.nonWorkingDaysHelp')}
               </p>
+              {settingsForm.nonWorkingDays.length >= 6 && (
+                <p className="text-xs text-orange-600 mt-1">
+                  {t('settings.atLeastOneWorkingDay')}
+                </p>
+              )}
             </div>
 
             {/* Holidays */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Holidays
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  {t('settings.holidays')}
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowHolidayImport(true)}
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    {t('settings.importFromCalendar')}
+                  </span>
+                </Button>
+              </div>
               <div className="flex gap-2 mb-3">
                 <input
                   type="date"
@@ -1215,7 +1420,7 @@ function ProjectDetail() {
                   }}
                   disabled={!newHoliday}
                 >
-                  Add Holiday
+                  {t('settings.addHoliday')}
                 </Button>
               </div>
 
@@ -1243,10 +1448,10 @@ function ProjectDetail() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic">No holidays added yet.</p>
+                <p className="text-sm text-gray-400 italic">{t('settings.noHolidaysAdded')}</p>
               )}
               <p className="text-xs text-gray-500 mt-2">
-                Add specific dates that should be treated as non-working days (e.g., national holidays, company events).
+                {t('settings.holidaysHelp')}
               </p>
             </div>
 
@@ -1255,7 +1460,7 @@ function ProjectDetail() {
                 onClick={handleSaveSettings}
                 disabled={updateSettingsMutation.isPending}
               >
-                {updateSettingsMutation.isPending ? 'Saving...' : 'Save Calendar Settings'}
+                {updateSettingsMutation.isPending ? t('common.loading') : t('settings.saveCalendarSettings')}
               </Button>
             </div>
           </Card>
@@ -1266,7 +1471,7 @@ function ProjectDetail() {
       <Modal
         isOpen={showEditProject}
         onClose={() => setShowEditProject(false)}
-        title="Edit Project"
+        title={t('project.edit')}
       >
         <ProjectForm
           project={project}
@@ -1283,7 +1488,7 @@ function ProjectDetail() {
           setShowAddPhase(false);
           setEditingPhase(null);
         }}
-        title={editingPhase ? "Edit Phase" : "Add Phase"}
+        title={editingPhase ? t('phase.edit') : t('phase.create')}
       >
         <PhaseForm
           projectId={parseInt(projectId)}
@@ -1307,7 +1512,7 @@ function ProjectDetail() {
           setShowAddScreenFunction(false);
           setEditingScreenFunction(null);
         }}
-        title={editingScreenFunction ? "Edit Screen/Function" : "Add Screen/Function"}
+        title={editingScreenFunction ? t('screenFunction.edit') : t('screenFunction.create')}
       >
         <ScreenFunctionForm
           projectId={parseInt(projectId)}
@@ -1331,7 +1536,7 @@ function ProjectDetail() {
           setShowAddMember(false);
           setEditingMember(null);
         }}
-        title={editingMember ? "Edit Member" : "Add Member"}
+        title={editingMember ? t('member.edit') : t('member.create')}
       >
         <MemberForm
           projectId={parseInt(projectId)}
@@ -1351,11 +1556,11 @@ function ProjectDetail() {
       <Modal
         isOpen={!!deletingPhase}
         onClose={() => setDeletingPhase(null)}
-        title="Delete Phase"
+        title={t('phase.delete')}
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Are you sure you want to delete the phase <strong>"{deletingPhase?.name}"</strong>?
+            {t('phase.deleteConfirm')} <strong>"{deletingPhase?.name}"</strong>?
           </p>
 
           {deletingPhase?.linkedCount && deletingPhase.linkedCount > 0 ? (
@@ -1365,17 +1570,16 @@ function ProjectDetail() {
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <p className="text-yellow-800 font-medium">Warning</p>
+                  <p className="text-yellow-800 font-medium">{t('common.warning')}</p>
                   <p className="text-yellow-700 text-sm mt-1">
-                    This phase has <strong>{deletingPhase.linkedCount}</strong> linked Screen/Function item(s).
-                    Deleting this phase will also remove all linked items and their data.
+                    {t('phase.deleteWarning')} <strong>{deletingPhase.linkedCount}</strong> {t('phase.deleteWarningItems')}
                   </p>
                 </div>
               </div>
             </div>
           ) : (
             <p className="text-gray-500 text-sm">
-              This action cannot be undone.
+              {t('phase.deleteIrreversible')}
             </p>
           )}
 
@@ -1385,18 +1589,37 @@ function ProjectDetail() {
               onClick={() => setDeletingPhase(null)}
               disabled={deletePhaseMutation.isPending}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={confirmDeletePhase}
               loading={deletePhaseMutation.isPending}
             >
-              Delete Phase
+              {t('phase.delete')}
             </Button>
           </div>
         </div>
       </Modal>
+
+      {/* Holiday Import Dialog */}
+      <HolidayImportDialog
+        isOpen={showHolidayImport}
+        onClose={() => setShowHolidayImport(false)}
+        onImport={(dates) => {
+          const newHolidays = [...settingsForm.holidays];
+          dates.forEach((date) => {
+            if (!newHolidays.includes(date)) {
+              newHolidays.push(date);
+            }
+          });
+          setSettingsForm({
+            ...settingsForm,
+            holidays: newHolidays.sort(),
+          });
+        }}
+        existingHolidays={settingsForm.holidays}
+      />
 
       {/* Copy Members Modal */}
       <Modal
@@ -1406,14 +1629,14 @@ function ProjectDetail() {
           setSelectedSourceProject(null);
           setSelectedMemberIds([]);
         }}
-        title="Copy Members from Another Project"
+        title={t('member.copyFromProject')}
         size="lg"
       >
         <div className="space-y-4">
           {/* Project Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Source Project
+              {t('member.selectSourceProject')}
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -1423,7 +1646,7 @@ function ProjectDetail() {
                 setSelectedMemberIds([]);
               }}
             >
-              <option value="">-- Select a project --</option>
+              <option value="">{t('member.selectProject')}</option>
               {allProjects
                 ?.filter((p) => p.id !== parseInt(projectId))
                 .map((p) => (
@@ -1439,7 +1662,7 @@ function ProjectDetail() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Select Members to Copy
+                  {t('member.selectMembersToCopy')}
                 </label>
                 {sourceProjectMembers && sourceProjectMembers.length > 0 && (
                   <button
@@ -1454,8 +1677,8 @@ function ProjectDetail() {
                     }}
                   >
                     {selectedMemberIds.length === sourceProjectMembers?.length
-                      ? 'Deselect All'
-                      : 'Select All'}
+                      ? t('member.deselectAll')
+                      : t('member.selectAll')}
                   </button>
                 )}
               </div>
@@ -1507,7 +1730,7 @@ function ProjectDetail() {
                               {member.role}
                             </span>
                             {isExisting && (
-                              <span className="text-xs text-orange-600">(Already exists)</span>
+                              <span className="text-xs text-orange-600">({t('member.alreadyExists')})</span>
                             )}
                           </div>
                           {member.email && (
@@ -1533,7 +1756,7 @@ function ProjectDetail() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  No members in this project
+                  {t('member.noMembersInProject')}
                 </div>
               )}
             </div>
@@ -1544,7 +1767,7 @@ function ProjectDetail() {
             <div className="text-sm text-gray-600">
               {selectedMemberIds.length > 0 && (
                 <span>
-                  <strong>{selectedMemberIds.length}</strong> member(s) selected
+                  <strong>{selectedMemberIds.length}</strong> {t('member.membersSelected')}
                 </span>
               )}
             </div>
@@ -1557,7 +1780,7 @@ function ProjectDetail() {
                   setSelectedMemberIds([]);
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={() => {
@@ -1572,9 +1795,63 @@ function ProjectDetail() {
                 disabled={!selectedSourceProject || selectedMemberIds.length === 0}
                 loading={copyMembersMutation.isPending}
               >
-                Copy {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : ''}
+                {t('member.copy')} {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : ''}
               </Button>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Project Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title={t('project.delete')}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            {t('project.deleteConfirm')} <strong>"{project.name}"</strong>?
+          </p>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-red-800 font-medium">{t('common.warning')}</p>
+                <p className="text-red-700 text-sm mt-1">
+                  {t('project.deleteWarning')}
+                </p>
+                <ul className="text-red-700 text-sm mt-2 ml-4 list-disc">
+                  <li>{t('project.deleteWarningPhases')}</li>
+                  <li>{t('project.deleteWarningScreenFunctions')}</li>
+                  <li>{t('project.deleteWarningMembers')}</li>
+                  <li>{t('project.deleteWarningReports')}</li>
+                  <li>{t('project.deleteWarningTesting')}</li>
+                </ul>
+                <p className="text-red-700 text-sm mt-2 font-medium">
+                  {t('project.deleteIrreversible')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteProjectMutation.isPending}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteProjectMutation.mutate()}
+              loading={deleteProjectMutation.isPending}
+            >
+              {t('project.delete')}
+            </Button>
           </div>
         </div>
       </Modal>

@@ -3,6 +3,8 @@ export { Input } from './Input';
 export { DateInput } from './DateInput';
 export { TextArea, Select } from './FormFields';
 export { Modal } from './Modal';
+export { HolidayImportDialog } from './HolidayImportDialog';
+export { LanguageSwitcher } from './LanguageSwitcher';
 export {
   Card,
   LoadingSpinner,

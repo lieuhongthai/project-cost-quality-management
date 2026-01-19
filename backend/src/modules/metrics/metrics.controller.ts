@@ -12,6 +12,24 @@ import { MetricsService } from './metrics.service';
 export class MetricsController {
   constructor(private readonly metricsService: MetricsService) {}
 
+  /**
+   * GET /api/metrics/project/:projectId/realtime
+   * Get real-time metrics for a project (without creating a report)
+   */
+  @Get('project/:projectId/realtime')
+  getProjectRealTimeMetrics(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.getProjectRealTimeMetrics(projectId);
+  }
+
+  /**
+   * POST /api/metrics/project/:projectId/refresh
+   * Refresh and update project status based on current metrics
+   */
+  @Post('project/:projectId/refresh')
+  refreshProjectStatus(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.refreshProjectStatus(projectId);
+  }
+
   @Get('report/:reportId')
   findByReport(@Param('reportId', ParseIntPipe) reportId: number) {
     return this.metricsService.findByReport(reportId);
@@ -36,5 +54,24 @@ export class MetricsController {
     @Query('reportId', ParseIntPipe) reportId: number,
   ) {
     return this.metricsService.calculateProjectMetrics(projectId, reportId);
+  }
+
+  /**
+   * GET /api/metrics/project/:projectId/productivity
+   * Get productivity metrics for a project (members, roles, phases)
+   */
+  @Get('project/:projectId/productivity')
+  getProjectProductivityMetrics(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.getProjectProductivityMetrics(projectId);
+  }
+
+  /**
+   * GET /api/metrics/project/:projectId/member-cost
+   * Get member cost analysis for a project
+   * Calculates actual payment based on hourly rate and worked hours
+   */
+  @Get('project/:projectId/member-cost')
+  getProjectMemberCostAnalysis(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.metricsService.getProjectMemberCostAnalysis(projectId);
   }
 }

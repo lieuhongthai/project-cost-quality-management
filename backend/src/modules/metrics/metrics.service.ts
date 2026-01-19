@@ -4,6 +4,8 @@ import { EffortService } from '../effort/effort.service';
 import { TestingService } from '../testing/testing.service';
 import { PhaseService } from '../phase/phase.service';
 import { ProjectService } from '../project/project.service';
+import { PhaseScreenFunctionService } from '../screen-function/phase-screen-function.service';
+import { MemberService } from '../member/member.service';
 
 export interface ScheduleMetricsInput {
   estimatedEffort: number;
@@ -29,10 +31,17 @@ export class MetricsService {
     private phaseService: PhaseService,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
+    @Inject(forwardRef(() => PhaseScreenFunctionService))
+    private phaseScreenFunctionService: PhaseScreenFunctionService,
+    @Inject(forwardRef(() => MemberService))
+    private memberService: MemberService,
   ) {}
 
   calculateScheduleMetrics(input: ScheduleMetricsInput) {
     const { estimatedEffort, actualEffort, progress } = input;
+
+    // Budget at Completion (BAC) = Total Estimated Effort
+    const budgetAtCompletion = estimatedEffort;
 
     // Earned Value (EV) = Estimated Effort * Progress
     const earnedValue = estimatedEffort * (progress / 100);
@@ -49,6 +58,28 @@ export class MetricsService {
     // Cost Performance Index (CPI) = EV / AC
     const cpi = actualCost > 0 ? earnedValue / actualCost : 0;
 
+    // Estimate at Completion (EAC) = AC + (BAC - EV) / CPI
+    // If CPI is 0 or very small, use BAC as fallback
+    let estimateAtCompletion = budgetAtCompletion;
+    if (cpi > 0.01) {
+      estimateAtCompletion = actualCost + (budgetAtCompletion - earnedValue) / cpi;
+    } else if (actualCost > 0) {
+      // If no CPI yet but we have actual cost, estimate based on current progress
+      estimateAtCompletion = progress > 0 ? (actualCost / progress) * 100 : budgetAtCompletion;
+    }
+
+    // Variance at Completion (VAC) = BAC - EAC
+    // Positive = Under budget, Negative = Over budget
+    const varianceAtCompletion = budgetAtCompletion - estimateAtCompletion;
+
+    // To Complete Performance Index (TCPI) = (BAC - EV) / (BAC - AC)
+    // TCPI > 1 means need to work more efficiently to meet budget
+    const remainingWork = budgetAtCompletion - earnedValue;
+    const remainingBudget = budgetAtCompletion - actualCost;
+    const toCompletePerformanceIndex = remainingBudget > 0
+      ? remainingWork / remainingBudget
+      : remainingWork > 0 ? Infinity : 1;
+
     // Delay Rate (%)
     const delayRate = progress < 100 && actualEffort > estimatedEffort
       ? ((actualEffort - estimatedEffort) / estimatedEffort) * 100
@@ -58,8 +89,8 @@ export class MetricsService {
     const delayInManMonths = actualEffort - estimatedEffort;
 
     // Estimate vs Actual ratio
-    const estimatedVsActual = estimatedEffort > 0 
-      ? actualEffort / estimatedEffort 
+    const estimatedVsActual = estimatedEffort > 0
+      ? actualEffort / estimatedEffort
       : 0;
 
     return {
@@ -68,6 +99,10 @@ export class MetricsService {
       plannedValue,
       earnedValue,
       actualCost,
+      budgetAtCompletion,
+      estimateAtCompletion,
+      varianceAtCompletion,
+      toCompletePerformanceIndex: Number.isFinite(toCompletePerformanceIndex) ? toCompletePerformanceIndex : 999,
       delayRate,
       delayInManMonths,
       estimatedVsActual,
@@ -204,5 +239,664 @@ export class MetricsService {
 
   async findOne(id: number): Promise<Metrics> {
     return this.metricsRepository.findByPk(id);
+  }
+
+  /**
+   * Get real-time metrics for a project without creating a report
+   * This calculates metrics on-the-fly based on current data
+   */
+  async getProjectRealTimeMetrics(projectId: number) {
+    const project = await this.projectService.findOne(projectId);
+    const phases = await this.phaseService.findByProject(projectId);
+
+    // Aggregate testing data from all phases
+    let totalTestCases = 0;
+    let totalPassed = 0;
+    let totalFailed = 0;
+    let totalDefects = 0;
+    let totalTestingTime = 0;
+
+    for (const phase of phases) {
+      const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
+      totalTestCases += testingSummary.totalTestCases;
+      totalPassed += testingSummary.totalPassed;
+      totalFailed += testingSummary.totalFailed;
+      totalDefects += testingSummary.totalDefects;
+      totalTestingTime += testingSummary.totalTestingTime;
+    }
+
+    // Calculate schedule metrics
+    const scheduleMetrics = this.calculateScheduleMetrics({
+      estimatedEffort: project.estimatedEffort,
+      actualEffort: project.actualEffort || 0,
+      progress: project.progress || 0,
+    });
+
+    // Calculate testing metrics
+    const testingMetrics = this.calculateTestingMetrics({
+      totalTestCases,
+      passedTestCases: totalPassed,
+      failedTestCases: totalFailed,
+      defectsDetected: totalDefects,
+      testingTime: totalTestingTime,
+    });
+
+    // Evaluate status based on metrics
+    const evaluatedStatus = this.projectService.evaluateProjectStatus({
+      schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
+      costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
+    });
+
+    // Determine status reasons
+    const statusReasons = this.getStatusReasons({
+      spi: scheduleMetrics.schedulePerformanceIndex,
+      cpi: scheduleMetrics.costPerformanceIndex,
+      delayRate: scheduleMetrics.delayRate,
+      passRate: testingMetrics.passRate,
+    });
+
+    return {
+      projectId,
+      currentStatus: project.status,
+      evaluatedStatus,
+      statusReasons,
+      schedule: {
+        estimatedEffort: project.estimatedEffort,
+        actualEffort: project.actualEffort || 0,
+        progress: project.progress || 0,
+        spi: scheduleMetrics.schedulePerformanceIndex,
+        cpi: scheduleMetrics.costPerformanceIndex,
+        delayRate: scheduleMetrics.delayRate,
+        delayInManMonths: scheduleMetrics.delayInManMonths,
+        plannedValue: scheduleMetrics.plannedValue,
+        earnedValue: scheduleMetrics.earnedValue,
+        actualCost: scheduleMetrics.actualCost,
+      },
+      forecasting: {
+        bac: scheduleMetrics.budgetAtCompletion,
+        eac: scheduleMetrics.estimateAtCompletion,
+        vac: scheduleMetrics.varianceAtCompletion,
+        tcpi: scheduleMetrics.toCompletePerformanceIndex,
+      },
+      testing: {
+        totalTestCases,
+        passedTestCases: totalPassed,
+        failedTestCases: totalFailed,
+        defectsDetected: totalDefects,
+        passRate: testingMetrics.passRate,
+        defectRate: testingMetrics.defectRate,
+      },
+      phases: phases.map(p => ({
+        id: p.id,
+        name: p.name,
+        progress: p.progress,
+        status: p.status,
+      })),
+    };
+  }
+
+  /**
+   * Get human-readable reasons for the current status
+   * Simplified to focus on Efficiency (CPI) and Quality (Pass Rate)
+   */
+  private getStatusReasons(metrics: {
+    spi: number;
+    cpi: number;
+    delayRate: number;
+    passRate: number;
+  }): { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] {
+    const reasons: { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] = [];
+
+    // Efficiency evaluation (CPI) - Main metric
+    // CPI = Expected Effort / Actual Effort
+    // CPI >= 1.0 means actual ≤ expected (efficient)
+    // CPI < 1.0 means actual > expected (over budget)
+    const efficiencyPercent = Math.round(metrics.cpi * 100);
+
+    if (metrics.cpi >= 1.0) {
+      reasons.push({
+        type: 'good',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Công việc hiệu quả (${efficiencyPercent}% - thực tế ≤ dự kiến)`
+      });
+    } else if (metrics.cpi >= 0.83) {
+      const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
+      reasons.push({
+        type: 'warning',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Hơi vượt dự kiến (+${overBudgetPercent}% effort)`
+      });
+    } else if (metrics.cpi > 0) {
+      const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
+      reasons.push({
+        type: 'risk',
+        metric: 'Hiệu suất',
+        value: efficiencyPercent,
+        message: `Vượt dự kiến nhiều (+${overBudgetPercent}% effort)`
+      });
+    } else {
+      reasons.push({
+        type: 'good',
+        metric: 'Hiệu suất',
+        value: 0,
+        message: 'Chưa có dữ liệu công việc'
+      });
+    }
+
+    // Pass Rate evaluation (only if there are test cases)
+    if (metrics.passRate > 0) {
+      if (metrics.passRate >= 95) {
+        reasons.push({
+          type: 'good',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Chất lượng tốt (${metrics.passRate.toFixed(1)}% pass)`
+        });
+      } else if (metrics.passRate >= 80) {
+        reasons.push({
+          type: 'warning',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Cần cải thiện (${metrics.passRate.toFixed(1)}% pass)`
+        });
+      } else {
+        reasons.push({
+          type: 'risk',
+          metric: 'Chất lượng',
+          value: metrics.passRate,
+          message: `Chất lượng thấp (${metrics.passRate.toFixed(1)}% pass)`
+        });
+      }
+    }
+
+    return reasons;
+  }
+
+  /**
+   * Update project status based on real-time metrics and return updated data
+   */
+  async refreshProjectStatus(projectId: number) {
+    const metrics = await this.getProjectRealTimeMetrics(projectId);
+
+    // Update project status if different
+    if (metrics.currentStatus !== metrics.evaluatedStatus) {
+      await this.projectService.updateProjectStatus(projectId, {
+        schedulePerformanceIndex: metrics.schedule.spi,
+        costPerformanceIndex: metrics.schedule.cpi,
+        delayRate: metrics.schedule.delayRate,
+        passRate: metrics.testing.passRate,
+      });
+      metrics.currentStatus = metrics.evaluatedStatus;
+    }
+
+    return metrics;
+  }
+
+  /**
+   * Get productivity metrics for a project
+   * Analyzes effort per member, role, and phase
+   */
+  async getProjectProductivityMetrics(projectId: number) {
+    const project = await this.projectService.findOne(projectId);
+    const phases = await this.phaseService.findByProject(projectId);
+    const members = await this.memberService.findByProject(projectId);
+
+    // Collect all phase screen functions across phases
+    const memberStats = new Map<number, {
+      memberId: number;
+      name: string;
+      role: string;
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+      efficiency: number;
+    }>();
+
+    const roleStats = new Map<string, {
+      role: string;
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+      memberCount: number;
+      efficiency: number;
+    }>();
+
+    const phaseStats: Array<{
+      phaseId: number;
+      phaseName: string;
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+      efficiency: number;
+      progress: number;
+    }> = [];
+
+    // Initialize member stats
+    for (const member of members) {
+      memberStats.set(member.id, {
+        memberId: member.id,
+        name: member.name,
+        role: member.role,
+        totalEstimated: 0,
+        totalActual: 0,
+        tasksCompleted: 0,
+        tasksTotal: 0,
+        efficiency: 0,
+      });
+
+      // Initialize role stats
+      if (!roleStats.has(member.role)) {
+        roleStats.set(member.role, {
+          role: member.role,
+          totalEstimated: 0,
+          totalActual: 0,
+          tasksCompleted: 0,
+          tasksTotal: 0,
+          memberCount: 0,
+          efficiency: 0,
+        });
+      }
+      roleStats.get(member.role)!.memberCount++;
+    }
+
+    // Process each phase
+    for (const phase of phases) {
+      const psfs = await this.phaseScreenFunctionService.findByPhase(phase.id);
+
+      let phaseTotalEstimated = 0;
+      let phaseTotalActual = 0;
+      let phaseTasksCompleted = 0;
+      let phaseTasksTotal = psfs.filter(p => p.status !== 'Skipped').length;
+
+      for (const psf of psfs) {
+        if (psf.status === 'Skipped') continue;
+
+        phaseTotalEstimated += psf.estimatedEffort || 0;
+        phaseTotalActual += psf.actualEffort || 0;
+        if (psf.status === 'Completed') phaseTasksCompleted++;
+
+        // Update member stats if assigned
+        if (psf.assigneeId && memberStats.has(psf.assigneeId)) {
+          const mStats = memberStats.get(psf.assigneeId)!;
+          mStats.totalEstimated += psf.estimatedEffort || 0;
+          mStats.totalActual += psf.actualEffort || 0;
+          mStats.tasksTotal++;
+          if (psf.status === 'Completed') mStats.tasksCompleted++;
+
+          // Update role stats
+          const member = members.find(m => m.id === psf.assigneeId);
+          if (member && roleStats.has(member.role)) {
+            const rStats = roleStats.get(member.role)!;
+            rStats.totalEstimated += psf.estimatedEffort || 0;
+            rStats.totalActual += psf.actualEffort || 0;
+            rStats.tasksTotal++;
+            if (psf.status === 'Completed') rStats.tasksCompleted++;
+          }
+        }
+      }
+
+      // Calculate phase efficiency (EV / AC)
+      const phaseEV = phaseTotalEstimated * (phase.progress / 100);
+      const phaseEfficiency = phaseTotalActual > 0 ? phaseEV / phaseTotalActual : 0;
+
+      phaseStats.push({
+        phaseId: phase.id,
+        phaseName: phase.name,
+        totalEstimated: phaseTotalEstimated,
+        totalActual: phaseTotalActual,
+        tasksCompleted: phaseTasksCompleted,
+        tasksTotal: phaseTasksTotal,
+        efficiency: Math.round(phaseEfficiency * 100) / 100,
+        progress: phase.progress,
+      });
+    }
+
+    // Calculate efficiency for each member
+    const memberProductivity: Array<{
+      memberId: number;
+      name: string;
+      role: string;
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+      efficiency: number;
+      completionRate: number;
+    }> = [];
+
+    for (const [memberId, stats] of memberStats) {
+      // Efficiency = EV / AC where EV = Estimated * (Completed/Total)
+      const completionRate = stats.tasksTotal > 0 ? stats.tasksCompleted / stats.tasksTotal : 0;
+      const ev = stats.totalEstimated * completionRate;
+      const efficiency = stats.totalActual > 0 ? ev / stats.totalActual : (stats.tasksCompleted > 0 ? 1 : 0);
+
+      memberProductivity.push({
+        ...stats,
+        efficiency: Math.round(efficiency * 100) / 100,
+        completionRate: Math.round(completionRate * 100),
+      });
+    }
+
+    // Sort by efficiency (highest first)
+    memberProductivity.sort((a, b) => b.efficiency - a.efficiency);
+
+    // Calculate role efficiency
+    const roleProductivity: Array<{
+      role: string;
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+      memberCount: number;
+      efficiency: number;
+      avgEffortPerTask: number;
+    }> = [];
+
+    for (const [role, stats] of roleStats) {
+      const completionRate = stats.tasksTotal > 0 ? stats.tasksCompleted / stats.tasksTotal : 0;
+      const ev = stats.totalEstimated * completionRate;
+      const efficiency = stats.totalActual > 0 ? ev / stats.totalActual : (stats.tasksCompleted > 0 ? 1 : 0);
+      const avgEffortPerTask = stats.tasksCompleted > 0 ? stats.totalActual / stats.tasksCompleted : 0;
+
+      roleProductivity.push({
+        ...stats,
+        efficiency: Math.round(efficiency * 100) / 100,
+        avgEffortPerTask: Math.round(avgEffortPerTask * 100) / 100,
+      });
+    }
+
+    // Sort roles by efficiency
+    roleProductivity.sort((a, b) => b.efficiency - a.efficiency);
+
+    // Overall project productivity
+    const totalEstimated = phaseStats.reduce((sum, p) => sum + p.totalEstimated, 0);
+    const totalActual = phaseStats.reduce((sum, p) => sum + p.totalActual, 0);
+    const tasksCompleted = phaseStats.reduce((sum, p) => sum + p.tasksCompleted, 0);
+    const tasksTotal = phaseStats.reduce((sum, p) => sum + p.tasksTotal, 0);
+    const projectEV = totalEstimated * (project.progress / 100);
+    const projectEfficiency = totalActual > 0 ? projectEV / totalActual : 0;
+
+    return {
+      projectId,
+      projectName: project.name,
+      summary: {
+        totalEstimated,
+        totalActual,
+        variance: totalActual - totalEstimated,
+        variancePercent: totalEstimated > 0 ? Math.round(((totalActual - totalEstimated) / totalEstimated) * 100) : 0,
+        tasksCompleted,
+        tasksTotal,
+        completionRate: tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0,
+        efficiency: Math.round(projectEfficiency * 100) / 100,
+        avgEffortPerTask: tasksCompleted > 0 ? Math.round((totalActual / tasksCompleted) * 100) / 100 : 0,
+      },
+      byMember: memberProductivity.filter(m => m.tasksTotal > 0),
+      byRole: roleProductivity.filter(r => r.tasksTotal > 0),
+      byPhase: phaseStats,
+    };
+  }
+
+  /**
+   * Get member cost analysis for a project
+   * Calculates actual cost based on hourly rate and worked hours
+   * Only includes members with hourly rate > 0 who have worked on tasks
+   */
+  async getProjectMemberCostAnalysis(projectId: number) {
+    const project = await this.projectService.findOne(projectId);
+    const phases = await this.phaseService.findByProject(projectId);
+    const members = await this.memberService.findByProject(projectId);
+
+    // Filter members with hourly rate
+    const membersWithRate = members.filter(m => m.hourlyRate && m.hourlyRate > 0);
+
+    if (membersWithRate.length === 0) {
+      return null; // No members with hourly rate
+    }
+
+    // Map to track member cost details
+    const memberCostMap = new Map<number, {
+      memberId: number;
+      name: string;
+      role: string;
+      hourlyRate: number;
+      tasks: Array<{
+        taskId: number;
+        taskName: string;
+        phaseName: string;
+        estimatedHours: number;
+        actualHours: number;
+        estimatedCost: number;
+        actualCost: number;
+        status: string;
+      }>;
+      totalEstimatedHours: number;
+      totalActualHours: number;
+      totalEstimatedCost: number;
+      totalActualCost: number;
+      efficiency: number;
+      efficiencyRating: string;
+    }>();
+
+    // Initialize member cost data
+    for (const member of membersWithRate) {
+      memberCostMap.set(member.id, {
+        memberId: member.id,
+        name: member.name,
+        role: member.role,
+        hourlyRate: member.hourlyRate,
+        tasks: [],
+        totalEstimatedHours: 0,
+        totalActualHours: 0,
+        totalEstimatedCost: 0,
+        totalActualCost: 0,
+        efficiency: 0,
+        efficiencyRating: 'N/A',
+      });
+    }
+
+    // Process each phase and collect task data
+    for (const phase of phases) {
+      const psfs = await this.phaseScreenFunctionService.findByPhase(phase.id);
+
+      for (const psf of psfs) {
+        if (psf.status === 'Skipped') continue;
+        if (!psf.assigneeId || !memberCostMap.has(psf.assigneeId)) continue;
+
+        const memberData = memberCostMap.get(psf.assigneeId)!;
+        const estimatedHours = psf.estimatedEffort || 0;
+        const actualHours = psf.actualEffort || 0;
+        const estimatedCost = estimatedHours * memberData.hourlyRate;
+        const actualCost = actualHours * memberData.hourlyRate;
+
+        // Get screen function name
+        const taskName = psf.screenFunction?.name || `Task #${psf.screenFunctionId}`;
+
+        memberData.tasks.push({
+          taskId: psf.id,
+          taskName,
+          phaseName: phase.name,
+          estimatedHours,
+          actualHours,
+          estimatedCost,
+          actualCost,
+          status: psf.status,
+        });
+
+        memberData.totalEstimatedHours += estimatedHours;
+        memberData.totalActualHours += actualHours;
+        memberData.totalEstimatedCost += estimatedCost;
+        memberData.totalActualCost += actualCost;
+      }
+    }
+
+    // Calculate efficiency and rating for each member
+    const memberCostAnalysis: Array<{
+      memberId: number;
+      name: string;
+      role: string;
+      hourlyRate: number;
+      tasks: Array<{
+        taskId: number;
+        taskName: string;
+        phaseName: string;
+        estimatedHours: number;
+        actualHours: number;
+        estimatedCost: number;
+        actualCost: number;
+        status: string;
+      }>;
+      totalEstimatedHours: number;
+      totalActualHours: number;
+      totalEstimatedCost: number;
+      totalActualCost: number;
+      costVariance: number;
+      costVariancePercent: number;
+      efficiency: number;
+      efficiencyRating: string;
+      efficiencyColor: string;
+    }> = [];
+
+    for (const [memberId, data] of memberCostMap) {
+      // Only include members who have worked on tasks
+      if (data.tasks.length === 0) continue;
+
+      // Calculate efficiency: estimated / actual (>1 = faster, <1 = slower)
+      const efficiency = data.totalActualHours > 0
+        ? data.totalEstimatedHours / data.totalActualHours
+        : data.totalEstimatedHours > 0 ? 0 : 1;
+
+      // Cost variance
+      const costVariance = data.totalActualCost - data.totalEstimatedCost;
+      const costVariancePercent = data.totalEstimatedCost > 0
+        ? Math.round((costVariance / data.totalEstimatedCost) * 100)
+        : 0;
+
+      // Efficiency rating
+      let efficiencyRating: string;
+      let efficiencyColor: string;
+      if (efficiency >= 1.2) {
+        efficiencyRating = 'Xuất sắc';
+        efficiencyColor = 'green';
+      } else if (efficiency >= 1.0) {
+        efficiencyRating = 'Tốt';
+        efficiencyColor = 'blue';
+      } else if (efficiency >= 0.8) {
+        efficiencyRating = 'Đạt yêu cầu';
+        efficiencyColor = 'yellow';
+      } else {
+        efficiencyRating = 'Cần cải thiện';
+        efficiencyColor = 'red';
+      }
+
+      memberCostAnalysis.push({
+        ...data,
+        costVariance,
+        costVariancePercent,
+        efficiency: Math.round(efficiency * 100) / 100,
+        efficiencyRating,
+        efficiencyColor,
+      });
+    }
+
+    // Sort by total actual cost (highest first)
+    memberCostAnalysis.sort((a, b) => b.totalActualCost - a.totalActualCost);
+
+    // Calculate totals
+    const totalEstimatedCost = memberCostAnalysis.reduce((sum, m) => sum + m.totalEstimatedCost, 0);
+    const totalActualCost = memberCostAnalysis.reduce((sum, m) => sum + m.totalActualCost, 0);
+    const totalEstimatedHours = memberCostAnalysis.reduce((sum, m) => sum + m.totalEstimatedHours, 0);
+    const totalActualHours = memberCostAnalysis.reduce((sum, m) => sum + m.totalActualHours, 0);
+    const totalCostVariance = totalActualCost - totalEstimatedCost;
+    const totalCostVariancePercent = totalEstimatedCost > 0
+      ? Math.round((totalCostVariance / totalEstimatedCost) * 100)
+      : 0;
+
+    // Group by phase for phase cost summary
+    const phaseCostMap = new Map<string, {
+      phaseName: string;
+      estimatedCost: number;
+      actualCost: number;
+      memberCount: number;
+    }>();
+
+    for (const member of memberCostAnalysis) {
+      for (const task of member.tasks) {
+        if (!phaseCostMap.has(task.phaseName)) {
+          phaseCostMap.set(task.phaseName, {
+            phaseName: task.phaseName,
+            estimatedCost: 0,
+            actualCost: 0,
+            memberCount: 0,
+          });
+        }
+        const phaseData = phaseCostMap.get(task.phaseName)!;
+        phaseData.estimatedCost += task.estimatedCost;
+        phaseData.actualCost += task.actualCost;
+      }
+    }
+
+    // Count unique members per phase
+    for (const member of memberCostAnalysis) {
+      const phasesSeen = new Set<string>();
+      for (const task of member.tasks) {
+        if (!phasesSeen.has(task.phaseName)) {
+          phasesSeen.add(task.phaseName);
+          phaseCostMap.get(task.phaseName)!.memberCount++;
+        }
+      }
+    }
+
+    const phaseCostSummary = Array.from(phaseCostMap.values()).map(p => ({
+      ...p,
+      costVariance: p.actualCost - p.estimatedCost,
+      costVariancePercent: p.estimatedCost > 0
+        ? Math.round(((p.actualCost - p.estimatedCost) / p.estimatedCost) * 100)
+        : 0,
+    }));
+
+    // Top performers and those needing support
+    const topPerformers = memberCostAnalysis
+      .filter(m => m.efficiency >= 1.0)
+      .slice(0, 3);
+
+    const needSupport = memberCostAnalysis
+      .filter(m => m.efficiency < 0.8 && m.totalActualHours > 0)
+      .slice(0, 3);
+
+    return {
+      projectId,
+      projectName: project.name,
+      currency: 'USD',
+      summary: {
+        totalMembers: memberCostAnalysis.length,
+        totalEstimatedHours,
+        totalActualHours,
+        totalEstimatedCost,
+        totalActualCost,
+        totalCostVariance,
+        totalCostVariancePercent,
+        avgHourlyRate: memberCostAnalysis.length > 0
+          ? Math.round(memberCostAnalysis.reduce((sum, m) => sum + m.hourlyRate, 0) / memberCostAnalysis.length * 100) / 100
+          : 0,
+        overallEfficiency: totalActualHours > 0
+          ? Math.round((totalEstimatedHours / totalActualHours) * 100) / 100
+          : 1,
+      },
+      byMember: memberCostAnalysis,
+      byPhase: phaseCostSummary,
+      insights: {
+        topPerformers,
+        needSupport,
+        costStatus: totalCostVariance <= 0 ? 'under_budget' : totalCostVariancePercent <= 10 ? 'slight_over' : 'over_budget',
+        savingsOrOverrun: Math.abs(totalCostVariance),
+      },
+    };
   }
 }

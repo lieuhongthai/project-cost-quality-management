@@ -13,7 +13,13 @@ import {
 } from "@/components/common";
 import { EffortUnitSelector } from "@/components/common/EffortUnitSelector";
 import { EffortForm, TestingForm, PhaseScreenFunctionForm } from "@/components/forms";
-import { ProgressChart, TestingQualityChart } from "@/components/charts";
+import {
+  ProgressChart,
+  TestingQualityChart,
+  PhaseEfficiencyChart,
+  PhaseStatusPieChart,
+  PhaseProgressOverview,
+} from "@/components/charts";
 import { format } from "date-fns";
 import type { PhaseScreenFunction, EffortUnit } from "@/types";
 import {
@@ -30,7 +36,7 @@ export const Route = createFileRoute("/phases/$phaseId")({
 function PhaseDetail() {
   const { phaseId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"efforts" | "testing" | "screen-functions">("efforts");
+  const [activeTab, setActiveTab] = useState<"charts" | "efforts" | "testing" | "screen-functions">("screen-functions");
   const [showAddEffort, setShowAddEffort] = useState(false);
   const [showAddTesting, setShowAddTesting] = useState(false);
   const [editingEffort, setEditingEffort] = useState<any>(null);
@@ -217,9 +223,11 @@ function PhaseDetail() {
     })) || [];
 
   const tabs = [
-    { id: "efforts" as const, name: "Efforts" },
-    { id: "testing" as const, name: "Testing" },
     { id: "screen-functions" as const, name: "Screen/Function" },
+    { id: "charts" as const, name: "Charts" },
+    { id: "testing" as const, name: "Testing" },
+    // Hidden: Efforts tab can be re-enabled by uncommenting the line below
+    // { id: "efforts" as const, name: "Efforts" },
   ];
 
   const handleLinkScreenFunctions = () => {
@@ -803,6 +811,124 @@ function PhaseDetail() {
               />
             )}
           </Card>
+        </div>
+      )}
+
+      {activeTab === "charts" && (
+        <div className="space-y-6">
+          {/* Overview Cards */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <Card>
+              <p className="text-sm text-gray-500">Hiệu suất Phase</p>
+              <div className="mt-1">
+                {phase.actualEffort > 0 ? (
+                  <>
+                    {(() => {
+                      const expectedEffort = phase.estimatedEffort * (phase.progress / 100);
+                      const efficiency = expectedEffort > 0
+                        ? Math.round((expectedEffort / phase.actualEffort) * 100)
+                        : 0;
+                      const isGood = efficiency >= 100;
+                      const isWarning = efficiency >= 83 && efficiency < 100;
+                      return (
+                        <>
+                          <p className={`text-3xl font-bold ${
+                            isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {efficiency}%
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {isGood ? 'Công việc hiệu quả' : isWarning ? 'Hơi vượt dự kiến' : 'Vượt dự kiến nhiều'}
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <p className="text-2xl font-semibold text-gray-400">--</p>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <p className="text-sm text-gray-500">Hoàn thành</p>
+              <p className="mt-1 text-3xl font-bold text-blue-600">
+                {psfSummary?.byStatus?.Completed ?? 0}/{psfSummary?.total ?? 0}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Screen/Function</p>
+            </Card>
+
+            <Card>
+              <p className="text-sm text-gray-500">Tiến độ tổng thể</p>
+              <p className="mt-1 text-3xl font-bold text-primary-600">
+                {phase.progress.toFixed(1)}%
+              </p>
+              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-primary-600 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, phase.progress)}%` }}
+                />
+              </div>
+            </Card>
+          </div>
+
+          {/* Charts Row 1: Status Distribution & Progress Overview */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card title="Phân bố trạng thái">
+              {psfSummary ? (
+                <PhaseStatusPieChart data={psfSummary.byStatus} />
+              ) : (
+                <div className="flex items-center justify-center h-[250px] text-gray-500">
+                  Chưa có dữ liệu
+                </div>
+              )}
+            </Card>
+
+            <Card title="Tiến độ từng mục">
+              {phaseScreenFunctions && phaseScreenFunctions.length > 0 ? (
+                <PhaseProgressOverview
+                  data={phaseScreenFunctions.map(psf => ({
+                    name: psf.screenFunction?.name || 'Unknown',
+                    progress: psf.progress,
+                    status: psf.status,
+                  }))}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-gray-500">
+                  Chưa có dữ liệu Screen/Function
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Charts Row 2: Efficiency Comparison */}
+          <Card title="So sánh Effort (Dự kiến vs Thực tế)">
+            <p className="text-sm text-gray-500 mb-4">
+              Hiển thị các mục có hiệu suất thấp nhất. Màu xanh = hiệu quả, màu vàng = hơi vượt, màu đỏ = vượt nhiều.
+            </p>
+            {phaseScreenFunctions && phaseScreenFunctions.length > 0 ? (
+              <PhaseEfficiencyChart
+                data={phaseScreenFunctions.map(psf => ({
+                  name: psf.screenFunction?.name || 'Unknown',
+                  estimated: psf.estimatedEffort,
+                  actual: psf.actualEffort,
+                  progress: psf.progress,
+                }))}
+                effortLabel={EFFORT_UNIT_LABELS[effortUnit]}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                Chưa có dữ liệu Screen/Function
+              </div>
+            )}
+          </Card>
+
+          {/* Testing Quality Chart (if testing data exists) */}
+          {testingChartData.length > 0 && (
+            <Card title="Chất lượng Testing theo tuần">
+              <TestingQualityChart data={testingChartData} />
+            </Card>
+          )}
         </div>
       )}
 

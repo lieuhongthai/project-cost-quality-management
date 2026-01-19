@@ -77,6 +77,31 @@ export class Metrics extends Model {
   })
   actualCost: number; // AC - Actual cost of work performed
 
+  // Forecasting Metrics (EVM Advanced)
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  budgetAtCompletion: number; // BAC - Total budget (estimated effort)
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  estimateAtCompletion: number; // EAC = AC + (BAC - EV) / CPI
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  varianceAtCompletion: number; // VAC = BAC - EAC
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  toCompletePerformanceIndex: number; // TCPI = (BAC - EV) / (BAC - AC)
+
   // Testing & Quality Metrics
   @Column({
     type: DataType.FLOAT,
