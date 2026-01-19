@@ -175,6 +175,7 @@ function ProjectDetail() {
   // Sync settings form with fetched project settings
   useEffect(() => {
     if (projectSettings) {
+      const storedEffortUnit = localStorage.getItem(`effortUnit.project.${projectId}`) as EffortUnit | null;
       setSettingsForm({
         workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
         workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
@@ -182,9 +183,17 @@ function ProjectDetail() {
         nonWorkingDays: projectSettings.nonWorkingDays || DEFAULT_NON_WORKING_DAYS,
         holidays: projectSettings.holidays || [],
       });
-      setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
+      setEffortUnit(
+        storedEffortUnit || projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+      );
     }
-  }, [projectSettings]);
+  }, [projectSettings, projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      localStorage.setItem(`effortUnit.project.${projectId}`, effortUnit);
+    }
+  }, [effortUnit, projectId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
