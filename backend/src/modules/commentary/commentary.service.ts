@@ -96,8 +96,7 @@ export class CommentaryService {
       }
     }
 
-    // Build prompt for AI
-    const prompt = this.buildPrompt(report, metrics, language);
+    const prompt = this.buildPrompt(report, metrics);
 
     let aiContent: string;
 
@@ -153,7 +152,72 @@ export class CommentaryService {
     }
   }
 
-  private buildPrompt(report: any, metrics: any, language: string): string {
+  private buildPrompt(report: any, metrics: any): string {
+    const snapshot = report.snapshotData || {};
+    const projectSnapshot = snapshot.project || {};
+    const scheduleSnapshot = snapshot.schedule || {};
+    const forecastingSnapshot = snapshot.forecasting || {};
+    const testingSnapshot = snapshot.testing || {};
+    const productivitySnapshot = snapshot.productivity || {};
+    const memberCostSnapshot = snapshot.memberCost || {};
+    const phaseDetail = snapshot.phaseDetail || {};
+
+    const safeNumber = (value: number | null | undefined, fallback = 0) =>
+      typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+    const scheduleMetrics = {
+      spi: safeNumber(scheduleSnapshot.spi, metrics?.schedulePerformanceIndex),
+      cpi: safeNumber(scheduleSnapshot.cpi, metrics?.costPerformanceIndex),
+      delayRate: safeNumber(scheduleSnapshot.delayRate, metrics?.delayRate),
+      delayInManMonths: safeNumber(scheduleSnapshot.delayInManMonths, metrics?.delayInManMonths),
+      estimatedVsActual: safeNumber(scheduleSnapshot.estimatedVsActual, metrics?.estimatedVsActual),
+      plannedValue: safeNumber(scheduleSnapshot.plannedValue, metrics?.plannedValue),
+      earnedValue: safeNumber(scheduleSnapshot.earnedValue, metrics?.earnedValue),
+      actualCost: safeNumber(scheduleSnapshot.actualCost, metrics?.actualCost),
+    };
+
+    const forecastingMetrics = {
+      bac: safeNumber(forecastingSnapshot.bac, metrics?.budgetAtCompletion),
+      eac: safeNumber(forecastingSnapshot.eac, metrics?.estimateAtCompletion),
+      vac: safeNumber(forecastingSnapshot.vac, metrics?.varianceAtCompletion),
+      tcpi: safeNumber(forecastingSnapshot.tcpi, metrics?.toCompletePerformanceIndex),
+    };
+
+    const testingMetrics = {
+      totalTestCases: safeNumber(testingSnapshot.totalTestCases),
+      totalPassed: safeNumber(testingSnapshot.totalPassed),
+      totalFailed: safeNumber(testingSnapshot.totalFailed),
+      totalDefects: safeNumber(testingSnapshot.totalDefects),
+      totalTestingTime: safeNumber(testingSnapshot.totalTestingTime),
+      passRate: safeNumber(testingSnapshot.passRate, metrics?.passRate),
+      defectRate: safeNumber(testingSnapshot.defectRate, metrics?.defectRate),
+      timePerTestCase: safeNumber(testingSnapshot.timePerTestCase, metrics?.timePerTestCase),
+      testCasesPerHour: safeNumber(testingSnapshot.testCasesPerHour, metrics?.testCasesPerHour),
+    };
+
+    const productivitySummary = productivitySnapshot?.summary || null;
+    const topMembers = Array.isArray(productivitySnapshot?.byMember)
+      ? productivitySnapshot.byMember.slice(0, 3)
+      : [];
+    const topRoles = Array.isArray(productivitySnapshot?.byRole)
+      ? productivitySnapshot.byRole.slice(0, 3)
+      : [];
+
+    const memberCostSummary = Array.isArray(memberCostSnapshot?.members)
+      ? memberCostSnapshot.members
+      : Array.isArray(memberCostSnapshot?.byMember)
+        ? memberCostSnapshot.byMember
+        : [];
+    const memberCostTotals = memberCostSnapshot?.summary || null;
+    const topCostMembers = memberCostSummary
+      .slice()
+      .sort((a: any, b: any) => (b.totalActualCost || 0) - (a.totalActualCost || 0))
+      .slice(0, 3);
+
+    const phaseContext = report.scope === 'Phase' || report.scope === 'Weekly'
+      ? `\nPhase Context:\n- Phase ID: ${report.phaseId ?? phaseDetail.id ?? 'N/A'}\n- Phase Name: ${report.phaseName ?? phaseDetail.name ?? 'N/A'}`
+      : '';
+
     return `
 Analyze this project report and provide insights:
 
@@ -161,19 +225,50 @@ Report Details:
 - Scope: ${report.scope}
 - Title: ${report.title}
 - Date: ${report.reportDate}
+- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${phaseContext}
+
+Project Snapshot:
+- Project Name: ${projectSnapshot.name || 'N/A'}
+- Status: ${projectSnapshot.status || 'N/A'}
+- Progress: ${safeNumber(projectSnapshot.progress).toFixed(1)}%
+- Estimated Effort: ${safeNumber(projectSnapshot.estimatedEffort).toFixed(2)} man-months
+- Actual Effort: ${safeNumber(projectSnapshot.actualEffort).toFixed(2)} man-months
+- Start/End: ${projectSnapshot.startDate || 'N/A'} → ${projectSnapshot.endDate || 'N/A'}
 
 Schedule & Cost Metrics:
-- Schedule Performance Index (SPI): ${metrics.schedulePerformanceIndex.toFixed(2)}
-- Cost Performance Index (CPI): ${metrics.costPerformanceIndex.toFixed(2)}
-- Delay Rate: ${metrics.delayRate.toFixed(2)}%
-- Delay in Man-Months: ${metrics.delayInManMonths.toFixed(2)}
-- Estimated vs Actual Ratio: ${metrics.estimatedVsActual.toFixed(2)}
+- SPI: ${scheduleMetrics.spi.toFixed(2)}
+- CPI: ${scheduleMetrics.cpi.toFixed(2)}
+- Delay Rate: ${scheduleMetrics.delayRate.toFixed(2)}%
+- Delay in Man-Months: ${scheduleMetrics.delayInManMonths.toFixed(2)}
+- Estimated vs Actual Ratio: ${scheduleMetrics.estimatedVsActual.toFixed(2)}
+- Planned Value (PV): ${scheduleMetrics.plannedValue.toFixed(2)}
+- Earned Value (EV): ${scheduleMetrics.earnedValue.toFixed(2)}
+- Actual Cost (AC): ${scheduleMetrics.actualCost.toFixed(2)}
+
+Forecasting Metrics:
+- Budget at Completion (BAC): ${forecastingMetrics.bac.toFixed(2)}
+- Estimate at Completion (EAC): ${forecastingMetrics.eac.toFixed(2)}
+- Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
+- To-Complete Performance Index (TCPI): ${forecastingMetrics.tcpi.toFixed(2)}
 
 Testing & Quality Metrics:
-- Pass Rate: ${metrics.passRate.toFixed(2)}%
-- Defect Rate: ${metrics.defectRate.toFixed(3)}
-- Time per Test Case: ${metrics.timePerTestCase.toFixed(2)} hours
-- Test Cases per Hour: ${metrics.testCasesPerHour.toFixed(2)}
+- Total Test Cases: ${testingMetrics.totalTestCases}
+- Passed/Failed: ${testingMetrics.totalPassed}/${testingMetrics.totalFailed}
+- Defects Detected: ${testingMetrics.totalDefects}
+- Testing Time: ${testingMetrics.totalTestingTime.toFixed(2)} hours
+- Pass Rate: ${testingMetrics.passRate.toFixed(2)}%
+- Defect Rate: ${testingMetrics.defectRate.toFixed(3)}
+- Time per Test Case: ${testingMetrics.timePerTestCase.toFixed(2)} hours
+- Test Cases per Hour: ${testingMetrics.testCasesPerHour.toFixed(2)}
+
+Productivity Snapshot:
+- Summary: ${productivitySummary ? `Efficiency ${safeNumber(productivitySummary.efficiency).toFixed(2)}, Completion ${safeNumber(productivitySummary.completionRate).toFixed(0)}%, Variance ${safeNumber(productivitySummary.variance).toFixed(2)}` : 'N/A'}
+- Top Members by Efficiency: ${topMembers.length > 0 ? topMembers.map((m: any) => `${m.name} (${safeNumber(m.efficiency).toFixed(2)})`).join(', ') : 'N/A'}
+- Top Roles by Efficiency: ${topRoles.length > 0 ? topRoles.map((r: any) => `${r.role} (${safeNumber(r.efficiency).toFixed(2)})`).join(', ') : 'N/A'}
+
+    Member Cost Snapshot:
+- Summary: ${memberCostTotals ? `Actual ${safeNumber(memberCostTotals.totalActualCost).toFixed(2)}, Estimated ${safeNumber(memberCostTotals.totalEstimatedCost).toFixed(2)}, Variance ${safeNumber(memberCostTotals.totalCostVariance).toFixed(2)}` : 'N/A'}
+- Top Cost Drivers: ${topCostMembers.length > 0 ? topCostMembers.map((m: any) => `${m.name} (${safeNumber(m.totalActualCost).toFixed(2)})`).join(', ') : 'N/A'}
 
 Please provide:
 1. Overall project health assessment
