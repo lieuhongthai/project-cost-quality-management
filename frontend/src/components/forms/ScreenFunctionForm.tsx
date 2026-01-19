@@ -4,6 +4,7 @@ import { screenFunctionApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
 import type { ScreenFunction, ScreenFunctionType, Priority, Complexity, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenFunctionFormProps {
   projectId: number;
@@ -14,23 +15,6 @@ interface ScreenFunctionFormProps {
   onCancel: () => void;
 }
 
-const TYPE_OPTIONS: { value: ScreenFunctionType; label: string }[] = [
-  { value: 'Screen', label: 'Screen' },
-  { value: 'Function', label: 'Function' },
-];
-
-const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
-  { value: 'High', label: 'High' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'Low', label: 'Low' },
-];
-
-const COMPLEXITY_OPTIONS: { value: Complexity; label: string }[] = [
-  { value: 'Simple', label: 'Simple' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'Complex', label: 'Complex' },
-];
-
 export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   projectId,
   screenFunction,
@@ -39,6 +23,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Convert existing effort from man-hours to display unit for editing
@@ -79,11 +64,11 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = t('screenFunction.form.validation.nameRequired');
     }
 
     if (!formData.type) {
-      newErrors.type = 'Type is required';
+      newErrors.type = t('screenFunction.form.validation.typeRequired');
     }
 
     setErrors(newErrors);
@@ -126,68 +111,87 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  const typeOptions: { value: ScreenFunctionType; label: string }[] = [
+    { value: 'Screen', label: t('screenFunction.typeScreen') },
+    { value: 'Function', label: t('screenFunction.typeFunction') },
+  ];
+
+  const priorityOptions: { value: Priority; label: string }[] = [
+    { value: 'High', label: t('screenFunction.priorityHigh') },
+    { value: 'Medium', label: t('screenFunction.priorityMedium') },
+    { value: 'Low', label: t('screenFunction.priorityLow') },
+  ];
+
+  const complexityOptions: { value: Complexity; label: string }[] = [
+    { value: 'Simple', label: t('screenFunction.complexitySimple') },
+    { value: 'Medium', label: t('screenFunction.complexityMedium') },
+    { value: 'Complex', label: t('screenFunction.complexityComplex') },
+  ];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
-        label="Name"
+        label={t('screenFunction.name')}
         name="name"
         value={formData.name}
         onChange={handleChange}
         error={errors.name}
-        placeholder="Enter screen/function name"
+        placeholder={t('screenFunction.form.namePlaceholder')}
         required
         disabled={isLoading}
       />
 
       <div className="grid grid-cols-3 gap-4">
         <Select
-          label="Type"
+          label={t('screenFunction.type')}
           name="type"
           value={formData.type}
           onChange={handleChange}
-          options={TYPE_OPTIONS}
+          options={typeOptions}
           error={errors.type}
           required
           disabled={isLoading}
         />
 
         <Select
-          label="Priority"
+          label={t('screenFunction.priority')}
           name="priority"
           value={formData.priority}
           onChange={handleChange}
-          options={PRIORITY_OPTIONS}
+          options={priorityOptions}
           disabled={isLoading}
         />
 
         <Select
-          label="Complexity"
+          label={t('screenFunction.complexity')}
           name="complexity"
           value={formData.complexity}
           onChange={handleChange}
-          options={COMPLEXITY_OPTIONS}
+          options={complexityOptions}
           disabled={isLoading}
         />
       </div>
 
       <Input
-        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+        label={t('screenFunction.form.estimatedEffortLabel', {
+          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+        })}
         name="estimatedEffort"
         type="number"
         step="0.01"
         min="0"
         value={formData.estimatedEffort}
         onChange={handleChange}
-        placeholder="Total estimated effort across all phases"
+        placeholder={t('screenFunction.form.estimatedEffortPlaceholder')}
         disabled={isLoading}
       />
 
       <TextArea
-        label="Description"
+        label={t('screenFunction.description')}
         name="description"
         value={formData.description}
         onChange={handleChange}
-        placeholder="Describe the screen/function..."
+        placeholder={t('screenFunction.form.descriptionPlaceholder')}
         rows={3}
         disabled={isLoading}
       />
@@ -199,14 +203,14 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {screenFunction ? 'Update' : 'Create'}
+          {screenFunction ? t('common.update') : t('common.create')}
         </Button>
       </div>
     </form>

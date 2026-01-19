@@ -5,6 +5,7 @@ import { Button, Input, DateInput } from '../common';
 import type { Effort, EffortUnit, ProjectSettings } from '@/types';
 import { addDays, startOfWeek } from 'date-fns';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
+import { useTranslation } from 'react-i18next';
 
 interface EffortFormProps {
   phaseId: number;
@@ -23,6 +24,7 @@ export const EffortForm: React.FC<EffortFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Convert existing effort from man-months to display unit for editing
@@ -65,19 +67,19 @@ export const EffortForm: React.FC<EffortFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.weekStartDate) {
-      newErrors.weekStartDate = 'Week start date is required';
+      newErrors.weekStartDate = t('effort.form.validation.weekStartRequired');
     }
 
     if (formData.plannedEffort < 0) {
-      newErrors.plannedEffort = 'Planned effort cannot be negative';
+      newErrors.plannedEffort = t('effort.form.validation.plannedNonNegative');
     }
 
     if (formData.actualEffort < 0) {
-      newErrors.actualEffort = 'Actual effort cannot be negative';
+      newErrors.actualEffort = t('effort.form.validation.actualNonNegative');
     }
 
     if (formData.progress < 0 || formData.progress > 100) {
-      newErrors.progress = 'Progress must be between 0 and 100';
+      newErrors.progress = t('effort.form.validation.progressRange');
     }
 
     setErrors(newErrors);
@@ -147,18 +149,20 @@ export const EffortForm: React.FC<EffortFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <DateInput
-        label="Week Start Date"
+        label={t('effort.form.weekStartDate')}
         name="weekStartDate"
         value={formData.weekStartDate}
         onChange={handleChange}
         error={errors.weekStartDate}
         required
         disabled={isLoading || !!effort}
-        helperText="Enter date in yyyy/mm/dd format (e.g., 2024/01/15)"
+        helperText={t('effort.form.weekStartHelper')}
       />
 
       <Input
-        label={`Planned Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+        label={t('effort.form.plannedEffort', {
+          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+        })}
         name="plannedEffort"
         type="number"
         step="0.01"
@@ -170,7 +174,9 @@ export const EffortForm: React.FC<EffortFormProps> = ({
       />
 
       <Input
-        label={`Actual Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+        label={t('effort.form.actualEffort', {
+          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+        })}
         name="actualEffort"
         type="number"
         step="0.01"
@@ -181,7 +187,7 @@ export const EffortForm: React.FC<EffortFormProps> = ({
       />
 
       <Input
-        label="Progress (%)"
+        label={t('effort.form.progress')}
         name="progress"
         type="number"
         step="0.1"
@@ -200,14 +206,14 @@ export const EffortForm: React.FC<EffortFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {effort ? 'Update Effort' : 'Add Effort'}
+          {effort ? t('effort.form.update') : t('effort.form.add')}
         </Button>
       </div>
     </form>

@@ -6,6 +6,7 @@ import type { Phase, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 import { DEFAULT_NON_WORKING_DAYS } from '@/types';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface PhaseFormProps {
   projectId: number;
@@ -38,6 +39,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Convert existing effort from man-months to display unit for editing
@@ -135,20 +137,20 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name) {
-      newErrors.name = 'Phase name is required';
+      newErrors.name = t('phase.validation.nameRequired');
     }
 
     if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required';
+      newErrors.startDate = t('phase.validation.startDateRequired');
     }
 
     if (formData.estimatedEffort <= 0) {
-      newErrors.estimatedEffort = 'Estimated effort must be greater than 0';
+      newErrors.estimatedEffort = t('phase.validation.estimatedEffortPositive');
     }
 
     if (formData.endDate && formData.startDate) {
       if (new Date(formData.endDate) < new Date(formData.startDate)) {
-        newErrors.endDate = 'End date must be after start date';
+        newErrors.endDate = t('phase.validation.endDateAfterStart');
       }
     }
 
@@ -226,7 +228,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Phase Name <span className="text-red-500">*</span>
+          {t('phase.name')} <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
@@ -234,7 +236,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           value={formData.name}
           onChange={handleChange}
           list="phase-suggestions"
-          placeholder="Enter phase name or select from suggestions"
+          placeholder={t('phase.form.namePlaceholder')}
           className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
             errors.name ? 'border-red-500' : 'border-gray-300'
           } ${isLoading ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -250,13 +252,13 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           <p className="mt-1 text-sm text-red-500">{errors.name}</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
-          Type a custom name or select from common phases
+          {t('phase.form.nameHelper')}
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <DateInput
-          label="Start Date"
+          label={t('phase.startDate')}
           name="startDate"
           value={formData.startDate}
           onChange={handleChange}
@@ -266,7 +268,7 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
         />
 
         <DateInput
-          label="End Date"
+          label={t('phase.endDate')}
           name="endDate"
           value={formData.endDate}
           onChange={handleChange}
@@ -276,7 +278,9 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
       </div>
 
       <Input
-        label={`Estimated Effort (${EFFORT_UNIT_FULL_LABELS[effortUnit]}s)`}
+        label={t('phase.form.estimatedEffortLabel', {
+          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+        })}
         name="estimatedEffort"
         type="number"
         step="0.01"
@@ -297,19 +301,23 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <p className={`text-sm font-medium ${suggestionUsed ? 'text-green-700' : 'text-blue-700'}`}>
-                {suggestionUsed ? 'End Date Applied' : 'Suggested End Date'}
+                {suggestionUsed
+                  ? t('phase.form.endDateApplied')
+                  : t('phase.form.suggestedEndDate')}
               </p>
               {isCalculating ? (
-                <p className="text-sm text-blue-600">Calculating...</p>
+                <p className="text-sm text-blue-600">{t('common.loading')}</p>
               ) : suggestedEndDate ? (
                 <p className={`text-lg font-semibold ${suggestionUsed ? 'text-green-800' : 'text-blue-800'}`}>
                   {formatSuggestedDate(suggestedEndDate)}
                 </p>
               ) : (
-                <p className="text-sm text-gray-500">Unable to calculate</p>
+                <p className="text-sm text-gray-500">{t('phase.form.unableToCalculate')}</p>
               )}
               <p className={`text-xs mt-1 ${suggestionUsed ? 'text-green-500' : 'text-blue-500'}`}>
-                Based on {Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings))} working days
+                {t('phase.form.suggestedEndDateHint', {
+                  days: Math.ceil(convertEffort(formData.estimatedEffort, effortUnit, 'man-day', workSettings)),
+                })}
               </p>
             </div>
             {suggestedEndDate && !suggestionUsed && (
@@ -319,11 +327,11 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
                 onClick={useSuggestedDate}
                 disabled={isCalculating}
               >
-                Use this date
+                {t('phase.form.useSuggestedDate')}
               </Button>
             )}
             {suggestionUsed && (
-              <span className="text-green-600 text-sm font-medium">Applied!</span>
+              <span className="text-green-600 text-sm font-medium">{t('phase.form.applied')}</span>
             )}
           </div>
         </div>
@@ -336,14 +344,14 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {phase ? 'Update Phase' : 'Create Phase'}
+          {phase ? t('phase.form.update') : t('phase.form.create')}
         </Button>
       </div>
     </form>

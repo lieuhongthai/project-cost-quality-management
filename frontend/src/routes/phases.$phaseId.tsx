@@ -21,19 +21,21 @@ import {
   PhaseProgressOverview,
 } from "@/components/charts";
 import { format } from "date-fns";
-import type { PhaseScreenFunction, EffortUnit } from "@/types";
+import type { PhaseScreenFunction, EffortUnit, PhaseScreenFunctionStatus } from "@/types";
 import {
   convertEffort,
   formatEffort,
   EFFORT_UNIT_LABELS,
   DEFAULT_WORK_SETTINGS,
 } from "@/utils/effortUtils";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/phases/$phaseId")({
   component: PhaseDetail,
 });
 
 function PhaseDetail() {
+  const { t } = useTranslation();
   const { phaseId } = Route.useParams();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"charts" | "efforts" | "testing" | "screen-functions">("screen-functions");
@@ -155,6 +157,30 @@ function PhaseDetail() {
     return formatEffort(converted, effortUnit);
   };
 
+  const statusLabels: Record<PhaseScreenFunctionStatus, string> = {
+    'Not Started': t('screenFunction.statusNotStarted'),
+    'In Progress': t('screenFunction.statusInProgress'),
+    'Completed': t('screenFunction.statusCompleted'),
+    'Skipped': t('screenFunction.statusSkipped'),
+  };
+
+  const typeLabels: Record<string, string> = {
+    Screen: t('screenFunction.typeScreen'),
+    Function: t('screenFunction.typeFunction'),
+  };
+
+  const priorityLabels: Record<string, string> = {
+    High: t('screenFunction.priorityHigh'),
+    Medium: t('screenFunction.priorityMedium'),
+    Low: t('screenFunction.priorityLow'),
+  };
+
+  const complexityLabels: Record<string, string> = {
+    Simple: t('screenFunction.complexitySimple'),
+    Medium: t('screenFunction.complexityMedium'),
+    Complex: t('screenFunction.complexityComplex'),
+  };
+
   // Mutations
   const linkMutation = useMutation({
     mutationFn: (data: { phaseId: number; items: Array<{ screenFunctionId: number; estimatedEffort?: number }> }) =>
@@ -200,7 +226,7 @@ function PhaseDetail() {
   if (!phase) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Phase not found</p>
+        <p className="text-gray-500">{t('phase.detail.notFound')}</p>
       </div>
     );
   }
@@ -208,7 +234,7 @@ function PhaseDetail() {
   // Prepare chart data
   const effortChartData =
     efforts?.map((e) => ({
-      week: `Week ${e.weekNumber}`,
+      week: t('phase.detail.weekLabel', { week: e.weekNumber }),
       planned: e.plannedEffort,
       actual: e.actualEffort,
       progress: e.progress,
@@ -216,18 +242,18 @@ function PhaseDetail() {
 
   const testingChartData =
     testing?.map((t) => ({
-      week: `Week ${t.weekNumber}`,
+      week: t('phase.detail.weekLabel', { week: t.weekNumber }),
       passed: t.passedTestCases,
       failed: t.failedTestCases,
       passRate: t.passRate,
     })) || [];
 
   const tabs = [
-    { id: "screen-functions" as const, name: "Screen/Function" },
-    { id: "charts" as const, name: "Charts" },
-    { id: "testing" as const, name: "Testing" },
+    { id: "screen-functions" as const, name: t('phase.detail.tabs.screenFunctions') },
+    { id: "charts" as const, name: t('phase.detail.tabs.charts') },
+    { id: "testing" as const, name: t('phase.detail.tabs.testing') },
     // Hidden: Efforts tab can be re-enabled by uncommenting the line below
-    // { id: "efforts" as const, name: "Efforts" },
+    // { id: "efforts" as const, name: t('phase.detail.tabs.efforts') },
   ];
 
   const handleLinkScreenFunctions = () => {
@@ -254,7 +280,7 @@ function PhaseDetail() {
           to="/projects"
           className="text-gray-500 hover:text-gray-700 transition-colors"
         >
-          Projects
+          {t('nav.projects')}
         </Link>
         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -268,7 +294,7 @@ function PhaseDetail() {
             {project.name}
           </Link>
         ) : (
-          <span className="text-gray-400">Loading...</span>
+          <span className="text-gray-400">{t('common.loading')}</span>
         )}
         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -291,7 +317,9 @@ function PhaseDetail() {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to {project?.name || 'Project'}
+          {t('phase.detail.backToProject', {
+            project: project?.name || t('report.scopeProject'),
+          })}
         </Link>
       </div>
 
@@ -300,11 +328,11 @@ function PhaseDetail() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{phase.name}</h1>
-            <p className="mt-1 text-gray-600">Phase Details and Tracking</p>
+            <p className="mt-1 text-gray-600">{t('phase.detail.subtitle')}</p>
           </div>
           {project && (
             <div className="text-right">
-              <p className="text-sm text-gray-500">Project</p>
+              <p className="text-sm text-gray-500">{t('report.scopeProject')}</p>
               <Link
                 to="/projects/$projectId"
                 params={{ projectId: String(phase.projectId) }}
@@ -320,27 +348,27 @@ function PhaseDetail() {
         <div className="mt-6">
           {/* Effort Unit Selector */}
           <div className="flex items-center justify-end mb-4 gap-2">
-            <span className="text-sm text-gray-500">Display effort in:</span>
+            <span className="text-sm text-gray-500">{t('phase.detail.displayEffortIn')}</span>
             <EffortUnitSelector value={effortUnit} onChange={setEffortUnit} />
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
             <Card>
-              <p className="text-sm text-gray-500">Status</p>
+              <p className="text-sm text-gray-500">{t('phase.status')}</p>
               <div className="mt-1">
                 <StatusBadge status={phase.status as any} />
               </div>
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Progress</p>
+              <p className="text-sm text-gray-500">{t('phase.progress')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {phase.progress.toFixed(1)}%
               </p>
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Estimated Effort</p>
+              <p className="text-sm text-gray-500">{t('phase.estimatedEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(phase.estimatedEffort, 'man-month')}{" "}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -348,7 +376,7 @@ function PhaseDetail() {
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Actual Effort</p>
+              <p className="text-sm text-gray-500">{t('phase.actualEffort')}</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">
                 {displayEffort(phase.actualEffort, 'man-month')}{" "}
                 <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
@@ -383,19 +411,19 @@ function PhaseDetail() {
           {effortSummary && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <Card>
-                <p className="text-sm text-gray-500">Total Planned</p>
+                <p className="text-sm text-gray-500">{t('phase.detail.efforts.totalPlanned')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(effortSummary.totalPlanned, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Total Actual</p>
+                <p className="text-sm text-gray-500">{t('phase.detail.efforts.totalActual')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(effortSummary.totalActual, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Variance</p>
+                <p className="text-sm text-gray-500">{t('common.variance')}</p>
                 <p
                   className={`mt-1 text-2xl font-semibold ${
                     effortSummary.variance > 0
@@ -411,16 +439,16 @@ function PhaseDetail() {
           )}
 
           {effortChartData.length > 0 && (
-            <Card title="Effort Trend">
+            <Card title={t('phase.detail.efforts.trend')}>
               <ProgressChart data={effortChartData} />
             </Card>
           )}
 
           <Card
-            title="Weekly Efforts"
+            title={t('phase.detail.efforts.weekly')}
             actions={
               <Button size="sm" onClick={() => setShowAddEffort(true)}>
-                Add Effort
+                {t('phase.detail.efforts.add')}
               </Button>
             }
           >
@@ -430,22 +458,22 @@ function PhaseDetail() {
                   <thead>
                     <tr>
                       <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                        Week
+                        {t('phase.detail.efforts.week')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Date Range
+                        {t('phase.detail.efforts.dateRange')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Planned
+                        {t('phase.detail.efforts.planned')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Actual
+                        {t('phase.detail.efforts.actual')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Progress
+                        {t('phase.progress')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Actions
+                        {t('common.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -453,7 +481,7 @@ function PhaseDetail() {
                     {efforts.map((effort) => (
                       <tr key={effort.id}>
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                          Week {effort.weekNumber}
+                          {t('phase.detail.efforts.weekLabel', { week: effort.weekNumber })}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {format(new Date(effort.weekStartDate), "MMM dd")} -{" "}
@@ -474,7 +502,7 @@ function PhaseDetail() {
                             variant="secondary"
                             onClick={() => setEditingEffort(effort)}
                           >
-                            Edit
+                            {t('common.edit')}
                           </Button>
                         </td>
                       </tr>
@@ -484,11 +512,11 @@ function PhaseDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No effort data"
-                description="Add weekly effort records to track progress"
+                title={t('phase.detail.efforts.emptyTitle')}
+                description={t('phase.detail.efforts.emptyDescription')}
                 action={
                   <Button onClick={() => setShowAddEffort(true)}>
-                    Add First Effort Record
+                    {t('phase.detail.efforts.addFirst')}
                   </Button>
                 }
               />
@@ -502,25 +530,25 @@ function PhaseDetail() {
           {testingSummary && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
               <Card>
-                <p className="text-sm text-gray-500">Total Test Cases</p>
+                <p className="text-sm text-gray-500">{t('testing.totalTestCases')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {testingSummary.totalTestCases}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Pass Rate</p>
+                <p className="text-sm text-gray-500">{t('testing.passRate')}</p>
                 <p className="mt-1 text-2xl font-semibold text-green-600">
                   {testingSummary.overallPassRate.toFixed(1)}%
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Total Defects</p>
+                <p className="text-sm text-gray-500">{t('testing.defects')}</p>
                 <p className="mt-1 text-2xl font-semibold text-red-600">
                   {testingSummary.totalDefects}
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Defect Rate</p>
+                <p className="text-sm text-gray-500">{t('testing.defectRate')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {testingSummary.overallDefectRate.toFixed(3)}
                 </p>
@@ -529,16 +557,16 @@ function PhaseDetail() {
           )}
 
           {testingChartData.length > 0 && (
-            <Card title="Testing Quality Trend">
+            <Card title={t('phase.detail.testing.qualityTrend')}>
               <TestingQualityChart data={testingChartData} />
             </Card>
           )}
 
           <Card
-            title="Weekly Testing Data"
+            title={t('phase.detail.testing.weekly')}
             actions={
               <Button size="sm" onClick={() => setShowAddTesting(true)}>
-                Add Testing Data
+                {t('phase.detail.testing.add')}
               </Button>
             }
           >
@@ -548,28 +576,28 @@ function PhaseDetail() {
                   <thead>
                     <tr>
                       <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                        Week
+                        {t('phase.detail.testing.week')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Total Cases
+                        {t('phase.detail.testing.totalCases')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Passed
+                        {t('testing.passed')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Failed
+                        {t('testing.failed')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Pass Rate
+                        {t('testing.passRate')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Defects
+                        {t('testing.defects')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Status
+                        {t('common.status')}
                       </th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Actions
+                        {t('common.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -577,7 +605,7 @@ function PhaseDetail() {
                     {testing.map((test) => (
                       <tr key={test.id}>
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                          Week {test.weekNumber}
+                          {t('phase.detail.testing.weekLabel', { week: test.weekNumber })}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {test.totalTestCases}
@@ -603,7 +631,7 @@ function PhaseDetail() {
                             variant="secondary"
                             onClick={() => setEditingTesting(test)}
                           >
-                            Edit
+                            {t('common.edit')}
                           </Button>
                         </td>
                       </tr>
@@ -613,11 +641,11 @@ function PhaseDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No testing data"
-                description="Add weekly testing records to track quality"
+                title={t('phase.detail.testing.emptyTitle')}
+                description={t('phase.detail.testing.emptyDescription')}
                 action={
                   <Button onClick={() => setShowAddTesting(true)}>
-                    Add First Testing Record
+                    {t('phase.detail.testing.addFirst')}
                   </Button>
                 }
               />
@@ -632,17 +660,17 @@ function PhaseDetail() {
           {psfSummary && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-5">
               <Card>
-                <p className="text-sm text-gray-500">Linked Items</p>
+                <p className="text-sm text-gray-500">{t('phase.detail.screenFunctions.linkedItems')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{psfSummary.total}</p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Estimated Effort</p>
+                <p className="text-sm text-gray-500">{t('phase.estimatedEffort')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(psfSummary.totalEstimated, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Actual Effort</p>
+                <p className="text-sm text-gray-500">{t('phase.actualEffort')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {displayEffort(psfSummary.totalActual, 'man-hour')} <span className="text-sm text-gray-500">{EFFORT_UNIT_LABELS[effortUnit]}</span>
                 </p>
@@ -653,17 +681,20 @@ function PhaseDetail() {
                 )}
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Progress</p>
+                <p className="text-sm text-gray-500">{t('phase.progress')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {(psfSummary.progress ?? 0).toFixed(1)}%
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {psfSummary.completedCount ?? psfSummary.byStatus?.Completed ?? 0}/{psfSummary.activeCount ?? psfSummary.total} completed
+                  {t('phase.detail.screenFunctions.completedCount', {
+                    completed: psfSummary.completedCount ?? psfSummary.byStatus?.Completed ?? 0,
+                    total: psfSummary.activeCount ?? psfSummary.total,
+                  })}
                 </p>
                 <ProgressBar progress={psfSummary.progress ?? 0} />
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">Average Progress</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.averageProgress')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{psfSummary.avgProgress.toFixed(1)}%</p>
                 <ProgressBar progress={psfSummary.avgProgress} />
               </Card>
@@ -675,29 +706,29 @@ function PhaseDetail() {
             <div className="grid grid-cols-4 gap-4">
               <div className="bg-gray-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-gray-400">{psfSummary.byStatus['Not Started']}</p>
-                <p className="text-sm text-gray-500">Not Started</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusNotStarted')}</p>
               </div>
               <div className="bg-blue-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-blue-600">{psfSummary.byStatus['In Progress']}</p>
-                <p className="text-sm text-gray-500">In Progress</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusInProgress')}</p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-green-600">{psfSummary.byStatus['Completed']}</p>
-                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusCompleted')}</p>
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg text-center">
                 <p className="text-2xl font-bold text-yellow-600">{psfSummary.byStatus['Skipped']}</p>
-                <p className="text-sm text-gray-500">Skipped</p>
+                <p className="text-sm text-gray-500">{t('screenFunction.statusSkipped')}</p>
               </div>
             </div>
           )}
 
           {/* Main Content */}
           <Card
-            title="Screen/Function in this Phase"
+            title={t('phase.detail.screenFunctions.title')}
             actions={
               <Button size="sm" onClick={() => setShowLinkScreenFunction(true)}>
-                Link Screen/Function
+                {t('phase.detail.screenFunctions.link')}
               </Button>
             }
           >
@@ -706,15 +737,15 @@ function PhaseDetail() {
                 <table className="min-w-full divide-y divide-gray-300">
                   <thead>
                     <tr>
-                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Assignee</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Progress</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Est. Effort</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Act. Effort</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Variance</th>
-                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">{t('screenFunction.name')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.type')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.assignee')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.status')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.progress')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.estimatedEffort')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.actualEffort')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.variance')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -723,7 +754,7 @@ function PhaseDetail() {
                       return (
                         <tr key={psf.id} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                            <p className="font-medium text-gray-900">{psf.screenFunction?.name || 'Unknown'}</p>
+                            <p className="font-medium text-gray-900">{psf.screenFunction?.name || t('common.unknown')}</p>
                             {psf.note && (
                               <p className="text-gray-500 text-xs truncate max-w-xs">{psf.note}</p>
                             )}
@@ -732,7 +763,7 @@ function PhaseDetail() {
                             <span className={`px-2 py-1 text-xs rounded ${
                               psf.screenFunction?.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                             }`}>
-                              {psf.screenFunction?.type || 'N/A'}
+                              {psf.screenFunction?.type ? typeLabels[psf.screenFunction.type] : t('common.notAvailable')}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -742,7 +773,7 @@ function PhaseDetail() {
                                 <p className="text-xs text-gray-500">{psf.assignee.role}</p>
                               </div>
                             ) : (
-                              <span className="text-gray-400">Unassigned</span>
+                              <span className="text-gray-400">{t('phase.detail.screenFunctions.unassigned')}</span>
                             )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -752,7 +783,7 @@ function PhaseDetail() {
                               psf.status === 'Skipped' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {psf.status}
+                              {statusLabels[psf.status] ?? psf.status}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -778,18 +809,18 @@ function PhaseDetail() {
                                 variant="secondary"
                                 onClick={() => setEditingPSF(psf)}
                               >
-                                Edit
+                                {t('common.edit')}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="danger"
                                 onClick={() => {
-                                  if (confirm('Unlink this item from phase?')) {
+                                  if (confirm(t('phase.detail.screenFunctions.unlinkConfirm'))) {
                                     unlinkMutation.mutate(psf.id);
                                   }
                                 }}
                               >
-                                Unlink
+                                {t('phase.detail.screenFunctions.unlink')}
                               </Button>
                             </div>
                           </td>
@@ -801,11 +832,11 @@ function PhaseDetail() {
               </div>
             ) : (
               <EmptyState
-                title="No screen/function linked"
-                description="Link screen/functions from the project to track detailed effort in this phase"
+                title={t('phase.detail.screenFunctions.emptyTitle')}
+                description={t('phase.detail.screenFunctions.emptyDescription')}
                 action={
                   <Button onClick={() => setShowLinkScreenFunction(true)}>
-                    Link Screen/Function
+                    {t('phase.detail.screenFunctions.link')}
                   </Button>
                 }
               />
@@ -819,7 +850,7 @@ function PhaseDetail() {
           {/* Overview Cards */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <Card>
-              <p className="text-sm text-gray-500">Hiệu suất Phase</p>
+              <p className="text-sm text-gray-500">{t('phase.detail.charts.efficiencyLabel')}</p>
               <div className="mt-1">
                 {phase.actualEffort > 0 ? (
                   <>
@@ -838,28 +869,32 @@ function PhaseDetail() {
                             {efficiency}%
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {isGood ? 'Công việc hiệu quả' : isWarning ? 'Hơi vượt dự kiến' : 'Vượt dự kiến nhiều'}
+                            {isGood
+                              ? t('phase.detail.charts.efficiencyGood')
+                              : isWarning
+                                ? t('phase.detail.charts.efficiencyWarning')
+                                : t('phase.detail.charts.efficiencyPoor')}
                           </p>
                         </>
                       );
                     })()}
                   </>
                 ) : (
-                  <p className="text-2xl font-semibold text-gray-400">--</p>
+                  <p className="text-2xl font-semibold text-gray-400">{t('phase.detail.charts.noData')}</p>
                 )}
               </div>
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Hoàn thành</p>
+              <p className="text-sm text-gray-500">{t('phase.detail.charts.completed')}</p>
               <p className="mt-1 text-3xl font-bold text-blue-600">
                 {psfSummary?.byStatus?.Completed ?? 0}/{psfSummary?.total ?? 0}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Screen/Function</p>
+              <p className="text-xs text-gray-500 mt-1">{t('screenFunction.title')}</p>
             </Card>
 
             <Card>
-              <p className="text-sm text-gray-500">Tiến độ tổng thể</p>
+              <p className="text-sm text-gray-500">{t('phase.detail.charts.overallProgress')}</p>
               <p className="mt-1 text-3xl font-bold text-primary-600">
                 {phase.progress.toFixed(1)}%
               </p>
@@ -874,42 +909,42 @@ function PhaseDetail() {
 
           {/* Charts Row 1: Status Distribution & Progress Overview */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title="Phân bố trạng thái">
+            <Card title={t('phase.detail.charts.statusDistribution')}>
               {psfSummary ? (
                 <PhaseStatusPieChart data={psfSummary.byStatus} />
               ) : (
                 <div className="flex items-center justify-center h-[250px] text-gray-500">
-                  Chưa có dữ liệu
+                  {t('phase.detail.charts.noData')}
                 </div>
               )}
             </Card>
 
-            <Card title="Tiến độ từng mục">
+            <Card title={t('phase.detail.charts.progressByItem')}>
               {phaseScreenFunctions && phaseScreenFunctions.length > 0 ? (
                 <PhaseProgressOverview
                   data={phaseScreenFunctions.map(psf => ({
-                    name: psf.screenFunction?.name || 'Unknown',
+                    name: psf.screenFunction?.name || t('common.unknown'),
                     progress: psf.progress,
                     status: psf.status,
                   }))}
                 />
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-gray-500">
-                  Chưa có dữ liệu Screen/Function
+                  {t('phase.detail.charts.noScreenFunctionData')}
                 </div>
               )}
             </Card>
           </div>
 
           {/* Charts Row 2: Efficiency Comparison */}
-          <Card title="So sánh Effort (Dự kiến vs Thực tế)">
+          <Card title={t('phase.detail.charts.effortComparisonTitle')}>
             <p className="text-sm text-gray-500 mb-4">
-              Hiển thị các mục có hiệu suất thấp nhất. Màu xanh = hiệu quả, màu vàng = hơi vượt, màu đỏ = vượt nhiều.
+              {t('phase.detail.charts.effortComparisonDescription')}
             </p>
             {phaseScreenFunctions && phaseScreenFunctions.length > 0 ? (
               <PhaseEfficiencyChart
                 data={phaseScreenFunctions.map(psf => ({
-                  name: psf.screenFunction?.name || 'Unknown',
+                  name: psf.screenFunction?.name || t('common.unknown'),
                   estimated: psf.estimatedEffort,
                   actual: psf.actualEffort,
                   progress: psf.progress,
@@ -918,14 +953,14 @@ function PhaseDetail() {
               />
             ) : (
               <div className="flex items-center justify-center h-[300px] text-gray-500">
-                Chưa có dữ liệu Screen/Function
+                {t('phase.detail.charts.noScreenFunctionData')}
               </div>
             )}
           </Card>
 
           {/* Testing Quality Chart (if testing data exists) */}
           {testingChartData.length > 0 && (
-            <Card title="Chất lượng Testing theo tuần">
+            <Card title={t('phase.detail.charts.testingQualityByWeek')}>
               <TestingQualityChart data={testingChartData} />
             </Card>
           )}
@@ -939,7 +974,7 @@ function PhaseDetail() {
           setShowAddEffort(false);
           setEditingEffort(null);
         }}
-        title={editingEffort ? "Edit Effort Record" : "Add Effort Record"}
+        title={editingEffort ? t('phase.detail.efforts.editRecord') : t('phase.detail.efforts.addRecord')}
       >
         <EffortForm
           phaseId={parseInt(phaseId)}
@@ -963,7 +998,7 @@ function PhaseDetail() {
           setShowAddTesting(false);
           setEditingTesting(null);
         }}
-        title={editingTesting ? "Edit Testing Data" : "Add Testing Data"}
+        title={editingTesting ? t('phase.detail.testing.editRecord') : t('phase.detail.testing.addRecord')}
       >
         <TestingForm
           phaseId={parseInt(phaseId)}
@@ -986,14 +1021,14 @@ function PhaseDetail() {
           setShowLinkScreenFunction(false);
           setSelectedSFIds([]);
         }}
-        title="Link Screen/Function to Phase"
+        title={t('phase.detail.screenFunctions.linkModalTitle')}
         size="lg"
       >
         <div className="space-y-4">
           {unlinkedScreenFunctions.length > 0 ? (
             <>
               <p className="text-sm text-gray-500">
-                Select screen/functions to link to this phase. You can add estimated effort after linking.
+                {t('phase.detail.screenFunctions.linkModalDescription')}
               </p>
               <div className="max-h-96 overflow-y-auto border rounded-lg divide-y">
                 {unlinkedScreenFunctions.map((sf) => (
@@ -1013,22 +1048,24 @@ function PhaseDetail() {
                         <span className={`px-2 py-0.5 text-xs rounded ${
                           sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {sf.type}
+                          {typeLabels[sf.type]}
                         </span>
                         <span className={`px-2 py-0.5 text-xs rounded ${
                           sf.priority === 'High' ? 'bg-red-100 text-red-800' :
                           sf.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {sf.priority}
+                          {priorityLabels[sf.priority]}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {sf.complexity}
+                          {complexityLabels[sf.complexity]}
                         </span>
                       </div>
                     </div>
                     <div className="text-right text-sm text-gray-500">
-                      {displayEffort(sf.estimatedEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]} total
+                      {t('phase.detail.screenFunctions.linkModalTotalEffort', {
+                        effort: `${displayEffort(sf.estimatedEffort, 'man-hour')} ${EFFORT_UNIT_LABELS[effortUnit]}`,
+                      })}
                     </div>
                   </label>
                 ))}
@@ -1041,21 +1078,23 @@ function PhaseDetail() {
                     setSelectedSFIds([]);
                   }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={handleLinkScreenFunctions}
                   disabled={selectedSFIds.length === 0 || linkMutation.isPending}
                   loading={linkMutation.isPending}
                 >
-                  Link {selectedSFIds.length > 0 ? `(${selectedSFIds.length})` : ''}
+                  {selectedSFIds.length > 0
+                    ? t('phase.detail.screenFunctions.linkWithCount', { count: selectedSFIds.length })
+                    : t('phase.detail.screenFunctions.link')}
                 </Button>
               </div>
             </>
           ) : (
             <EmptyState
-              title="No unlinked items"
-              description="All screen/functions in this project are already linked to this phase, or no items exist yet."
+              title={t('phase.detail.screenFunctions.noUnlinkedTitle')}
+              description={t('phase.detail.screenFunctions.noUnlinkedDescription')}
             />
           )}
         </div>
@@ -1065,7 +1104,7 @@ function PhaseDetail() {
       <Modal
         isOpen={!!editingPSF}
         onClose={() => setEditingPSF(null)}
-        title="Update Effort Details"
+        title={t('phase.detail.screenFunctions.updateEffortDetails')}
       >
         {editingPSF && phase && (
           <PhaseScreenFunctionForm

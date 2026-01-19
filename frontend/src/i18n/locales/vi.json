@@ -38,6 +38,9 @@
     "success": "Thành công",
     "warning": "Cảnh báo",
     "info": "Thông tin",
+    "variance": "Chênh lệch",
+    "unknown": "Không rõ",
+    "notAvailable": "Không có",
     "created": "Ngày tạo",
     "lastUpdated": "Cập nhật lần cuối",
     "update": "Cập nhật"
@@ -89,7 +92,24 @@
     "metrics": "Số liệu dự án",
     "statusGood": "Tốt",
     "statusWarning": "Cảnh báo",
-    "statusAtRisk": "Có rủi ro"
+    "statusAtRisk": "Có rủi ro",
+    "validation": {
+      "nameRequired": "Tên dự án là bắt buộc",
+      "startDateRequired": "Ngày bắt đầu là bắt buộc",
+      "estimatedEffortPositive": "Công sức ước tính phải lớn hơn 0",
+      "endDateAfterStart": "Ngày kết thúc phải sau ngày bắt đầu"
+    },
+    "form": {
+      "estimatedEffortLabel": "Công sức ước tính ({{unit}})",
+      "suggestedEndDate": "Gợi ý ngày kết thúc",
+      "endDateApplied": "Đã áp dụng ngày kết thúc",
+      "unableToCalculate": "Không thể tính toán",
+      "suggestedEndDateHint": "Dựa trên {{days}} ngày làm việc",
+      "useSuggestedDate": "Dùng ngày này",
+      "applied": "Đã áp dụng!",
+      "create": "Tạo dự án",
+      "update": "Cập nhật dự án"
+    }
   },
   "phase": {
     "title": "Giai đoạn",
@@ -114,7 +134,102 @@
     "suggestEndDate": "Gợi ý ngày kết thúc",
     "phaseProgress": "Tiến độ giai đoạn",
     "moveUp": "Di chuyển lên",
-    "moveDown": "Di chuyển xuống"
+    "moveDown": "Di chuyển xuống",
+    "validation": {
+      "nameRequired": "Tên giai đoạn là bắt buộc",
+      "startDateRequired": "Ngày bắt đầu là bắt buộc",
+      "estimatedEffortPositive": "Công sức ước tính phải lớn hơn 0",
+      "endDateAfterStart": "Ngày kết thúc phải sau ngày bắt đầu"
+    },
+    "form": {
+      "namePlaceholder": "Nhập tên giai đoạn hoặc chọn từ gợi ý",
+      "nameHelper": "Nhập tên tùy chỉnh hoặc chọn từ các giai đoạn phổ biến",
+      "estimatedEffortLabel": "Công sức ước tính ({{unit}})",
+      "suggestedEndDate": "Gợi ý ngày kết thúc",
+      "endDateApplied": "Đã áp dụng ngày kết thúc",
+      "unableToCalculate": "Không thể tính toán",
+      "suggestedEndDateHint": "Dựa trên {{days}} ngày làm việc",
+      "useSuggestedDate": "Dùng ngày này",
+      "applied": "Đã áp dụng!",
+      "create": "Tạo giai đoạn",
+      "update": "Cập nhật giai đoạn"
+    },
+    "detail": {
+      "notFound": "Không tìm thấy giai đoạn",
+      "backToProject": "Quay lại {{project}}",
+      "subtitle": "Chi tiết giai đoạn và theo dõi",
+      "displayEffortIn": "Hiển thị công sức theo:",
+      "weekLabel": "Tuần {{week}}",
+      "tabs": {
+        "screenFunctions": "Màn hình/Chức năng",
+        "charts": "Biểu đồ",
+        "testing": "Kiểm thử",
+        "efforts": "Công sức"
+      },
+      "efforts": {
+        "totalPlanned": "Tổng kế hoạch",
+        "totalActual": "Tổng thực tế",
+        "trend": "Xu hướng công sức",
+        "weekly": "Công sức theo tuần",
+        "add": "Thêm công sức",
+        "addRecord": "Thêm công sức",
+        "editRecord": "Sửa công sức",
+        "week": "Tuần",
+        "weekLabel": "Tuần {{week}}",
+        "dateRange": "Khoảng ngày",
+        "planned": "Kế hoạch",
+        "actual": "Thực tế",
+        "emptyTitle": "Chưa có dữ liệu công sức",
+        "emptyDescription": "Thêm công sức theo tuần để theo dõi tiến độ",
+        "addFirst": "Thêm công sức đầu tiên"
+      },
+      "testing": {
+        "qualityTrend": "Xu hướng chất lượng kiểm thử",
+        "weekly": "Dữ liệu kiểm thử theo tuần",
+        "add": "Thêm dữ liệu kiểm thử",
+        "addRecord": "Thêm dữ liệu kiểm thử",
+        "editRecord": "Sửa dữ liệu kiểm thử",
+        "week": "Tuần",
+        "weekLabel": "Tuần {{week}}",
+        "totalCases": "Tổng số case",
+        "emptyTitle": "Chưa có dữ liệu kiểm thử",
+        "emptyDescription": "Thêm dữ liệu kiểm thử theo tuần để theo dõi chất lượng",
+        "addFirst": "Thêm dữ liệu kiểm thử đầu tiên"
+      },
+      "screenFunctions": {
+        "linkedItems": "Mục đã liên kết",
+        "completedCount": "{{completed}}/{{total}} hoàn thành",
+        "title": "Màn hình/Chức năng trong giai đoạn này",
+        "link": "Liên kết Màn hình/Chức năng",
+        "unassigned": "Chưa phân công",
+        "unlink": "Bỏ liên kết",
+        "unlinkConfirm": "Bỏ liên kết mục này khỏi giai đoạn?",
+        "emptyTitle": "Chưa có màn hình/chức năng được liên kết",
+        "emptyDescription": "Liên kết màn hình/chức năng từ dự án để theo dõi công sức chi tiết trong giai đoạn này",
+        "linkModalTitle": "Liên kết Màn hình/Chức năng với giai đoạn",
+        "linkModalDescription": "Chọn màn hình/chức năng để liên kết với giai đoạn này. Bạn có thể thêm công sức ước tính sau khi liên kết.",
+        "linkModalTotalEffort": "Tổng {{effort}}",
+        "linkWithCount": "Liên kết ({{count}})",
+        "noUnlinkedTitle": "Không còn mục chưa liên kết",
+        "noUnlinkedDescription": "Tất cả màn hình/chức năng đã được liên kết với giai đoạn này, hoặc chưa có mục nào.",
+        "updateEffortDetails": "Cập nhật chi tiết công sức"
+      },
+      "charts": {
+        "efficiencyLabel": "Hiệu suất giai đoạn",
+        "efficiencyGood": "Công việc hiệu quả",
+        "efficiencyWarning": "Hơi vượt dự kiến",
+        "efficiencyPoor": "Vượt dự kiến nhiều",
+        "noData": "--",
+        "completed": "Hoàn thành",
+        "overallProgress": "Tiến độ tổng thể",
+        "statusDistribution": "Phân bố trạng thái",
+        "progressByItem": "Tiến độ từng mục",
+        "noScreenFunctionData": "Chưa có dữ liệu Màn hình/Chức năng",
+        "effortComparisonTitle": "So sánh công sức (Dự kiến vs Thực tế)",
+        "effortComparisonDescription": "Hiển thị các mục có hiệu suất thấp nhất. Xanh = hiệu quả, vàng = hơi vượt, đỏ = vượt nhiều.",
+        "testingQualityByWeek": "Chất lượng kiểm thử theo tuần"
+      }
+    }
   },
   "screenFunction": {
     "title": "Màn hình/Chức năng",
@@ -152,7 +267,31 @@
     "noScreenFunctions": "Chưa có màn hình/chức năng",
     "noScreenFunctionsDesc": "Thêm màn hình và chức năng để theo dõi công sức chi tiết theo giai đoạn",
     "searchPlaceholder": "Tìm theo tên...",
-    "confirmDelete": "Bạn có chắc chắn muốn xóa mục này?"
+    "confirmDelete": "Bạn có chắc chắn muốn xóa mục này?",
+    "form": {
+      "namePlaceholder": "Nhập tên màn hình/chức năng",
+      "estimatedEffortLabel": "Công sức ước tính ({{unit}})",
+      "estimatedEffortPlaceholder": "Tổng công sức ước tính cho tất cả giai đoạn",
+      "descriptionPlaceholder": "Mô tả màn hình/chức năng...",
+      "validation": {
+        "nameRequired": "Tên là bắt buộc",
+        "typeRequired": "Loại là bắt buộc"
+      }
+    }
+  },
+  "phaseScreenFunction": {
+    "form": {
+      "estimatedEffortLabel": "Công sức ước tính ({{unit}})",
+      "actualEffortLabel": "Công sức thực tế ({{unit}})",
+      "progress": "Tiến độ (%)",
+      "notePlaceholder": "Thêm ghi chú cho giai đoạn này...",
+      "variance": "Chênh lệch: {{effort}} ({{percent}}%)",
+      "validation": {
+        "estimatedNonNegative": "Công sức ước tính không được âm",
+        "actualNonNegative": "Công sức thực tế không được âm",
+        "progressRange": "Tiến độ phải trong khoảng 0 đến 100"
+      }
+    }
   },
   "member": {
     "title": "Thành viên",
@@ -213,7 +352,19 @@
     "totalAssigned": "công việc",
     "done": "hoàn thành",
     "active": "đang thực hiện",
-    "noTasks": "Chưa có công việc"
+    "noTasks": "Chưa có công việc",
+    "form": {
+      "namePlaceholder": "Nhập tên thành viên",
+      "emailPlaceholder": "Nhập địa chỉ email",
+      "yearsPlaceholder": "Số năm kinh nghiệm",
+      "hourlyRatePlaceholder": "Mức lương theo giờ",
+      "skillsPlaceholder": "VD: React, Node.js, TypeScript",
+      "validation": {
+        "nameRequired": "Tên là bắt buộc",
+        "roleRequired": "Vai trò là bắt buộc",
+        "emailInvalid": "Email không hợp lệ"
+      }
+    }
   },
   "report": {
     "title": "Báo cáo",
@@ -232,6 +383,9 @@
     "scopeWeekly": "Tuần",
     "scopePhase": "Giai đoạn",
     "scopeProject": "Dự án",
+    "scopeProjectReport": "Báo cáo dự án",
+    "scopePhaseReport": "Báo cáo giai đoạn",
+    "scopeWeeklyReport": "Báo cáo tuần",
     "weekNumber": "Số tuần",
     "year": "Năm",
     "noReports": "Không tìm thấy báo cáo",
@@ -247,7 +401,30 @@
     "noCommentary": "Chưa có nhận xét",
     "addFirstCommentary": "Thêm nhận xét đầu tiên để cung cấp thông tin chi tiết và khuyến nghị",
     "manualCommentary": "Thủ công",
-    "aiCommentary": "AI tạo"
+    "aiCommentary": "AI tạo",
+    "form": {
+      "titleProject": "{{project}} - Báo cáo dự án",
+      "titlePhase": "{{project}} - {{phase}} - Báo cáo",
+      "titleWeekly": "{{project}} - {{phase}} - Tuần {{week}}, {{year}}",
+      "titleHelper": "Tự động tạo theo lựa chọn của bạn, bạn có thể chỉnh sửa",
+      "generate": "Tạo báo cáo"
+    },
+    "validation": {
+      "projectRequired": "Dự án là bắt buộc",
+      "titleRequired": "Tiêu đề là bắt buộc",
+      "phaseRequired": "Giai đoạn là bắt buộc cho báo cáo Giai đoạn và Tuần",
+      "weekRange": "Số tuần phải trong khoảng 1 đến 53",
+      "yearValid": "Vui lòng nhập năm hợp lệ"
+    },
+    "detail": {
+      "notFound": "Không tìm thấy báo cáo",
+      "backToReports": "Quay lại danh sách báo cáo",
+      "weekLabel": "Tuần {{week}}, {{year}}",
+      "commentaryDescription": "Thêm nhận xét, khuyến nghị và hành động dựa trên các chỉ số ở trên",
+      "commentaryBy": "bởi {{author}}",
+      "addFirstCommentaryButton": "Thêm nhận xét đầu tiên",
+      "deleteConfirm": "Bạn có chắc chắn muốn xóa báo cáo \"{{title}}\"?"
+    }
   },
   "metrics": {
     "title": "Số liệu",
@@ -310,9 +487,15 @@
     "passRate": "Tỷ lệ đạt",
     "defectRate": "Tỷ lệ lỗi",
     "efficiency": "Hiệu suất",
+    "testCasesPassed": "Test case đạt",
     "defectsPerTestCase": "Lỗi trên mỗi test case",
     "tasksDelayed": "Công việc bị chậm",
-    "cpiAsPercentage": "CPI dạng phần trăm"
+    "cpiAsPercentage": "CPI dạng phần trăm",
+    "eacFormula": "= AC + (BAC - EV) / CPI",
+    "vacFormula": "= BAC - EAC",
+    "tcpiFormula": "= (BAC - EV) / (BAC - AC)",
+    "savingsMessage": "Tiết kiệm {{value}} MM",
+    "overrunMessage": "Vượt {{value}} MM ({{percent}}%)"
   },
   "productivity": {
     "title": "Năng suất nhóm",
@@ -344,11 +527,13 @@
     "comparedToEstimate": "so với dự kiến",
     "totalHoursWorked": "Tổng giờ làm việc",
     "overallEfficiency": "Hiệu suất tổng thể",
-    "membersParticipated": "thành viên tham gia",
+    "membersParticipated": "{{count}} thành viên tham gia",
     "topPerformers": "Hiệu suất cao nhất",
     "needSupport": "Cần hỗ trợ",
     "needSupportTip": "Xem xét cung cấp thêm hướng dẫn hoặc đào tạo",
     "detailByMember": "Chi tiết theo thành viên",
+    "member": "Thành viên",
+    "role": "Vai trò",
     "hourlyRate": "Lương/giờ",
     "hoursEstAct": "Giờ (DK/TT)",
     "estimatedCost": "Chi phí dự kiến",
@@ -385,8 +570,38 @@
     "moderateImpact": "ảnh hưởng vừa phải",
     "significantImpact": "ảnh hưởng đáng kể",
     "expectedCompletion": "Dự kiến hoàn thành với",
-    "savingsVsBudget": "tiết kiệm so với ngân sách",
-    "overrunVsBudget": "vượt so với ngân sách"
+    "scheduleSummary": "Dự án {{status}} khoảng {{value}}%",
+    "budgetSummary": "Dự án {{status}} khoảng {{value}}%",
+    "qualitySummary": "Tỷ lệ pass test là {{value}}% ({{status}})",
+    "delaysSummary": "{{value}}% công việc bị chậm ({{impact}})",
+    "forecastSummary": "Dự kiến hoàn thành với {{value}} {{unit}} ({{status}})",
+    "savingsVsBudget": "tiết kiệm {{value}} MM so với ngân sách",
+    "overrunVsBudget": "vượt {{value}} MM ({{percent}}%) so với ngân sách"
+  },
+  "commentary": {
+    "form": {
+      "aiTitle": "Nhận xét do AI tạo",
+      "aiDescription": "Để AI phân tích số liệu và đưa ra nhận xét tự động",
+      "selectLanguage": "Chọn ngôn ngữ",
+      "languageEnglish": "English",
+      "languageVietnamese": "Tiếng Việt",
+      "languageJapanese": "日本語",
+      "generateAi": "Tạo nhận xét bằng AI",
+      "aiConfirm": "Tạo nhận xét AI cho báo cáo này?",
+      "or": "HOẶC",
+      "manualTitle": "Viết nhận xét thủ công",
+      "manualUpdateTitle": "Cập nhật nhận xét",
+      "manualDescription": "Cung cấp phân tích và khuyến nghị của bạn",
+      "contentLabel": "Nội dung nhận xét",
+      "contentHelper": "Cung cấp phân tích, quan sát và khuyến nghị chi tiết",
+      "authorLabel": "Tác giả (Tuỳ chọn)",
+      "authorPlaceholder": "Tên của bạn",
+      "addAction": "📝 Thêm nhận xét",
+      "updateAction": "💾 Cập nhật nhận xét",
+      "validation": {
+        "contentRequired": "Nội dung nhận xét là bắt buộc"
+      }
+    }
   },
   "settings": {
     "title": "Cài đặt",
@@ -444,6 +659,23 @@
     "manMonths": "tháng công",
     "mm": "MM"
   },
+  "effort": {
+    "form": {
+      "weekStartDate": "Ngày bắt đầu tuần",
+      "weekStartHelper": "Nhập ngày theo định dạng yyyy/mm/dd (vd: 2024/01/15)",
+      "plannedEffort": "Công sức kế hoạch ({{unit}})",
+      "actualEffort": "Công sức thực tế ({{unit}})",
+      "progress": "Tiến độ (%)",
+      "add": "Thêm công sức",
+      "update": "Cập nhật công sức",
+      "validation": {
+        "weekStartRequired": "Ngày bắt đầu tuần là bắt buộc",
+        "plannedNonNegative": "Công sức kế hoạch không được âm",
+        "actualNonNegative": "Công sức thực tế không được âm",
+        "progressRange": "Tiến độ phải trong khoảng 0 đến 100"
+      }
+    }
+  },
   "testing": {
     "title": "Kiểm thử",
     "totalTestCases": "Tổng số test case",
@@ -453,6 +685,20 @@
     "testingTime": "Thời gian kiểm thử",
     "passRate": "Tỷ lệ đạt",
     "defectRate": "Tỷ lệ lỗi",
-    "noTestingData": "Không có dữ liệu kiểm thử"
+    "noTestingData": "Không có dữ liệu kiểm thử",
+    "form": {
+      "weekStartDate": "Ngày bắt đầu tuần",
+      "weekStartHelper": "Nhập ngày theo định dạng yyyy/mm/dd (vd: 2024/01/15)",
+      "testingTimeHours": "Thời gian kiểm thử (Giờ)",
+      "add": "Thêm dữ liệu kiểm thử",
+      "update": "Cập nhật dữ liệu kiểm thử",
+      "validation": {
+        "weekStartRequired": "Ngày bắt đầu tuần là bắt buộc",
+        "totalTestCasesPositive": "Tổng số test case phải lớn hơn 0",
+        "passFailTotal": "Đạt + Không đạt không được vượt tổng số test case",
+        "testingTimeNonNegative": "Thời gian kiểm thử không được âm",
+        "defectsNonNegative": "Số lỗi phát hiện không được âm"
+      }
+    }
   }
 }

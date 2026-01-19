@@ -5,6 +5,7 @@ import { reportApi, metricsApi, commentaryApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, Modal, ProgressBar } from '@/components/common';
 import { CommentaryForm } from '@/components/forms';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 export const Route = createFileRoute('/reports/$reportId')({
   component: ReportDetail,
@@ -13,6 +14,7 @@ export const Route = createFileRoute('/reports/$reportId')({
 function ReportDetail() {
   const { reportId } = Route.useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [showAddCommentary, setShowAddCommentary] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
@@ -118,7 +120,7 @@ function ReportDetail() {
   if (!report) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Report not found</p>
+        <p className="text-gray-500">{t('report.detail.notFound')}</p>
       </div>
     );
   }
@@ -151,7 +153,7 @@ function ReportDetail() {
   };
 
   const getOverallHealth = () => {
-    if (!metric) return { status: 'Unknown', color: 'bg-gray-500' };
+    if (!metric) return { status: t('common.unknown'), color: 'bg-gray-500' };
 
     const cpi = metric.costPerformanceIndex;
     const passRate = metric.passRate;
@@ -167,7 +169,7 @@ function ReportDetail() {
     const hasQualityRisk = passRate > 0 && passRate < 80;
 
     if (hasBudgetRisk || hasQualityRisk) {
-      return { status: 'At Risk', color: 'bg-red-500' };
+      return { status: t('metrics.atRisk'), color: 'bg-red-500' };
     }
 
     // Check for "Warning" conditions
@@ -177,29 +179,37 @@ function ReportDetail() {
     const hasQualityWarning = passRate > 0 && passRate >= 80 && passRate < 95;
 
     if (hasBudgetWarning || hasQualityWarning) {
-      return { status: 'Warning', color: 'bg-yellow-500' };
+      return { status: t('metrics.warning'), color: 'bg-yellow-500' };
     }
 
     // Good: CPI >= 1.0 (efficient) AND quality is good or no testing data
-    return { status: 'Good', color: 'bg-green-500' };
+    return { status: t('metrics.good'), color: 'bg-green-500' };
   };
 
   const health = getOverallHealth();
+
+  const scopeReportLabels: Record<string, string> = {
+    Project: t('report.scopeProjectReport'),
+    Phase: t('report.scopePhaseReport'),
+    Weekly: t('report.scopeWeeklyReport'),
+  };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 pb-12">
       {/* Header */}
       <div className="mb-6">
         <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block">
-          ← Back to Reports
+          ← {t('report.detail.backToReports')}
         </Link>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">{report.title}</h1>
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-              <span className="font-medium">{report.scope} Report</span>
+              <span className="font-medium">{scopeReportLabels[report.scope]}</span>
               {report.phaseName && <span>• {report.phaseName}</span>}
-              {report.weekNumber && <span>• Week {report.weekNumber}, {report.year}</span>}
+              {report.weekNumber && (
+                <span>• {t('report.detail.weekLabel', { week: report.weekNumber, year: report.year })}</span>
+              )}
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
             {/* Snapshot indicator */}
@@ -209,10 +219,10 @@ function ReportDetail() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Snapshot: {format(new Date(report.snapshotAt!), 'dd/MM/yyyy HH:mm')}
+                  {t('report.snapshot')}: {format(new Date(report.snapshotAt!), 'dd/MM/yyyy HH:mm')}
                 </span>
                 <span className="text-gray-400 text-xs">
-                  (Dữ liệu được lưu cố định tại thời điểm tạo báo cáo)
+                  ({t('report.snapshotNote')})
                 </span>
               </div>
             )}
@@ -222,10 +232,10 @@ function ReportDetail() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  Real-time
+                  {t('report.realtime')}
                 </span>
                 <span className="text-gray-400 text-xs">
-                  (Báo cáo cũ - hiển thị dữ liệu thời gian thực)
+                  ({t('report.realtimeNote')})
                 </span>
               </div>
             )}
@@ -233,7 +243,7 @@ function ReportDetail() {
           <div className="flex items-center gap-3">
             {metric && (
               <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Overall Health:</span>
+                <span className="text-sm font-medium text-gray-700">{t('report.overallHealth')}:</span>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold text-white ${health.color}`}>
                   <span className="h-2 w-2 bg-white rounded-full"></span>
                   {health.status}
@@ -241,7 +251,7 @@ function ReportDetail() {
               </div>
             )}
             <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-              Delete Report
+              {t('report.delete')}
             </Button>
           </div>
         </div>
@@ -251,24 +261,26 @@ function ReportDetail() {
       {metric && (
         <>
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Key Performance Indicators</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('metrics.kpi')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* SPI */}
               <Card className="hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Schedule Performance</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.schedulePerformance')}</p>
                   <span className="text-2xl">📅</span>
                 </div>
                 <p className={`text-4xl font-bold ${getSPIColor(metric.schedulePerformanceIndex)}`}>
                   {metric.schedulePerformanceIndex.toFixed(2)}
                 </p>
                 <p className="mt-2 text-sm text-gray-500">
-                  {metric.schedulePerformanceIndex >= 1 ? '✓ On or ahead of schedule' : '⚠ Behind schedule'}
+                  {metric.schedulePerformanceIndex >= 1
+                    ? `✓ ${t('metrics.onSchedule')}`
+                    : `⚠ ${t('metrics.behindSchedule')}`}
                 </p>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Target: 1.0+</span>
-                    <span>{metric.schedulePerformanceIndex >= 0.95 ? 'Good' : metric.schedulePerformanceIndex >= 0.80 ? 'Warning' : 'At Risk'}</span>
+                    <span>{t('metrics.target')}: 1.0+</span>
+                    <span>{metric.schedulePerformanceIndex >= 0.95 ? t('metrics.good') : metric.schedulePerformanceIndex >= 0.80 ? t('metrics.warning') : t('metrics.atRisk')}</span>
                   </div>
                   <ProgressBar
                     progress={Math.min(metric.schedulePerformanceIndex * 100, 100)}
@@ -280,19 +292,21 @@ function ReportDetail() {
               {/* CPI */}
               <Card className="hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Cost Performance</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.costPerformance')}</p>
                   <span className="text-2xl">💰</span>
                 </div>
                 <p className={`text-4xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
                   {metric.costPerformanceIndex.toFixed(2)}
                 </p>
                 <p className="mt-2 text-sm text-gray-500">
-                  {metric.costPerformanceIndex >= 1 ? '✓ Under or on budget' : '⚠ Over budget'}
+                  {metric.costPerformanceIndex >= 1
+                    ? `✓ ${t('metrics.underBudget')}`
+                    : `⚠ ${t('metrics.overBudget')}`}
                 </p>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Target: 1.0+</span>
-                    <span>{metric.costPerformanceIndex >= 0.95 ? 'Good' : metric.costPerformanceIndex >= 0.80 ? 'Warning' : 'At Risk'}</span>
+                    <span>{t('metrics.target')}: 1.0+</span>
+                    <span>{metric.costPerformanceIndex >= 0.95 ? t('metrics.good') : metric.costPerformanceIndex >= 0.80 ? t('metrics.warning') : t('metrics.atRisk')}</span>
                   </div>
                   <ProgressBar
                     progress={Math.min(metric.costPerformanceIndex * 100, 100)}
@@ -304,7 +318,7 @@ function ReportDetail() {
               {/* Pass Rate */}
               <Card className="hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Test Pass Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.testPassRate')}</p>
                   <span className="text-2xl">✅</span>
                 </div>
                 {metric.passRate > 0 ? (
@@ -313,12 +327,16 @@ function ReportDetail() {
                       {metric.passRate.toFixed(1)}%
                     </p>
                     <p className="mt-2 text-sm text-gray-500">
-                      {metric.passRate >= 95 ? '✓ Excellent quality' : metric.passRate >= 80 ? '⚠ Acceptable' : '⚠ Needs attention'}
+                      {metric.passRate >= 95
+                        ? `✓ ${t('metrics.excellentQuality')}`
+                        : metric.passRate >= 80
+                          ? `⚠ ${t('metrics.acceptableQuality')}`
+                          : `⚠ ${t('metrics.needsAttention')}`}
                     </p>
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Target: 95%+</span>
-                        <span>{metric.passRate >= 95 ? 'Good' : metric.passRate >= 80 ? 'Warning' : 'At Risk'}</span>
+                        <span>{t('metrics.target')}: 95%+</span>
+                        <span>{metric.passRate >= 95 ? t('metrics.good') : metric.passRate >= 80 ? t('metrics.warning') : t('metrics.atRisk')}</span>
                       </div>
                       <ProgressBar
                         progress={metric.passRate}
@@ -328,12 +346,12 @@ function ReportDetail() {
                   </>
                 ) : (
                   <>
-                    <p className="text-4xl font-bold text-gray-400">N/A</p>
-                    <p className="mt-2 text-sm text-gray-500">No testing data yet</p>
+                    <p className="text-4xl font-bold text-gray-400">{t('common.notAvailable')}</p>
+                    <p className="mt-2 text-sm text-gray-500">{t('testing.noTestingData')}</p>
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Target: 95%+</span>
-                        <span className="text-gray-400">--</span>
+                        <span>{t('metrics.target')}: 95%+</span>
+                        <span className="text-gray-400">{t('common.notAvailable')}</span>
                       </div>
                       <ProgressBar progress={0} className="bg-gray-300" />
                     </div>
@@ -344,19 +362,23 @@ function ReportDetail() {
               {/* Delay Rate */}
               <Card className="hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Delay Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.delayRate')}</p>
                   <span className="text-2xl">⏱️</span>
                 </div>
                 <p className={`text-4xl font-bold ${getDelayRateColor(metric.delayRate)}`}>
                   {metric.delayRate.toFixed(1)}%
                 </p>
                 <p className="mt-2 text-sm text-gray-500">
-                  {metric.delayRate <= 5 ? '✓ Minimal delays' : metric.delayRate <= 20 ? '⚠ Some delays' : '⚠ Significant delays'}
+                  {metric.delayRate <= 5
+                    ? `✓ ${t('metrics.minimalDelays')}`
+                    : metric.delayRate <= 20
+                      ? `⚠ ${t('metrics.someDelays')}`
+                      : `⚠ ${t('metrics.significantDelays')}`}
                 </p>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Target: &lt;5%</span>
-                    <span>{metric.delayRate <= 5 ? 'Good' : metric.delayRate <= 20 ? 'Warning' : 'At Risk'}</span>
+                    <span>{t('metrics.target')}: &lt;5%</span>
+                    <span>{metric.delayRate <= 5 ? t('metrics.good') : metric.delayRate <= 20 ? t('metrics.warning') : t('metrics.atRisk')}</span>
                   </div>
                   <ProgressBar
                     progress={Math.min(metric.delayRate, 100)}
@@ -369,77 +391,77 @@ function ReportDetail() {
 
           {/* EVM Core Values */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Earned Value Management (EVM)</h2>
-            <p className="text-sm text-gray-500 mb-4">Core metrics for project performance tracking</p>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('metrics.evm')}</h2>
+            <p className="text-sm text-gray-500 mb-4">{t('metrics.evmDescription')}</p>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <Card className="bg-blue-50">
-                <p className="text-xs font-medium text-blue-600 mb-1">BAC</p>
+                <p className="text-xs font-medium text-blue-600 mb-1">{t('metrics.bac')}</p>
                 <p className="text-2xl font-bold text-blue-900">
                   {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}
                 </p>
-                <p className="text-xs text-blue-600">Budget at Completion</p>
+                <p className="text-xs text-blue-600">{t('metrics.bacFull')}</p>
               </Card>
 
               <Card className="bg-slate-50">
-                <p className="text-xs font-medium text-slate-600 mb-1">PV</p>
+                <p className="text-xs font-medium text-slate-600 mb-1">{t('metrics.pv')}</p>
                 <p className="text-2xl font-bold text-slate-900">
                   {metric.plannedValue.toFixed(2)}
                 </p>
-                <p className="text-xs text-slate-600">Planned Value</p>
+                <p className="text-xs text-slate-600">{t('metrics.pvFull')}</p>
               </Card>
 
               <Card className="bg-green-50">
-                <p className="text-xs font-medium text-green-600 mb-1">EV</p>
+                <p className="text-xs font-medium text-green-600 mb-1">{t('metrics.ev')}</p>
                 <p className="text-2xl font-bold text-green-900">
                   {metric.earnedValue.toFixed(2)}
                 </p>
-                <p className="text-xs text-green-600">Earned Value</p>
+                <p className="text-xs text-green-600">{t('metrics.evFull')}</p>
               </Card>
 
               <Card className="bg-amber-50">
-                <p className="text-xs font-medium text-amber-600 mb-1">AC</p>
+                <p className="text-xs font-medium text-amber-600 mb-1">{t('metrics.ac')}</p>
                 <p className="text-2xl font-bold text-amber-900">
                   {metric.actualCost.toFixed(2)}
                 </p>
-                <p className="text-xs text-amber-600">Actual Cost</p>
+                <p className="text-xs text-amber-600">{t('metrics.acFull')}</p>
               </Card>
 
               <Card className="bg-purple-50">
-                <p className="text-xs font-medium text-purple-600 mb-1">SPI = EV/PV</p>
+                <p className="text-xs font-medium text-purple-600 mb-1">{t('metrics.spi')}</p>
                 <p className={`text-2xl font-bold ${getSPIColor(metric.schedulePerformanceIndex)}`}>
                   {metric.schedulePerformanceIndex.toFixed(2)}
                 </p>
-                <p className="text-xs text-purple-600">Schedule Index</p>
+                <p className="text-xs text-purple-600">{t('metrics.spiFull')}</p>
               </Card>
 
               <Card className="bg-indigo-50">
-                <p className="text-xs font-medium text-indigo-600 mb-1">CPI = EV/AC</p>
+                <p className="text-xs font-medium text-indigo-600 mb-1">{t('metrics.cpi')}</p>
                 <p className={`text-2xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
                   {metric.costPerformanceIndex.toFixed(2)}
                 </p>
-                <p className="text-xs text-indigo-600">Cost Index</p>
+                <p className="text-xs text-indigo-600">{t('metrics.cpiFull')}</p>
               </Card>
             </div>
           </div>
 
           {/* Forecasting Section */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Project Forecasting</h2>
-            <p className="text-sm text-gray-500 mb-4">"Cuối cùng tốn bao nhiêu?" - Dự báo chi phí hoàn thành</p>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('metrics.forecasting')}</h2>
+            <p className="text-sm text-gray-500 mb-4">{t('metrics.forecastingDescription')}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* EAC Card */}
               <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-blue-700">Estimate at Completion (EAC)</p>
+                  <p className="text-sm font-medium text-blue-700">{t('metrics.eacFull')}</p>
                   <span className="text-xl">🎯</span>
                 </div>
                 <p className="text-3xl font-bold text-blue-900">
-                  {(metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1))).toFixed(2)} MM
+                  {(metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1))).toFixed(2)} {t('time.mm')}
                 </p>
-                <p className="text-xs text-blue-600 mt-1">= AC + (BAC - EV) / CPI</p>
+                <p className="text-xs text-blue-600 mt-1">{t('metrics.eacFormula')}</p>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>vs BAC: {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}</span>
+                    <span>{t('metrics.bac')}: {(metric.budgetAtCompletion || metric.plannedValue).toFixed(2)}</span>
                     {(() => {
                       const eac = metric.estimateAtCompletion || (metric.actualCost + (metric.plannedValue - metric.earnedValue) / (metric.costPerformanceIndex || 1));
                       const bac = metric.budgetAtCompletion || metric.plannedValue;
@@ -467,7 +489,7 @@ function ReportDetail() {
               {/* VAC Card */}
               <Card>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Variance at Completion (VAC)</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.vacFull')}</p>
                   <span className="text-xl">📉</span>
                 </div>
                 {(() => {
@@ -476,14 +498,14 @@ function ReportDetail() {
                   return (
                     <>
                       <p className={`text-3xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? '+' : ''}{vac.toFixed(2)} MM
+                        {isPositive ? '+' : ''}{vac.toFixed(2)} {t('time.mm')}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">= BAC - EAC</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('metrics.vacFormula')}</p>
                       <div className="mt-3">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {isPositive ? '✓ Under Budget' : '⚠ Over Budget'}
+                          {isPositive ? `✓ ${t('metrics.underBudget')}` : `⚠ ${t('metrics.overBudget')}`}
                         </span>
                       </div>
                     </>
@@ -494,7 +516,7 @@ function ReportDetail() {
               {/* TCPI Card */}
               <Card>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">To Complete Performance Index</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.tcpiFull')}</p>
                   <span className="text-xl">📈</span>
                 </div>
                 {(() => {
@@ -506,12 +528,12 @@ function ReportDetail() {
                       <p className={`text-3xl font-bold ${isAchievable ? 'text-green-600' : isHard ? 'text-yellow-600' : 'text-red-600'}`}>
                         {tcpi > 10 ? '>10' : tcpi.toFixed(2)}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">= (BAC - EV) / (BAC - AC)</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('metrics.tcpiFormula')}</p>
                       <div className="mt-3">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           isAchievable ? 'bg-green-100 text-green-800' : isHard ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {isAchievable ? '✓ Achievable' : isHard ? '⚠ Challenging' : '✗ Very Difficult'}
+                          {isAchievable ? `✓ ${t('metrics.achievable')}` : isHard ? `⚠ ${t('metrics.challenging')}` : `✗ ${t('metrics.veryDifficult')}`}
                         </span>
                       </div>
                     </>
@@ -530,7 +552,7 @@ function ReportDetail() {
                 })()
               }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Budget Status</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.budgetStatus')}</p>
                   <span className="text-xl">💰</span>
                 </div>
                 {(() => {
@@ -541,15 +563,15 @@ function ReportDetail() {
 
                   let status, color, icon;
                   if (diff <= 0) {
-                    status = 'Under Control';
+                    status = t('metrics.underControl');
                     color = 'text-green-700';
                     icon = '✓';
                   } else if (diffPercent <= 10) {
-                    status = 'Slight Overrun';
+                    status = t('metrics.slightOverrun');
                     color = 'text-yellow-700';
                     icon = '⚠';
                   } else {
-                    status = 'Over Budget';
+                    status = t('metrics.overBudget');
                     color = 'text-red-700';
                     icon = '✗';
                   }
@@ -561,8 +583,8 @@ function ReportDetail() {
                       </p>
                       <p className="text-sm text-gray-600 mt-2">
                         {diff <= 0
-                          ? `Tiết kiệm được ${Math.abs(diff).toFixed(2)} MM`
-                          : `Vượt ${diff.toFixed(2)} MM (${diffPercent.toFixed(1)}%)`}
+                          ? t('metrics.savingsMessage', { value: Math.abs(diff).toFixed(2) })
+                          : t('metrics.overrunMessage', { value: diff.toFixed(2), percent: diffPercent.toFixed(1) })}
                       </p>
                     </>
                   );
@@ -573,50 +595,50 @@ function ReportDetail() {
 
           {/* Quality Metrics */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Quality Metrics</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('metrics.qualityMetrics')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">✅</span>
-                  <p className="text-sm font-medium text-gray-600">Pass Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.passRate')}</p>
                 </div>
                 <p className={`text-3xl font-bold ${metric.passRate > 0 ? getPassRateColor(metric.passRate) : 'text-gray-400'}`}>
-                  {metric.passRate > 0 ? `${metric.passRate.toFixed(1)}%` : 'N/A'}
+                  {metric.passRate > 0 ? `${metric.passRate.toFixed(1)}%` : t('common.notAvailable')}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Test cases passed</p>
+                <p className="mt-1 text-xs text-gray-500">{t('metrics.testCasesPassed')}</p>
               </Card>
 
               <Card>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🐛</span>
-                  <p className="text-sm font-medium text-gray-600">Defect Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.defectRate')}</p>
                 </div>
                 <p className="text-3xl font-bold text-gray-900">
                   {metric.defectRate.toFixed(3)}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Defects per test case</p>
+                <p className="mt-1 text-xs text-gray-500">{t('metrics.defectsPerTestCase')}</p>
               </Card>
 
               <Card>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">⏱️</span>
-                  <p className="text-sm font-medium text-gray-600">Delay Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.delayRate')}</p>
                 </div>
                 <p className={`text-3xl font-bold ${getDelayRateColor(metric.delayRate)}`}>
                   {metric.delayRate.toFixed(1)}%
                 </p>
-                <p className="mt-1 text-xs text-gray-500">Tasks delayed</p>
+                <p className="mt-1 text-xs text-gray-500">{t('metrics.tasksDelayed')}</p>
               </Card>
 
               <Card>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">⚡</span>
-                  <p className="text-sm font-medium text-gray-600">Efficiency</p>
+                  <p className="text-sm font-medium text-gray-600">{t('metrics.efficiency')}</p>
                 </div>
                 <p className={`text-3xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
                   {(metric.costPerformanceIndex * 100).toFixed(0)}%
                 </p>
-                <p className="mt-1 text-xs text-gray-500">CPI as percentage</p>
+                <p className="mt-1 text-xs text-gray-500">{t('metrics.cpiAsPercentage')}</p>
               </Card>
             </div>
           </div>
@@ -624,55 +646,55 @@ function ReportDetail() {
           {/* Productivity Section - Only for Project reports */}
           {productivity && productivity.byMember && productivity.byMember.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Team Productivity</h2>
-              <p className="text-sm text-gray-500 mb-4">Hiệu suất làm việc theo thành viên và vai trò</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('productivity.title')}</h2>
+              <p className="text-sm text-gray-500 mb-4">{t('productivity.description')}</p>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <Card className="bg-gradient-to-br from-indigo-50 to-white">
-                  <p className="text-sm font-medium text-indigo-600">Team Efficiency</p>
+                  <p className="text-sm font-medium text-indigo-600">{t('productivity.teamEfficiency')}</p>
                   <p className={`text-3xl font-bold ${productivity.summary.efficiency >= 1 ? 'text-green-600' : productivity.summary.efficiency >= 0.83 ? 'text-yellow-600' : 'text-red-600'}`}>
                     {(productivity.summary.efficiency * 100).toFixed(0)}%
                   </p>
-                  <p className="text-xs text-gray-500">Overall team efficiency</p>
+                  <p className="text-xs text-gray-500">{t('productivity.overallTeamEfficiency')}</p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Tasks Completed</p>
+                  <p className="text-sm font-medium text-gray-600">{t('productivity.tasksCompleted')}</p>
                   <p className="text-3xl font-bold text-blue-600">
                     {productivity.summary.tasksCompleted}/{productivity.summary.tasksTotal}
                   </p>
-                  <p className="text-xs text-gray-500">{productivity.summary.completionRate}% completion rate</p>
+                  <p className="text-xs text-gray-500">{productivity.summary.completionRate}% {t('productivity.completionRate')}</p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Avg. Effort/Task</p>
+                  <p className="text-sm font-medium text-gray-600">{t('productivity.avgEffortPerTask')}</p>
                   <p className="text-3xl font-bold text-gray-900">
                     {productivity.summary.avgEffortPerTask.toFixed(1)}
                   </p>
-                  <p className="text-xs text-gray-500">Man-hours per task</p>
+                  <p className="text-xs text-gray-500">{t('productivity.manHoursPerTask')}</p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Variance</p>
+                  <p className="text-sm font-medium text-gray-600">{t('productivity.variance')}</p>
                   <p className={`text-3xl font-bold ${productivity.summary.variance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {productivity.summary.variance > 0 ? '+' : ''}{productivity.summary.variancePercent}%
                   </p>
-                  <p className="text-xs text-gray-500">Actual vs Estimated</p>
+                  <p className="text-xs text-gray-500">{t('productivity.actualVsEstimated')}</p>
                 </Card>
               </div>
 
               {/* Member Performance Table */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card title="By Member">
+                <Card title={t('productivity.byMember')}>
                   <div className="overflow-x-auto max-h-64">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-500">Member</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">{t('productivity.member')}</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">{t('productivity.role')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('productivity.tasks')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('metrics.efficiency')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -697,16 +719,16 @@ function ReportDetail() {
                   </div>
                 </Card>
 
-                <Card title="By Role">
+                <Card title={t('productivity.byRole')}>
                   <div className="overflow-x-auto max-h-64">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-500">Role</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Members</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Tasks</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Avg/Task</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-500">Efficiency</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">{t('productivity.role')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('productivity.members')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('productivity.tasks')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('productivity.avgPerTask')}</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-500">{t('metrics.efficiency')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -738,48 +760,48 @@ function ReportDetail() {
           {/* Member Cost Analysis - Only shows if members have hourly rates */}
           {memberCost && memberCost.byMember && memberCost.byMember.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">💵 Chi phí Nhân sự (Member Cost)</h2>
-              <p className="text-sm text-gray-500 mb-4">Chi phí thực tế dựa trên Hourly Rate và số giờ làm việc</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">💵 {t('memberCost.title')}</h2>
+              <p className="text-sm text-gray-500 mb-4">{t('memberCost.description')}</p>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 <Card className={`border-2 ${memberCost.insights.costStatus === 'under_budget' ? 'border-green-200 bg-green-50' : memberCost.insights.costStatus === 'slight_over' ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}`}>
-                  <p className="text-sm font-medium text-gray-600">Tổng chi phí thực tế</p>
+                  <p className="text-sm font-medium text-gray-600">{t('memberCost.totalActualCost')}</p>
                   <p className={`text-3xl font-bold ${memberCost.insights.costStatus === 'under_budget' ? 'text-green-600' : memberCost.insights.costStatus === 'slight_over' ? 'text-yellow-600' : 'text-red-600'}`}>
                     ${memberCost.summary.totalActualCost.toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Dự kiến: ${memberCost.summary.totalEstimatedCost.toLocaleString()}
+                    {t('memberCost.estimated')}: ${memberCost.summary.totalEstimatedCost.toLocaleString()}
                   </p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Chênh lệch chi phí</p>
+                  <p className="text-sm font-medium text-gray-600">{t('memberCost.costVariance')}</p>
                   <p className={`text-3xl font-bold ${memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {memberCost.summary.totalCostVariance <= 0 ? '-' : '+'}${Math.abs(memberCost.summary.totalCostVariance).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {memberCost.summary.totalCostVariance <= 0 ? 'Tiết kiệm' : 'Vượt'} {Math.abs(memberCost.summary.totalCostVariancePercent)}% so với dự kiến
+                    {memberCost.summary.totalCostVariance <= 0 ? t('memberCost.savings') : t('memberCost.exceeded')} {Math.abs(memberCost.summary.totalCostVariancePercent)}% {t('memberCost.comparedToEstimate')}
                   </p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Tổng giờ làm việc</p>
+                  <p className="text-sm font-medium text-gray-600">{t('memberCost.totalHoursWorked')}</p>
                   <p className="text-3xl font-bold text-gray-900">
                     {memberCost.summary.totalActualHours.toLocaleString()}h
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Dự kiến: {memberCost.summary.totalEstimatedHours.toLocaleString()}h
+                    {t('memberCost.estimated')}: {memberCost.summary.totalEstimatedHours.toLocaleString()}h
                   </p>
                 </Card>
 
                 <Card>
-                  <p className="text-sm font-medium text-gray-600">Hiệu suất tổng thể</p>
+                  <p className="text-sm font-medium text-gray-600">{t('memberCost.overallEfficiency')}</p>
                   <p className={`text-3xl font-bold ${memberCost.summary.overallEfficiency >= 1 ? 'text-green-600' : memberCost.summary.overallEfficiency >= 0.8 ? 'text-yellow-600' : 'text-red-600'}`}>
                     {(memberCost.summary.overallEfficiency * 100).toFixed(0)}%
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {memberCost.summary.totalMembers} thành viên tham gia
+                    {t('memberCost.membersParticipated', { count: memberCost.summary.totalMembers })}
                   </p>
                 </Card>
               </div>
@@ -791,7 +813,7 @@ function ReportDetail() {
                     <Card className="bg-green-50 border border-green-200">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-2xl">⭐</span>
-                        <h4 className="font-semibold text-green-800">Top Performers</h4>
+                        <h4 className="font-semibold text-green-800">{t('memberCost.topPerformers')}</h4>
                       </div>
                       <div className="space-y-2">
                         {memberCost.insights.topPerformers.map((member: any, idx: number) => (
@@ -817,7 +839,7 @@ function ReportDetail() {
                     <Card className="bg-orange-50 border border-orange-200">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-2xl">🤝</span>
-                        <h4 className="font-semibold text-orange-800">Cần hỗ trợ</h4>
+                        <h4 className="font-semibold text-orange-800">{t('memberCost.needSupport')}</h4>
                       </div>
                       <div className="space-y-2">
                         {memberCost.insights.needSupport.map((member: any) => (
@@ -834,7 +856,7 @@ function ReportDetail() {
                         ))}
                       </div>
                       <p className="text-xs text-orange-700 mt-3">
-                        💡 Xem xét cung cấp thêm hướng dẫn hoặc đào tạo
+                        💡 {t('memberCost.needSupportTip')}
                       </p>
                     </Card>
                   )}
@@ -842,19 +864,19 @@ function ReportDetail() {
               )}
 
               {/* Member Cost Table */}
-              <Card title="Chi tiết theo thành viên">
+              <Card title={t('memberCost.detailByMember')}>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-500">Thành viên</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-500">Vai trò</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-500">Hourly Rate</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-500">Giờ (Est/Act)</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-500">Hiệu suất</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.member')}</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.role')}</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.hourlyRate')}</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.hoursEstAct')}</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.estimatedCost')}</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.actualCost')}</th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.costVariance')}</th>
+                        <th className="px-4 py-3 text-center font-medium text-gray-500">{t('memberCost.efficiencyRating')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -862,7 +884,7 @@ function ReportDetail() {
                         <tr key={member.memberId} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <p className="font-medium text-gray-900">{member.name}</p>
-                            <p className="text-xs text-gray-500">{member.tasks.length} tasks</p>
+                            <p className="text-xs text-gray-500">{member.tasks.length} {t('productivity.tasks')}</p>
                           </td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700">{member.role}</span>
@@ -902,7 +924,7 @@ function ReportDetail() {
                     </tbody>
                     <tfoot className="bg-gray-50 font-semibold">
                       <tr>
-                        <td colSpan={4} className="px-4 py-3 text-right text-gray-700">Tổng cộng:</td>
+                        <td colSpan={4} className="px-4 py-3 text-right text-gray-700">{t('common.total')}:</td>
                         <td className="px-4 py-3 text-right text-gray-700">
                           ${memberCost.summary.totalEstimatedCost.toLocaleString()}
                         </td>
@@ -931,16 +953,16 @@ function ReportDetail() {
 
               {/* Phase Cost Breakdown */}
               {memberCost.byPhase && memberCost.byPhase.length > 0 && (
-                <Card title="Chi phí theo Phase" className="mt-4">
+                <Card title={t('memberCost.costByPhase')} className="mt-4">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500">Phase</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500">Số thành viên</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí dự kiến</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chi phí thực tế</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500">Chênh lệch</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.phase')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.memberCount')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.estimatedCost')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.actualCost')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.costVariance')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -972,88 +994,104 @@ function ReportDetail() {
 
               {/* Efficiency Legend */}
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">📊 Cách đánh giá hiệu suất:</h4>
+                <h4 className="font-medium text-gray-700 mb-2">📊 {t('memberCost.efficiencyLegend')}:</h4>
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-semibold">≥120%</span>
-                    <span className="text-gray-600">Xuất sắc (làm nhanh hơn dự kiến)</span>
+                    <span className="text-gray-600">{t('memberCost.efficiencyExcellent')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">100-119%</span>
-                    <span className="text-gray-600">Tốt (đúng hoặc nhanh hơn)</span>
+                    <span className="text-gray-600">{t('memberCost.efficiencyGood')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">80-99%</span>
-                    <span className="text-gray-600">Đạt yêu cầu (chậm hơn một chút)</span>
+                    <span className="text-gray-600">{t('memberCost.efficiencyAcceptable')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-1 rounded bg-red-100 text-red-800 font-semibold">&lt;80%</span>
-                    <span className="text-gray-600">Cần cải thiện</span>
+                    <span className="text-gray-600">{t('memberCost.efficiencyNeedsImprovement')}</span>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Công thức: Hiệu suất = (Giờ dự kiến / Giờ thực tế) × 100%. Hiệu suất &gt; 100% nghĩa là làm nhanh hơn dự kiến.
+                  {t('memberCost.efficiencyFormula')}
                 </p>
               </div>
             </div>
           )}
 
           {/* Summary Insights */}
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500">
-            <div className="flex items-start gap-3">
-              <span className="text-3xl">💡</span>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Quick Insights</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.schedulePerformanceIndex >= 1 ? 'text-green-600' : 'text-yellow-600'}`}>•</span>
-                    <span>
-                      <strong>Schedule:</strong> The project is {metric.schedulePerformanceIndex >= 1 ? 'ahead of' : 'behind'} schedule
-                      by approximately {Math.abs((1 - metric.schedulePerformanceIndex) * 100).toFixed(1)}%
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.costPerformanceIndex >= 1 ? 'text-green-600' : 'text-yellow-600'}`}>•</span>
-                    <span>
-                      <strong>Budget:</strong> The project is {metric.costPerformanceIndex >= 1 ? 'under' : 'over'} budget
-                      by approximately {Math.abs((1 - metric.costPerformanceIndex) * 100).toFixed(1)}%
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.passRate > 0 ? (metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-400'}`}>•</span>
-                    <span>
-                      <strong>Quality:</strong>{' '}
-                      {metric.passRate > 0
-                        ? `Test pass rate is ${metric.passRate.toFixed(1)}% (${metric.passRate >= 95 ? 'excellent' : metric.passRate >= 80 ? 'acceptable' : 'needs improvement'})`
-                        : 'No testing data available yet'}
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className={`mt-0.5 ${metric.delayRate <= 5 ? 'text-green-600' : metric.delayRate <= 20 ? 'text-yellow-600' : 'text-red-600'}`}>•</span>
-                    <span>
-                      <strong>Delays:</strong> {metric.delayRate.toFixed(1)}% of tasks are delayed
-                      ({metric.delayRate <= 5 ? 'minimal impact' : metric.delayRate <= 20 ? 'moderate impact' : 'significant impact'})
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    {(() => {
-                      const eac = metric.estimateAtCompletion || metric.actualCost;
-                      const bac = metric.budgetAtCompletion || metric.plannedValue;
-                      const diff = eac - bac;
-                      const isUnder = diff <= 0;
-                      return (
-                        <>
-                          <span className={`mt-0.5 ${isUnder ? 'text-green-600' : 'text-red-600'}`}>•</span>
-                          <span>
-                            <strong>Forecast:</strong> Dự kiến hoàn thành với {eac.toFixed(2)} MM
-                            ({isUnder
-                              ? `tiết kiệm ${Math.abs(diff).toFixed(2)} MM so với budget`
-                              : `vượt ${diff.toFixed(2)} MM (${((diff / bac) * 100).toFixed(1)}%) so với budget`})
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </li>
+      <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500">
+        <div className="flex items-start gap-3">
+          <span className="text-3xl">💡</span>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('insights.title')}</h3>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li className="flex items-start gap-2">
+                <span className={`mt-0.5 ${metric.schedulePerformanceIndex >= 1 ? 'text-green-600' : 'text-yellow-600'}`}>•</span>
+                <span>
+                  <strong>{t('insights.schedule')}:</strong>{' '}
+                  {t('insights.scheduleSummary', {
+                    status: metric.schedulePerformanceIndex >= 1 ? t('insights.aheadOfSchedule') : t('insights.behindSchedule'),
+                    value: Math.abs((1 - metric.schedulePerformanceIndex) * 100).toFixed(1),
+                  })}
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className={`mt-0.5 ${metric.costPerformanceIndex >= 1 ? 'text-green-600' : 'text-yellow-600'}`}>•</span>
+                <span>
+                  <strong>{t('insights.budget')}:</strong>{' '}
+                  {t('insights.budgetSummary', {
+                    status: metric.costPerformanceIndex >= 1 ? t('insights.underBudget') : t('insights.overBudget'),
+                    value: Math.abs((1 - metric.costPerformanceIndex) * 100).toFixed(1),
+                  })}
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className={`mt-0.5 ${metric.passRate > 0 ? (metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-400'}`}>•</span>
+                <span>
+                  <strong>{t('insights.quality')}:</strong>{' '}
+                  {metric.passRate > 0
+                    ? t('insights.qualitySummary', {
+                      value: metric.passRate.toFixed(1),
+                      status: metric.passRate >= 95 ? t('insights.excellent') : metric.passRate >= 80 ? t('insights.acceptable') : t('insights.needsImprovement'),
+                    })
+                    : t('insights.noTestingData')}
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className={`mt-0.5 ${metric.delayRate <= 5 ? 'text-green-600' : metric.delayRate <= 20 ? 'text-yellow-600' : 'text-red-600'}`}>•</span>
+                <span>
+                  <strong>{t('insights.delays')}:</strong>{' '}
+                  {t('insights.delaysSummary', {
+                    value: metric.delayRate.toFixed(1),
+                    impact: metric.delayRate <= 5 ? t('insights.minimalImpact') : metric.delayRate <= 20 ? t('insights.moderateImpact') : t('insights.significantImpact'),
+                  })}
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                {(() => {
+                  const eac = metric.estimateAtCompletion || metric.actualCost;
+                  const bac = metric.budgetAtCompletion || metric.plannedValue;
+                  const diff = eac - bac;
+                  const isUnder = diff <= 0;
+                  return (
+                    <>
+                      <span className={`mt-0.5 ${isUnder ? 'text-green-600' : 'text-red-600'}`}>•</span>
+                      <span>
+                        <strong>{t('insights.forecast')}:</strong>{' '}
+                        {t('insights.forecastSummary', {
+                          value: eac.toFixed(2),
+                          unit: t('time.mm'),
+                          status: isUnder
+                            ? t('insights.savingsVsBudget', { value: Math.abs(diff).toFixed(2) })
+                            : t('insights.overrunVsBudget', { value: diff.toFixed(2), percent: ((diff / bac) * 100).toFixed(1) }),
+                        })}
+                      </span>
+                    </>
+                  );
+                })()}
+              </li>
                 </ul>
               </div>
             </div>
@@ -1065,13 +1103,13 @@ function ReportDetail() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Commentary & Analysis</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{t('report.commentary')}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Add your observations, recommendations, and action items based on the metrics above
+              {t('report.detail.commentaryDescription')}
             </p>
           </div>
           <Button onClick={() => setShowAddCommentary(true)}>
-            ✍️ Add Commentary
+            ✍️ {t('report.addCommentary')}
           </Button>
         </div>
 
@@ -1087,10 +1125,14 @@ function ReportDetail() {
                           ? 'bg-purple-100 text-purple-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {commentary.type === 'AI Generated' ? '🤖 AI Generated' : '👤 Manual'}
+                        {commentary.type === 'AI Generated'
+                          ? `🤖 ${t('report.aiCommentary')}`
+                          : `👤 ${t('report.manualCommentary')}`}
                       </span>
                       {commentary.author && (
-                        <span className="text-sm font-medium text-gray-700">by {commentary.author}</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          {t('report.detail.commentaryBy', { author: commentary.author })}
+                        </span>
                       )}
                       <span className="text-xs text-gray-400">
                         • {format(new Date(commentary.createdAt), 'MMM dd, yyyy HH:mm')}
@@ -1113,12 +1155,12 @@ function ReportDetail() {
           <Card className="bg-gray-50 border-2 border-dashed border-gray-300">
             <div className="text-center py-8">
               <span className="text-4xl mb-3 block">📝</span>
-              <p className="text-gray-600 font-medium mb-2">No commentary yet</p>
+              <p className="text-gray-600 font-medium mb-2">{t('report.noCommentary')}</p>
               <p className="text-sm text-gray-500 mb-4">
-                Add the first commentary to provide insights and recommendations based on the metrics above
+                {t('report.addFirstCommentary')}
               </p>
               <Button onClick={() => setShowAddCommentary(true)} size="sm">
-                Add First Commentary
+                {t('report.detail.addFirstCommentaryButton')}
               </Button>
             </div>
           </Card>
@@ -1129,7 +1171,7 @@ function ReportDetail() {
       <Modal
         isOpen={showAddCommentary}
         onClose={() => setShowAddCommentary(false)}
-        title="Add Commentary"
+        title={t('report.addCommentary')}
       >
         <CommentaryForm
           reportId={parseInt(reportId)}
@@ -1142,11 +1184,11 @@ function ReportDetail() {
       <Modal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title="Delete Report"
+        title={t('report.delete')}
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Are you sure you want to delete the report <strong>"{report.title}"</strong>?
+            {t('report.detail.deleteConfirm', { title: report.title })}
           </p>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -1155,16 +1197,16 @@ function ReportDetail() {
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <div>
-                <p className="text-yellow-800 font-medium">Warning</p>
+                <p className="text-yellow-800 font-medium">{t('common.warning')}</p>
                 <p className="text-yellow-700 text-sm mt-1">
-                  This action will permanently delete the report and all associated data including:
+                  {t('report.deleteWarning')}
                 </p>
                 <ul className="text-yellow-700 text-sm mt-2 ml-4 list-disc">
-                  <li>All metrics calculated for this report</li>
-                  <li>All commentaries and analysis</li>
+                  <li>{t('report.deleteWarningMetrics')}</li>
+                  <li>{t('report.deleteWarningCommentaries')}</li>
                 </ul>
                 <p className="text-yellow-700 text-sm mt-2 font-medium">
-                  This action cannot be undone.
+                  {t('report.deleteIrreversible')}
                 </p>
               </div>
             </div>
@@ -1176,14 +1218,14 @@ function ReportDetail() {
               onClick={() => setShowDeleteConfirm(false)}
               disabled={deleteReportMutation.isPending}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={() => deleteReportMutation.mutate()}
               loading={deleteReportMutation.isPending}
             >
-              Delete Report
+              {t('report.delete')}
             </Button>
           </div>
         </div>

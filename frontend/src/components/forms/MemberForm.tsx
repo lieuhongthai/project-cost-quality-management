@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { memberApi } from '@/services/api';
 import { Button, Input, Select } from '../common';
 import type { Member, MemberRole, MemberStatus, MemberAvailability } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface MemberFormProps {
   projectId: number;
@@ -11,36 +12,13 @@ interface MemberFormProps {
   onCancel: () => void;
 }
 
-const ROLE_OPTIONS: { value: MemberRole; label: string }[] = [
-  { value: 'PM', label: 'Project Manager (PM)' },
-  { value: 'TL', label: 'Tech Lead (TL)' },
-  { value: 'BA', label: 'Business Analyst (BA)' },
-  { value: 'DEV', label: 'Developer (DEV)' },
-  { value: 'QA', label: 'QA Engineer (QA)' },
-  { value: 'Comtor', label: 'Comtor' },
-  { value: 'Designer', label: 'Designer' },
-  { value: 'DevOps', label: 'DevOps' },
-  { value: 'Other', label: 'Other' },
-];
-
-const STATUS_OPTIONS: { value: MemberStatus; label: string }[] = [
-  { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
-  { value: 'On Leave', label: 'On Leave' },
-];
-
-const AVAILABILITY_OPTIONS: { value: MemberAvailability; label: string }[] = [
-  { value: 'Full-time', label: 'Full-time' },
-  { value: 'Part-time', label: 'Part-time' },
-  { value: 'Contract', label: 'Contract' },
-];
-
 export const MemberForm: React.FC<MemberFormProps> = ({
   projectId,
   member,
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: member?.name || '',
@@ -79,15 +57,15 @@ export const MemberForm: React.FC<MemberFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = t('member.form.validation.nameRequired');
     }
 
     if (!formData.role) {
-      newErrors.role = 'Role is required';
+      newErrors.role = t('member.form.validation.roleRequired');
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = t('member.form.validation.emailInvalid');
     }
 
     setErrors(newErrors);
@@ -127,95 +105,119 @@ export const MemberForm: React.FC<MemberFormProps> = ({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  const roleOptions: { value: MemberRole; label: string }[] = [
+    { value: 'PM', label: t('member.rolePM') },
+    { value: 'TL', label: t('member.roleTL') },
+    { value: 'BA', label: t('member.roleBA') },
+    { value: 'DEV', label: t('member.roleDEV') },
+    { value: 'QA', label: t('member.roleQA') },
+    { value: 'Comtor', label: t('member.roleComtor') },
+    { value: 'Designer', label: t('member.roleDesigner') },
+    { value: 'DevOps', label: t('member.roleDevOps') },
+    { value: 'Other', label: t('member.roleOther') },
+  ];
+
+  const statusOptions: { value: MemberStatus; label: string }[] = [
+    { value: 'Active', label: t('member.statusActive') },
+    { value: 'Inactive', label: t('member.statusInactive') },
+    { value: 'On Leave', label: t('member.statusOnLeave') },
+  ];
+
+  const availabilityOptions: { value: MemberAvailability; label: string }[] = [
+    { value: 'Full-time', label: t('member.availabilityFullTime') },
+    { value: 'Part-time', label: t('member.availabilityPartTime') },
+    { value: 'Contract', label: t('member.availabilityContract') },
+  ];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Name"
+          label={t('member.name')}
           name="name"
           value={formData.name}
           onChange={handleChange}
           error={errors.name}
-          placeholder="Enter member name"
+          placeholder={t('member.form.namePlaceholder')}
           required
           disabled={isLoading}
         />
 
         <Input
-          label="Email"
+          label={t('member.email')}
           name="email"
           type="email"
           value={formData.email}
           onChange={handleChange}
           error={errors.email}
-          placeholder="Enter email address"
+          placeholder={t('member.form.emailPlaceholder')}
           disabled={isLoading}
         />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <Select
-          label="Role"
+          label={t('member.role')}
           name="role"
           value={formData.role}
           onChange={handleChange}
-          options={ROLE_OPTIONS}
+          options={roleOptions}
           error={errors.role}
           required
           disabled={isLoading}
         />
 
         <Select
-          label="Availability"
+          label={t('member.availability')}
           name="availability"
           value={formData.availability}
           onChange={handleChange}
-          options={AVAILABILITY_OPTIONS}
+          options={availabilityOptions}
           disabled={isLoading}
         />
 
         <Select
-          label="Status"
+          label={t('member.status')}
           name="status"
           value={formData.status}
           onChange={handleChange}
-          options={STATUS_OPTIONS}
+          options={statusOptions}
           disabled={isLoading}
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Years of Experience"
+          label={t('member.yearsOfExperience')}
           name="yearsOfExperience"
           type="number"
           min="0"
           step="0.5"
           value={formData.yearsOfExperience}
           onChange={handleChange}
-          placeholder="Years of experience"
+          placeholder={t('member.form.yearsPlaceholder')}
           disabled={isLoading}
         />
 
         <Input
-          label="Hourly Rate"
+          label={t('member.hourlyRate')}
           name="hourlyRate"
           type="number"
           min="0"
           step="0.01"
           value={formData.hourlyRate}
           onChange={handleChange}
-          placeholder="Hourly rate"
+          placeholder={t('member.form.hourlyRatePlaceholder')}
           disabled={isLoading}
         />
       </div>
 
       <Input
-        label="Skills (comma-separated)"
+        label={t('member.skills')}
         name="skills"
         value={formData.skills}
         onChange={handleChange}
-        placeholder="e.g., React, Node.js, TypeScript"
+        placeholder={t('member.form.skillsPlaceholder')}
         disabled={isLoading}
       />
 
@@ -226,14 +228,14 @@ export const MemberForm: React.FC<MemberFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          {member ? 'Update' : 'Create'}
+          {member ? t('common.update') : t('common.create')}
         </Button>
       </div>
     </form>
