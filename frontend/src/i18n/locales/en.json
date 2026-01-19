@@ -38,6 +38,9 @@
     "success": "Success",
     "warning": "Warning",
     "info": "Information",
+    "variance": "Variance",
+    "unknown": "Unknown",
+    "notAvailable": "N/A",
     "created": "Created",
     "lastUpdated": "Last Updated",
     "update": "Update"
@@ -114,7 +117,102 @@
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
     "moveUp": "Move up",
-    "moveDown": "Move down"
+    "moveDown": "Move down",
+    "validation": {
+      "nameRequired": "Phase name is required",
+      "startDateRequired": "Start date is required",
+      "estimatedEffortPositive": "Estimated effort must be greater than 0",
+      "endDateAfterStart": "End date must be after start date"
+    },
+    "form": {
+      "namePlaceholder": "Enter phase name or select from suggestions",
+      "nameHelper": "Type a custom name or select from common phases",
+      "estimatedEffortLabel": "Estimated Effort ({{unit}})",
+      "suggestedEndDate": "Suggested End Date",
+      "endDateApplied": "End Date Applied",
+      "unableToCalculate": "Unable to calculate",
+      "suggestedEndDateHint": "Based on {{days}} working days",
+      "useSuggestedDate": "Use this date",
+      "applied": "Applied!",
+      "create": "Create Phase",
+      "update": "Update Phase"
+    },
+    "detail": {
+      "notFound": "Phase not found",
+      "backToProject": "Back to {{project}}",
+      "subtitle": "Phase Details and Tracking",
+      "displayEffortIn": "Display effort in:",
+      "weekLabel": "Week {{week}}",
+      "tabs": {
+        "screenFunctions": "Screen/Function",
+        "charts": "Charts",
+        "testing": "Testing",
+        "efforts": "Efforts"
+      },
+      "efforts": {
+        "totalPlanned": "Total Planned",
+        "totalActual": "Total Actual",
+        "trend": "Effort Trend",
+        "weekly": "Weekly Efforts",
+        "add": "Add Effort",
+        "addRecord": "Add Effort Record",
+        "editRecord": "Edit Effort Record",
+        "week": "Week",
+        "weekLabel": "Week {{week}}",
+        "dateRange": "Date Range",
+        "planned": "Planned",
+        "actual": "Actual",
+        "emptyTitle": "No effort data",
+        "emptyDescription": "Add weekly effort records to track progress",
+        "addFirst": "Add First Effort Record"
+      },
+      "testing": {
+        "qualityTrend": "Testing Quality Trend",
+        "weekly": "Weekly Testing Data",
+        "add": "Add Testing Data",
+        "addRecord": "Add Testing Data",
+        "editRecord": "Edit Testing Data",
+        "week": "Week",
+        "weekLabel": "Week {{week}}",
+        "totalCases": "Total Cases",
+        "emptyTitle": "No testing data",
+        "emptyDescription": "Add weekly testing records to track quality",
+        "addFirst": "Add First Testing Record"
+      },
+      "screenFunctions": {
+        "linkedItems": "Linked Items",
+        "completedCount": "{{completed}}/{{total}} completed",
+        "title": "Screen/Function in this Phase",
+        "link": "Link Screen/Function",
+        "unassigned": "Unassigned",
+        "unlink": "Unlink",
+        "unlinkConfirm": "Unlink this item from phase?",
+        "emptyTitle": "No screen/function linked",
+        "emptyDescription": "Link screen/functions from the project to track detailed effort in this phase",
+        "linkModalTitle": "Link Screen/Function to Phase",
+        "linkModalDescription": "Select screen/functions to link to this phase. You can add estimated effort after linking.",
+        "linkModalTotalEffort": "{{effort}} total",
+        "linkWithCount": "Link ({{count}})",
+        "noUnlinkedTitle": "No unlinked items",
+        "noUnlinkedDescription": "All screen/functions in this project are already linked to this phase, or no items exist yet.",
+        "updateEffortDetails": "Update Effort Details"
+      },
+      "charts": {
+        "efficiencyLabel": "Phase Efficiency",
+        "efficiencyGood": "Working efficiently",
+        "efficiencyWarning": "Slightly over expected",
+        "efficiencyPoor": "Over expected",
+        "noData": "--",
+        "completed": "Completed",
+        "overallProgress": "Overall Progress",
+        "statusDistribution": "Status Distribution",
+        "progressByItem": "Progress by Item",
+        "noScreenFunctionData": "No Screen/Function data",
+        "effortComparisonTitle": "Effort Comparison (Estimated vs Actual)",
+        "effortComparisonDescription": "Shows the lowest-efficiency items. Blue = efficient, yellow = slightly over, red = overrun.",
+        "testingQualityByWeek": "Weekly Testing Quality"
+      }
+    }
   },
   "screenFunction": {
     "title": "Screen/Functions",
@@ -232,6 +330,9 @@
     "scopeWeekly": "Weekly",
     "scopePhase": "Phase",
     "scopeProject": "Project",
+    "scopeProjectReport": "Project Report",
+    "scopePhaseReport": "Phase Report",
+    "scopeWeeklyReport": "Weekly Report",
     "weekNumber": "Week Number",
     "year": "Year",
     "noReports": "No reports found",
@@ -247,7 +348,30 @@
     "noCommentary": "No commentary yet",
     "addFirstCommentary": "Add the first commentary to provide insights and recommendations",
     "manualCommentary": "Manual",
-    "aiCommentary": "AI Generated"
+    "aiCommentary": "AI Generated",
+    "form": {
+      "titleProject": "{{project}} - Project Report",
+      "titlePhase": "{{project}} - {{phase}} Report",
+      "titleWeekly": "{{project}} - {{phase}} - Week {{week}}, {{year}}",
+      "titleHelper": "Auto-generated based on your selection, but you can customize it",
+      "generate": "Generate Report"
+    },
+    "validation": {
+      "projectRequired": "Project is required",
+      "titleRequired": "Title is required",
+      "phaseRequired": "Phase is required for Phase and Weekly reports",
+      "weekRange": "Week number must be between 1 and 53",
+      "yearValid": "Please enter a valid year"
+    },
+    "detail": {
+      "notFound": "Report not found",
+      "backToReports": "Back to Reports",
+      "weekLabel": "Week {{week}}, {{year}}",
+      "commentaryDescription": "Add your observations, recommendations, and action items based on the metrics above",
+      "commentaryBy": "by {{author}}",
+      "addFirstCommentaryButton": "Add First Commentary",
+      "deleteConfirm": "Are you sure you want to delete the report \"{{title}}\"?"
+    }
   },
   "metrics": {
     "title": "Metrics",
@@ -310,9 +434,15 @@
     "passRate": "Pass Rate",
     "defectRate": "Defect Rate",
     "efficiency": "Efficiency",
+    "testCasesPassed": "Test cases passed",
     "defectsPerTestCase": "Defects per test case",
     "tasksDelayed": "Tasks delayed",
-    "cpiAsPercentage": "CPI as percentage"
+    "cpiAsPercentage": "CPI as percentage",
+    "eacFormula": "= AC + (BAC - EV) / CPI",
+    "vacFormula": "= BAC - EAC",
+    "tcpiFormula": "= (BAC - EV) / (BAC - AC)",
+    "savingsMessage": "Savings {{value}} MM",
+    "overrunMessage": "Overrun {{value}} MM ({{percent}}%)"
   },
   "productivity": {
     "title": "Team Productivity",
@@ -344,11 +474,13 @@
     "comparedToEstimate": "compared to estimate",
     "totalHoursWorked": "Total Hours Worked",
     "overallEfficiency": "Overall Efficiency",
-    "membersParticipated": "members participated",
+    "membersParticipated": "{{count}} members participated",
     "topPerformers": "Top Performers",
     "needSupport": "Need Support",
     "needSupportTip": "Consider providing additional guidance or training",
     "detailByMember": "Detail by Member",
+    "member": "Member",
+    "role": "Role",
     "hourlyRate": "Hourly Rate",
     "hoursEstAct": "Hours (Est/Act)",
     "estimatedCost": "Estimated Cost",
@@ -385,8 +517,13 @@
     "moderateImpact": "moderate impact",
     "significantImpact": "significant impact",
     "expectedCompletion": "Expected to complete with",
-    "savingsVsBudget": "savings compared to budget",
-    "overrunVsBudget": "overrun compared to budget"
+    "scheduleSummary": "The project is {{status}} by approximately {{value}}%",
+    "budgetSummary": "The project is {{status}} by approximately {{value}}%",
+    "qualitySummary": "Test pass rate is {{value}}% ({{status}})",
+    "delaysSummary": "{{value}}% of tasks are delayed ({{impact}})",
+    "forecastSummary": "Expected to complete with {{value}} {{unit}} ({{status}})",
+    "savingsVsBudget": "savings {{value}} MM compared to budget",
+    "overrunVsBudget": "overrun {{value}} MM ({{percent}}%) compared to budget"
   },
   "settings": {
     "title": "Settings",

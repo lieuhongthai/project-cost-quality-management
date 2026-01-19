@@ -3,22 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { reportApi, projectApi, phaseApi } from '@/services/api';
 import { Button, Input, Select } from '../common';
 import type { Report } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface ReportFormProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-const SCOPE_OPTIONS = [
-  { value: 'Project', label: 'Project Report' },
-  { value: 'Phase', label: 'Phase Report' },
-  { value: 'Weekly', label: 'Weekly Report' },
-];
-
 export const ReportForm: React.FC<ReportFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     projectId: 0,
@@ -57,23 +53,28 @@ export const ReportForm: React.FC<ReportFormProps> = ({
 
     let title = '';
     if (formData.scope === 'Project') {
-      title = `${project.name} - Project Report`;
+      title = t('report.form.titleProject', { project: project.name });
     } else if (formData.scope === 'Phase' && formData.phaseId) {
       const phase = phases?.find(p => p.id === formData.phaseId);
       if (phase) {
-        title = `${project.name} - ${phase.name} Report`;
+        title = t('report.form.titlePhase', { project: project.name, phase: phase.name });
       }
     } else if (formData.scope === 'Weekly' && formData.phaseId) {
       const phase = phases?.find(p => p.id === formData.phaseId);
       if (phase) {
-        title = `${project.name} - ${phase.name} - Week ${formData.weekNumber}, ${formData.year}`;
+        title = t('report.form.titleWeekly', {
+          project: project.name,
+          phase: phase.name,
+          week: formData.weekNumber,
+          year: formData.year,
+        });
       }
     }
 
     if (title) {
       setFormData(prev => ({ ...prev, title }));
     }
-  }, [formData.projectId, formData.scope, formData.phaseId, formData.weekNumber, formData.year, projects, phases]);
+  }, [formData.projectId, formData.scope, formData.phaseId, formData.weekNumber, formData.year, projects, phases, t]);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Report>) => reportApi.create(data),
@@ -87,23 +88,23 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.projectId) {
-      newErrors.projectId = 'Project is required';
+      newErrors.projectId = t('report.validation.projectRequired');
     }
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('report.validation.titleRequired');
     }
 
     if ((formData.scope === 'Phase' || formData.scope === 'Weekly') && !formData.phaseId) {
-      newErrors.phaseId = 'Phase is required for Phase and Weekly reports';
+      newErrors.phaseId = t('report.validation.phaseRequired');
     }
 
     if (formData.scope === 'Weekly') {
       if (formData.weekNumber < 1 || formData.weekNumber > 53) {
-        newErrors.weekNumber = 'Week number must be between 1 and 53';
+        newErrors.weekNumber = t('report.validation.weekRange');
       }
       if (formData.year < 2000) {
-        newErrors.year = 'Please enter a valid year';
+        newErrors.year = t('report.validation.yearValid');
       }
     }
 
@@ -153,10 +154,16 @@ export const ReportForm: React.FC<ReportFormProps> = ({
 
   const isLoading = createMutation.isPending;
 
+  const scopeOptions = [
+    { value: 'Project', label: t('report.scopeProjectReport') },
+    { value: 'Phase', label: t('report.scopePhaseReport') },
+    { value: 'Weekly', label: t('report.scopeWeeklyReport') },
+  ];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Select
-        label="Project"
+        label={t('report.scopeProject')}
         name="projectId"
         value={formData.projectId}
         onChange={handleChange}
@@ -167,11 +174,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       />
 
       <Select
-        label="Report Scope"
+        label={t('report.scope')}
         name="scope"
         value={formData.scope}
         onChange={handleChange}
-        options={SCOPE_OPTIONS}
+        options={scopeOptions}
         error={errors.scope}
         required
         disabled={isLoading}
@@ -179,7 +186,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
 
       {(formData.scope === 'Phase' || formData.scope === 'Weekly') && formData.projectId > 0 && (
         <Select
-          label="Phase"
+          label={t('phase.title')}
           name="phaseId"
           value={formData.phaseId}
           onChange={handleChange}
@@ -193,7 +200,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       {formData.scope === 'Weekly' && (
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Week Number"
+            label={t('report.weekNumber')}
             name="weekNumber"
             type="number"
             min="1"
@@ -206,7 +213,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           />
 
           <Input
-            label="Year"
+            label={t('report.year')}
             name="year"
             type="number"
             min="2000"
@@ -220,7 +227,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       )}
 
       <Input
-        label="Report Title"
+        label={t('report.reportTitle')}
         name="title"
         type="text"
         value={formData.title}
@@ -228,7 +235,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
         error={errors.title}
         required
         disabled={isLoading}
-        helperText="Auto-generated based on your selection, but you can customize it"
+        helperText={t('report.form.titleHelper')}
       />
 
       <div className="flex justify-end gap-2 pt-4">
@@ -238,14 +245,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isLoading}
           disabled={isLoading}
         >
-          Generate Report
+          {t('report.form.generate')}
         </Button>
       </div>
     </form>
