@@ -804,6 +804,9 @@ function ProjectDetail() {
                       {t('project.startDate')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      {t('project.endDate')}
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       {t('common.actions')}
                     </th>
                   </tr>
@@ -851,6 +854,9 @@ function ProjectDetail() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {format(new Date(phase.startDate), 'MMM dd, yyyy')}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {phase.endDate ? format(new Date(phase.endDate), 'MMM dd, yyyy') : t('common.notAvailable')}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <div className="flex gap-2">
