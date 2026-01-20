@@ -58,7 +58,11 @@ function ProjectDetail() {
     status: '',
     search: '',
   });
-  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>(() => {
+    const stored = localStorage.getItem(`effortUnit.project.${projectId}`) as EffortUnit | null;
+    return stored || 'man-hour';
+  });
+  const [effortUnitReady, setEffortUnitReady] = useState(false);
   const [deletingPhase, setDeletingPhase] = useState<{ id: number; name: string; linkedCount?: number } | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     workingHoursPerDay: 8,
@@ -186,14 +190,15 @@ function ProjectDetail() {
       setEffortUnit(
         storedEffortUnit || projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
       );
+      setEffortUnitReady(true);
     }
   }, [projectSettings, projectId]);
 
   useEffect(() => {
-    if (projectId) {
+    if (projectId && effortUnitReady) {
       localStorage.setItem(`effortUnit.project.${projectId}`, effortUnit);
     }
-  }, [effortUnit, projectId]);
+  }, [effortUnit, effortUnitReady, projectId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {

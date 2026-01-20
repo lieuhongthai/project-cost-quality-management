@@ -46,7 +46,11 @@ function PhaseDetail() {
   const [editingPSF, setEditingPSF] = useState<PhaseScreenFunction | null>(null);
   const [showLinkScreenFunction, setShowLinkScreenFunction] = useState(false);
   const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
-  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>(() => {
+    const stored = localStorage.getItem(`effortUnit.phase.${phaseId}`) as EffortUnit | null;
+    return stored || 'man-hour';
+  });
+  const [effortUnitReady, setEffortUnitReady] = useState(false);
   const [workSettings, setWorkSettings] = useState(DEFAULT_WORK_SETTINGS);
 
   const { data: phase, isLoading } = useQuery({
@@ -151,14 +155,15 @@ function PhaseDetail() {
       setEffortUnit(
         storedEffortUnit || projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
       );
+      setEffortUnitReady(true);
     }
   }, [projectSettings, phaseId]);
 
   useEffect(() => {
-    if (phaseId) {
+    if (phaseId && effortUnitReady) {
       localStorage.setItem(`effortUnit.phase.${phaseId}`, effortUnit);
     }
-  }, [effortUnit, phaseId]);
+  }, [effortUnit, effortUnitReady, phaseId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
