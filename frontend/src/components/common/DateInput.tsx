@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 
 interface DateInputProps {
   label?: string;
@@ -35,6 +35,7 @@ export const DateInput: React.FC<DateInputProps> = ({
   placeholder = 'yyyy/mm/dd',
 }) => {
   const inputId = id || `date-input-${Math.random().toString(36).substr(2, 9)}`;
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
 
   // Convert ISO date (yyyy-mm-dd) to display format (yyyy/mm/dd)
   const formatDateForDisplay = (isoDate: string): string => {
@@ -146,6 +147,31 @@ export const DateInput: React.FC<DateInputProps> = ({
     }
   }, [displayValue, name, onChange]);
 
+  const handleCalendarChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const isoDate = e.target.value;
+    setDisplayValue(formatDateForDisplay(isoDate));
+
+    const syntheticEvent = {
+      ...e,
+      target: {
+        ...e.target,
+        name,
+        value: isoDate,
+      },
+    } as React.ChangeEvent<HTMLInputElement>;
+
+    onChange(syntheticEvent);
+  }, [name, onChange]);
+
+  const openDatePicker = useCallback(() => {
+    if (disabled) return;
+    if (datePickerRef.current?.showPicker) {
+      datePickerRef.current.showPicker();
+    } else {
+      datePickerRef.current?.focus();
+    }
+  }, [disabled]);
+
   return (
     <div className="w-full">
       {label && (
@@ -154,19 +180,41 @@ export const DateInput: React.FC<DateInputProps> = ({
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <input
-        id={inputId}
-        type="text"
-        name={name}
-        value={displayValue}
-        onChange={handleInputChange}
-        onBlur={handleBlur}
-        placeholder={placeholder}
-        disabled={disabled}
-        required={required}
-        className={`input ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
-        maxLength={10} // yyyy/mm/dd = 10 characters
-      />
+      <div className="relative">
+        <input
+          id={inputId}
+          type="text"
+          name={name}
+          value={displayValue}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          disabled={disabled}
+          required={required}
+          className={`input pr-10 ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
+          maxLength={10} // yyyy/mm/dd = 10 characters
+        />
+        <button
+          type="button"
+          onClick={openDatePicker}
+          disabled={disabled}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+          aria-label="Open calendar"
+        >
+          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M6 2a1 1 0 01 1 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm0 6a1 1 0 100 2h8a1 1 0 100-2H6z" />
+          </svg>
+        </button>
+        <input
+          ref={datePickerRef}
+          type="date"
+          value={value || ''}
+          onChange={handleCalendarChange}
+          className="absolute inset-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
       {error && (
         <p className="mt-1 text-sm text-red-600">{error}</p>
       )}
