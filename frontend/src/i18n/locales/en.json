@@ -487,6 +487,21 @@
     "warning": "Warning",
     "atRisk": "At Risk",
     "evaluationDetails": "Evaluation Details",
+    "reason": {
+      "metric": {
+        "efficiency": "Efficiency",
+        "quality": "Quality"
+      },
+      "message": {
+        "efficiencyGood": "Work is efficient ({{efficiencyPercent}}% - actual ≤ planned)",
+        "efficiencyWarning": "Slightly over plan (+{{overBudgetPercent}}% effort)",
+        "efficiencyRisk": "Significantly over plan (+{{overBudgetPercent}}% effort)",
+        "efficiencyNoData": "No effort data yet",
+        "qualityGood": "Quality is strong ({{passRate}}% pass)",
+        "qualityWarning": "Quality needs improvement ({{passRate}}% pass)",
+        "qualityRisk": "Quality is low ({{passRate}}% pass)"
+      }
+    },
     "allMetricsGood": "All metrics are good",
     "statusChanged": "Status has changed, click to update",
     "spi": "SPI",

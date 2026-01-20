@@ -559,8 +559,14 @@ function ProjectDetail() {
                         reason.type === 'good' ? 'bg-green-500' :
                         reason.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
                       }`} />
-                      <span className="font-medium">{reason.metric}:</span>
-                      <span>{reason.message}</span>
+                      <span className="font-medium">
+                        {reason.metricKey ? t(`metrics.reason.metric.${reason.metricKey}`) : reason.metric}:
+                      </span>
+                      <span>
+                        {reason.messageKey
+                          ? t(`metrics.reason.message.${reason.messageKey}`, reason.data || {})
+                          : reason.message}
+                      </span>
                     </div>
                   ))}
                 </div>

@@ -487,6 +487,21 @@
     "warning": "Cảnh báo",
     "atRisk": "Có rủi ro",
     "evaluationDetails": "Chi tiết đánh giá",
+    "reason": {
+      "metric": {
+        "efficiency": "Hiệu suất",
+        "quality": "Chất lượng"
+      },
+      "message": {
+        "efficiencyGood": "Công việc hiệu quả ({{efficiencyPercent}}% - thực tế ≤ dự kiến)",
+        "efficiencyWarning": "Hơi vượt dự kiến (+{{overBudgetPercent}}% effort)",
+        "efficiencyRisk": "Vượt dự kiến nhiều (+{{overBudgetPercent}}% effort)",
+        "efficiencyNoData": "Chưa có dữ liệu công việc",
+        "qualityGood": "Chất lượng tốt ({{passRate}}% pass)",
+        "qualityWarning": "Cần cải thiện ({{passRate}}% pass)",
+        "qualityRisk": "Chất lượng thấp ({{passRate}}% pass)"
+      }
+    },
     "allMetricsGood": "Tất cả chỉ số đều tốt",
     "statusChanged": "Trạng thái đã thay đổi, nhấn để cập nhật",
     "spi": "SPI",
