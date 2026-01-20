@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi, projectApi } from "@/services/api";
+import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi, projectApi, memberApi } from "@/services/api";
 import {
   Card,
   LoadingSpinner,
@@ -46,8 +46,21 @@ function PhaseDetail() {
   const [editingPSF, setEditingPSF] = useState<PhaseScreenFunction | null>(null);
   const [showLinkScreenFunction, setShowLinkScreenFunction] = useState(false);
   const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
-  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>(() => {
+    const stored = localStorage.getItem(`effortUnit.phase.${phaseId}`) as EffortUnit | null;
+    return stored || 'man-hour';
+  });
+  const [effortUnitReady, setEffortUnitReady] = useState(false);
   const [workSettings, setWorkSettings] = useState(DEFAULT_WORK_SETTINGS);
+  const [inlineEditId, setInlineEditId] = useState<number | null>(null);
+  const [inlineDraft, setInlineDraft] = useState<{
+    assigneeId: number | null;
+    status: PhaseScreenFunctionStatus;
+    progress: number;
+    estimatedEffort: number;
+    actualEffort: number;
+    note: string;
+  } | null>(null);
 
   const { data: phase, isLoading } = useQuery({
     queryKey: ["phase", parseInt(phaseId)],
@@ -117,6 +130,16 @@ function PhaseDetail() {
     },
   });
 
+  const { data: members } = useQuery({
+    queryKey: ["members", phase?.projectId],
+    queryFn: async () => {
+      if (!phase?.projectId) return [];
+      const response = await memberApi.getByProject(phase.projectId);
+      return response.data;
+    },
+    enabled: !!phase?.projectId,
+  });
+
   // Get all screen functions for the project (to show unlinked ones)
   const { data: allScreenFunctions } = useQuery({
     queryKey: ["projectScreenFunctions", phase?.projectId],
@@ -142,14 +165,24 @@ function PhaseDetail() {
   // Sync settings when project settings are loaded
   useEffect(() => {
     if (projectSettings) {
+      const storedEffortUnit = localStorage.getItem(`effortUnit.phase.${phaseId}`) as EffortUnit | null;
       setWorkSettings({
         workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
         workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
         defaultEffortUnit: projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
       });
-      setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
+      setEffortUnit(
+        storedEffortUnit || projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+      );
+      setEffortUnitReady(true);
     }
-  }, [projectSettings]);
+  }, [projectSettings, phaseId]);
+
+  useEffect(() => {
+    if (phaseId && effortUnitReady) {
+      localStorage.setItem(`effortUnit.phase.${phaseId}`, effortUnit);
+    }
+  }, [effortUnit, effortUnitReady, phaseId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
@@ -211,9 +244,53 @@ function PhaseDetail() {
     },
   });
 
+  const updateInlineMutation = useMutation({
+    mutationFn: (data: { id: number; payload: Partial<PhaseScreenFunction> }) =>
+      phaseScreenFunctionApi.update(data.id, data.payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctions", parseInt(phaseId)] });
+      queryClient.invalidateQueries({ queryKey: ["phaseScreenFunctionSummary", parseInt(phaseId)] });
+      queryClient.invalidateQueries({ queryKey: ["phase", parseInt(phaseId)] });
+      setInlineEditId(null);
+      setInlineDraft(null);
+    },
+  });
+
   // Get unlinked screen functions
   const linkedSFIds = phaseScreenFunctions?.map(psf => psf.screenFunctionId) || [];
   const unlinkedScreenFunctions = allScreenFunctions?.filter(sf => !linkedSFIds.includes(sf.id)) || [];
+
+  const startInlineEdit = (psf: PhaseScreenFunction) => {
+    setInlineEditId(psf.id);
+    setInlineDraft({
+      assigneeId: psf.assigneeId ?? psf.assignee?.id ?? null,
+      status: psf.status,
+      progress: psf.progress,
+      estimatedEffort: psf.estimatedEffort ?? 0,
+      actualEffort: psf.actualEffort ?? 0,
+      note: psf.note ?? '',
+    });
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditId(null);
+    setInlineDraft(null);
+  };
+
+  const saveInlineEdit = (psfId: number) => {
+    if (!inlineDraft) return;
+    updateInlineMutation.mutate({
+      id: psfId,
+      payload: {
+        assigneeId: inlineDraft.assigneeId ?? undefined,
+        status: inlineDraft.status,
+        progress: inlineDraft.progress,
+        estimatedEffort: inlineDraft.estimatedEffort,
+        actualEffort: inlineDraft.actualEffort,
+        note: inlineDraft.note,
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -750,13 +827,29 @@ function PhaseDetail() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {phaseScreenFunctions.map((psf) => {
-                      const variance = psf.actualEffort - psf.estimatedEffort;
+                      const isEditing = inlineEditId === psf.id;
+                      const draft = isEditing ? inlineDraft : null;
+                      const estimatedEffortValue = draft ? draft.estimatedEffort : psf.estimatedEffort;
+                      const actualEffortValue = draft ? draft.actualEffort : psf.actualEffort;
+                      const progressValue = draft ? draft.progress : psf.progress;
+                      const statusValue = draft ? draft.status : psf.status;
+                      const variance = actualEffortValue - estimatedEffortValue;
                       return (
                         <tr key={psf.id} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
                             <p className="font-medium text-gray-900">{psf.screenFunction?.name || t('common.unknown')}</p>
-                            {psf.note && (
-                              <p className="text-gray-500 text-xs truncate max-w-xs">{psf.note}</p>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={draft?.note ?? ''}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({ ...prev, note: e.target.value }) : prev)}
+                                placeholder={t('phaseScreenFunction.form.notePlaceholder')}
+                                className="mt-2 w-full max-w-xs rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700"
+                              />
+                            ) : (
+                              psf.note && (
+                                <p className="text-gray-500 text-xs truncate max-w-xs">{psf.note}</p>
+                              )
                             )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -767,35 +860,117 @@ function PhaseDetail() {
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            {psf.assignee ? (
-                              <div>
-                                <p className="font-medium text-gray-900">{psf.assignee.name}</p>
-                                <p className="text-xs text-gray-500">{psf.assignee.role}</p>
-                              </div>
+                            {isEditing ? (
+                              <select
+                                className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                value={draft?.assigneeId ?? ''}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({
+                                  ...prev,
+                                  assigneeId: e.target.value ? Number(e.target.value) : null,
+                                }) : prev)}
+                              >
+                                <option value="">{t('phase.detail.screenFunctions.unassigned')}</option>
+                                {members?.map((member) => (
+                                  <option key={member.id} value={member.id}>
+                                    {member.name} ({member.role})
+                                  </option>
+                                ))}
+                              </select>
                             ) : (
-                              <span className="text-gray-400">{t('phase.detail.screenFunctions.unassigned')}</span>
+                              psf.assignee ? (
+                                <div>
+                                  <p className="font-medium text-gray-900">{psf.assignee.name}</p>
+                                  <p className="text-xs text-gray-500">{psf.assignee.role}</p>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">{t('phase.detail.screenFunctions.unassigned')}</span>
+                              )
                             )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              psf.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                              psf.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                              psf.status === 'Skipped' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {statusLabels[psf.status] ?? psf.status}
-                            </span>
+                            {isEditing ? (
+                              <select
+                                className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                value={statusValue}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({
+                                  ...prev,
+                                  status: e.target.value as PhaseScreenFunctionStatus,
+                                }) : prev)}
+                              >
+                                {Object.keys(statusLabels).map((status) => (
+                                  <option key={status} value={status}>
+                                    {statusLabels[status as PhaseScreenFunctionStatus]}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className={`px-2 py-1 text-xs rounded ${
+                                statusValue === 'Completed' ? 'bg-green-100 text-green-800' :
+                                statusValue === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                statusValue === 'Skipped' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {statusLabels[statusValue] ?? statusValue}
+                              </span>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <div className="w-20">
-                              <ProgressBar progress={psf.progress} showLabel />
-                            </div>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={progressValue}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({
+                                  ...prev,
+                                  progress: Number(e.target.value),
+                                }) : prev)}
+                                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              />
+                            ) : (
+                              <div className="w-20">
+                                <ProgressBar progress={progressValue} showLabel />
+                              </div>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {displayEffort(psf.estimatedEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={estimatedEffortValue}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({
+                                  ...prev,
+                                  estimatedEffort: Number(e.target.value),
+                                }) : prev)}
+                                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              />
+                            ) : (
+                              <>
+                                {displayEffort(estimatedEffortValue, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                              </>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {displayEffort(psf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={actualEffortValue}
+                                onChange={(e) => setInlineDraft((prev) => prev ? ({
+                                  ...prev,
+                                  actualEffort: Number(e.target.value),
+                                }) : prev)}
+                                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              />
+                            ) : (
+                              <>
+                                {displayEffort(actualEffortValue, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                              </>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={variance > 0 ? 'text-red-600' : 'text-green-600'}>
@@ -804,24 +979,53 @@ function PhaseDetail() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setEditingPSF(psf)}
-                              >
-                                {t('common.edit')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => {
-                                  if (confirm(t('phase.detail.screenFunctions.unlinkConfirm'))) {
-                                    unlinkMutation.mutate(psf.id);
-                                  }
-                                }}
-                              >
-                                {t('phase.detail.screenFunctions.unlink')}
-                              </Button>
+                              {isEditing ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="success"
+                                    onClick={() => saveInlineEdit(psf.id)}
+                                    loading={updateInlineMutation.isPending}
+                                  >
+                                    {t('common.save')}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={cancelInlineEdit}
+                                  >
+                                    {t('common.cancel')}
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => startInlineEdit(psf)}
+                                  >
+                                    {t('common.quickEdit')}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => setEditingPSF(psf)}
+                                  >
+                                    {t('common.edit')}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    onClick={() => {
+                                      if (confirm(t('phase.detail.screenFunctions.unlinkConfirm'))) {
+                                        unlinkMutation.mutate(psf.id);
+                                      }
+                                    }}
+                                  >
+                                    {t('phase.detail.screenFunctions.unlink')}
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

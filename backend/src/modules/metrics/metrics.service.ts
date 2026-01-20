@@ -346,8 +346,20 @@ export class MetricsService {
     cpi: number;
     delayRate: number;
     passRate: number;
-  }): { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] {
-    const reasons: { type: 'good' | 'warning' | 'risk'; metric: string; value: number; message: string }[] = [];
+  }): Array<{
+    type: 'good' | 'warning' | 'risk';
+    metricKey: 'efficiency' | 'quality';
+    messageKey: string;
+    value: number;
+    data?: Record<string, number>;
+  }> {
+    const reasons: Array<{
+      type: 'good' | 'warning' | 'risk';
+      metricKey: 'efficiency' | 'quality';
+      messageKey: string;
+      value: number;
+      data?: Record<string, number>;
+    }> = [];
 
     // Efficiency evaluation (CPI) - Main metric
     // CPI = Expected Effort / Actual Effort
@@ -358,32 +370,35 @@ export class MetricsService {
     if (metrics.cpi >= 1.0) {
       reasons.push({
         type: 'good',
-        metric: 'Hiệu suất',
+        metricKey: 'efficiency',
         value: efficiencyPercent,
-        message: `Công việc hiệu quả (${efficiencyPercent}% - thực tế ≤ dự kiến)`
+        messageKey: 'efficiencyGood',
+        data: { efficiencyPercent }
       });
     } else if (metrics.cpi >= 0.83) {
       const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
       reasons.push({
         type: 'warning',
-        metric: 'Hiệu suất',
+        metricKey: 'efficiency',
         value: efficiencyPercent,
-        message: `Hơi vượt dự kiến (+${overBudgetPercent}% effort)`
+        messageKey: 'efficiencyWarning',
+        data: { efficiencyPercent, overBudgetPercent }
       });
     } else if (metrics.cpi > 0) {
       const overBudgetPercent = Math.round((1 / metrics.cpi - 1) * 100);
       reasons.push({
         type: 'risk',
-        metric: 'Hiệu suất',
+        metricKey: 'efficiency',
         value: efficiencyPercent,
-        message: `Vượt dự kiến nhiều (+${overBudgetPercent}% effort)`
+        messageKey: 'efficiencyRisk',
+        data: { efficiencyPercent, overBudgetPercent }
       });
     } else {
       reasons.push({
         type: 'good',
-        metric: 'Hiệu suất',
+        metricKey: 'efficiency',
         value: 0,
-        message: 'Chưa có dữ liệu công việc'
+        messageKey: 'efficiencyNoData',
       });
     }
 
@@ -392,23 +407,26 @@ export class MetricsService {
       if (metrics.passRate >= 95) {
         reasons.push({
           type: 'good',
-          metric: 'Chất lượng',
+          metricKey: 'quality',
           value: metrics.passRate,
-          message: `Chất lượng tốt (${metrics.passRate.toFixed(1)}% pass)`
+          messageKey: 'qualityGood',
+          data: { passRate: Number(metrics.passRate.toFixed(1)) }
         });
       } else if (metrics.passRate >= 80) {
         reasons.push({
           type: 'warning',
-          metric: 'Chất lượng',
+          metricKey: 'quality',
           value: metrics.passRate,
-          message: `Cần cải thiện (${metrics.passRate.toFixed(1)}% pass)`
+          messageKey: 'qualityWarning',
+          data: { passRate: Number(metrics.passRate.toFixed(1)) }
         });
       } else {
         reasons.push({
           type: 'risk',
-          metric: 'Chất lượng',
+          metricKey: 'quality',
           value: metrics.passRate,
-          message: `Chất lượng thấp (${metrics.passRate.toFixed(1)}% pass)`
+          messageKey: 'qualityRisk',
+          data: { passRate: Number(metrics.passRate.toFixed(1)) }
         });
       }
     }

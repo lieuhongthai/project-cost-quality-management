@@ -14,6 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
+import { MetricsChart } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
@@ -57,7 +58,11 @@ function ProjectDetail() {
     status: '',
     search: '',
   });
-  const [effortUnit, setEffortUnit] = useState<EffortUnit>('man-hour');
+  const [effortUnit, setEffortUnit] = useState<EffortUnit>(() => {
+    const stored = localStorage.getItem(`effortUnit.project.${projectId}`) as EffortUnit | null;
+    return stored || 'man-hour';
+  });
+  const [effortUnitReady, setEffortUnitReady] = useState(false);
   const [deletingPhase, setDeletingPhase] = useState<{ id: number; name: string; linkedCount?: number } | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     workingHoursPerDay: 8,
@@ -174,6 +179,7 @@ function ProjectDetail() {
   // Sync settings form with fetched project settings
   useEffect(() => {
     if (projectSettings) {
+      const storedEffortUnit = localStorage.getItem(`effortUnit.project.${projectId}`) as EffortUnit | null;
       setSettingsForm({
         workingHoursPerDay: projectSettings.workingHoursPerDay || DEFAULT_WORK_SETTINGS.workingHoursPerDay,
         workingDaysPerMonth: projectSettings.workingDaysPerMonth || DEFAULT_WORK_SETTINGS.workingDaysPerMonth,
@@ -181,14 +187,37 @@ function ProjectDetail() {
         nonWorkingDays: projectSettings.nonWorkingDays || DEFAULT_NON_WORKING_DAYS,
         holidays: projectSettings.holidays || [],
       });
-      setEffortUnit(projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit);
+      setEffortUnit(
+        storedEffortUnit || projectSettings.defaultEffortUnit || DEFAULT_WORK_SETTINGS.defaultEffortUnit,
+      );
+      setEffortUnitReady(true);
     }
-  }, [projectSettings]);
+  }, [projectSettings, projectId]);
+
+  useEffect(() => {
+    if (projectId && effortUnitReady) {
+      localStorage.setItem(`effortUnit.project.${projectId}`, effortUnit);
+    }
+  }, [effortUnit, effortUnitReady, projectId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
     const converted = convertEffort(value, sourceUnit, effortUnit, settingsForm);
     return formatEffort(converted, effortUnit);
+  };
+
+  const formatMetricValue = (value?: number, digits = 2) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return t('common.notAvailable');
+    }
+    return value.toFixed(digits);
+  };
+
+  const formatPercentValue = (value?: number, digits = 1) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return t('common.notAvailable');
+    }
+    return `${value.toFixed(digits)}%`;
   };
 
   const deleteScreenFunctionMutation = useMutation({
@@ -530,8 +559,14 @@ function ProjectDetail() {
                         reason.type === 'good' ? 'bg-green-500' :
                         reason.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
                       }`} />
-                      <span className="font-medium">{reason.metric}:</span>
-                      <span>{reason.message}</span>
+                      <span className="font-medium">
+                        {reason.metricKey ? t(`metrics.reason.metric.${reason.metricKey}`) : reason.metric}:
+                      </span>
+                      <span>
+                        {reason.messageKey
+                          ? t(`metrics.reason.message.${reason.messageKey}`, reason.data || {})
+                          : reason.message}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -613,6 +648,96 @@ function ProjectDetail() {
             </dl>
           </Card>
 
+          {projectMetrics && (
+            <>
+              <Card title={t('metrics.kpi')}>
+                <div className="grid gap-6 lg:grid-cols-[1fr,2fr]">
+                  <div className="rounded-lg border border-gray-200 p-4">
+                    <MetricsChart
+                      spi={projectMetrics.schedule.spi}
+                      cpi={projectMetrics.schedule.cpi}
+                      passRate={projectMetrics.testing.passRate}
+                    />
+                    <p className="mt-3 text-xs text-gray-500">{t('metrics.evmDescription')}</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.spi')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.schedule.spi)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.spiFull')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.cpi')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.schedule.cpi)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.cpiFull')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.delayRate')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.schedule.delayRate, 1)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.delayRate')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.passRate')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.testing.passRate, 1)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.qualityMetrics')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.bac')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.forecasting.bac)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.bacFull')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.eac')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.forecasting.eac)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.eacFull')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.vac')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.forecasting.vac)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.vacFull')}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">{t('metrics.tcpi')}</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.forecasting.tcpi)}</p>
+                      <p className="text-xs text-gray-400">{t('metrics.tcpiFull')}</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card title={t('metrics.qualityMetrics')}>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.testCasesPassed')}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {projectMetrics.testing.passedTestCases.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {t('metrics.passRate')}: {formatPercentValue(projectMetrics.testing.passRate, 1)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.defectRate')}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.testing.defectRate, 3)}</p>
+                    <p className="text-xs text-gray-400">{t('metrics.defectsPerTestCase')}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.testPassRate')}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.testing.passRate, 1)}</p>
+                    <p className="text-xs text-gray-400">
+                      {projectMetrics.testing.totalTestCases.toLocaleString()} {t('common.total')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.tasksDelayed')}</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.schedule.delayRate, 1)}</p>
+                    <p className="text-xs text-gray-400">{t('metrics.delayInManMonths')}</p>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+
           <Card title={t('phase.phaseProgress')}>
             {phases && phases.length > 0 ? (
               <div className="space-y-4">
@@ -685,6 +810,9 @@ function ProjectDetail() {
                       {t('project.startDate')}
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      {t('project.endDate')}
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       {t('common.actions')}
                     </th>
                   </tr>
@@ -732,6 +860,9 @@ function ProjectDetail() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {format(new Date(phase.startDate), 'MMM dd, yyyy')}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {phase.endDate ? format(new Date(phase.endDate), 'MMM dd, yyyy') : t('common.notAvailable')}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <div className="flex gap-2">
