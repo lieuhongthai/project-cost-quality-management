@@ -178,12 +178,24 @@
       "planned": "Planned",
       "actual": "Actual",
       "today": "Today",
+      "viewLabel": "View by",
+      "view": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month"
+      },
       "plannedRange": "Planned: {{start}} → {{end}}",
       "actualRange": "Actual: {{end}}",
       "noEndDate": "No end date",
       "gap": "Gap {{days}} day(s)",
       "overlap": "Overlap {{days}} day(s)",
-      "delayed": "Delayed {{days}} day(s)"
+      "delayed": "Delayed {{days}} day(s)",
+      "tooltip": {
+        "title": "{{name}} details",
+        "planned": "Planned: {{start}} → {{end}}",
+        "actual": "Actual: {{end}}",
+        "progress": "Progress: {{progress}}%"
+      }
     },
     "moveUp": "Move up",
     "moveDown": "Move down",

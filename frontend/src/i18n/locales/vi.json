@@ -178,12 +178,24 @@
       "planned": "Kế hoạch",
       "actual": "Thực tế",
       "today": "Hôm nay",
+      "viewLabel": "Xem theo",
+      "view": {
+        "day": "Ngày",
+        "week": "Tuần",
+        "month": "Tháng"
+      },
       "plannedRange": "Kế hoạch: {{start}} → {{end}}",
       "actualRange": "Thực tế: {{end}}",
       "noEndDate": "Chưa có ngày kết thúc",
       "gap": "Khoảng trống {{days}} ngày",
       "overlap": "Chồng lấn {{days}} ngày",
-      "delayed": "Trễ {{days}} ngày"
+      "delayed": "Trễ {{days}} ngày",
+      "tooltip": {
+        "title": "Chi tiết {{name}}",
+        "planned": "Kế hoạch: {{start}} → {{end}}",
+        "actual": "Thực tế: {{end}}",
+        "progress": "Tiến độ: {{progress}}%"
+      }
     },
     "moveUp": "Di chuyển lên",
     "moveDown": "Di chuyển xuống",
