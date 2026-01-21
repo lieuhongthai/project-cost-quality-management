@@ -207,96 +207,128 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
               );
             })}
           </div>
-        </div>
-        {timelineData.phases.map((phase) => {
-          const plannedStartOffset = differenceInCalendarDays(phase.plannedStart, timelineData.minDate);
-          const plannedDuration = getDurationDays(phase.plannedStart, phase.plannedEnd);
-          const actualEnd = clampDate(phase.actualEnd, phase.plannedStart, timelineData.maxDate);
-          const actualDuration = getDurationDays(phase.plannedStart, actualEnd);
-          const plannedLeftPx = plannedStartOffset * dayWidth;
-          const plannedWidthPx = plannedDuration * dayWidth;
-          const actualWidthPx = actualDuration * dayWidth;
+          <div className="mt-4 space-y-4">
+            {timelineData.phases.map((phase) => {
+              const plannedStartOffset = differenceInCalendarDays(phase.plannedStart, timelineData.minDate);
+              const plannedDuration = getDurationDays(phase.plannedStart, phase.plannedEnd);
+              const actualEnd = clampDate(phase.actualEnd, phase.plannedStart, timelineData.maxDate);
+              const actualDuration = getDurationDays(phase.plannedStart, actualEnd);
+              const plannedLeftPx = plannedStartOffset * dayWidth;
+              const plannedWidthPx = plannedDuration * dayWidth;
+              const actualWidthPx = actualDuration * dayWidth;
 
-          return (
-            <div key={phase.id} className="grid gap-3 md:grid-cols-[220px_1fr]">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900">{phase.name}</p>
-                  {phase.delayDays ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                      {t('phase.timeline.delayed', { days: phase.delayDays })}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="text-xs text-gray-500">
-                  {t('phase.timeline.plannedRange', {
-                    start: format(phase.plannedStart, 'MMM dd, yyyy'),
-                    end: phase.hasEndDate
-                      ? format(phase.plannedEnd, 'MMM dd, yyyy')
-                      : t('phase.timeline.noEndDate'),
-                  })}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {t('phase.timeline.actualRange', {
-                    end: format(phase.actualEnd, 'MMM dd, yyyy'),
-                  })}
-                </p>
-                {phase.gapDays ? (
-                  <p className="text-xs text-amber-600">
-                    {t('phase.timeline.gap', { days: phase.gapDays })}
-                  </p>
-                ) : null}
-                {phase.overlapDays ? (
-                  <p className="text-xs text-purple-600">
-                    {t('phase.timeline.overlap', { days: phase.overlapDays })}
-                  </p>
-                ) : null}
-              </div>
-              <div className="relative overflow-x-auto">
-                <div className="relative h-12" style={{ width: `${totalWidth}px` }}>
-                  <div className="absolute inset-0 rounded-lg bg-gray-100" />
-                  {todayOffset >= 0 && todayOffset <= totalDays ? (
-                    <span
-                      className="absolute top-0 h-full w-0.5 rounded bg-red-500/70"
-                      style={{ left: `${Math.min(totalWidth, Math.max(0, todayLeftPx))}px` }}
-                    />
-                  ) : null}
-                  <div className="group absolute inset-0">
-                    <span
-                      className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-blue-200"
-                      style={{
-                        left: `${plannedLeftPx}px`,
-                        width: `${Math.max(8, plannedWidthPx)}px`,
-                      }}
-                    />
-                    <span
-                      className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-blue-600"
-                      style={{
-                        left: `${plannedLeftPx}px`,
-                        width: `${Math.max(8, actualWidthPx)}px`,
-                      }}
-                    />
-                    <div className="pointer-events-none absolute left-0 top-0 z-10 w-72 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700 opacity-0 shadow-lg transition group-hover:opacity-100">
-                      <p className="text-sm font-semibold text-gray-900">{t('phase.timeline.tooltip.title', { name: phase.name })}</p>
-                      <div className="mt-2 space-y-1">
-                        <p>{t('phase.timeline.tooltip.planned', { start: format(phase.plannedStart, 'MMM dd, yyyy'), end: format(phase.plannedEnd, 'MMM dd, yyyy') })}</p>
-                        <p>{t('phase.timeline.tooltip.actual', { end: format(phase.actualEnd, 'MMM dd, yyyy') })}</p>
-                        <p>{t('phase.timeline.tooltip.progress', { progress: phase.progress.toFixed(1) })}</p>
-                        {phase.delayDays ? <p className="text-red-600">{t('phase.timeline.delayed', { days: phase.delayDays })}</p> : null}
-                        {phase.gapDays ? <p className="text-amber-600">{t('phase.timeline.gap', { days: phase.gapDays })}</p> : null}
-                        {phase.overlapDays ? <p className="text-purple-600">{t('phase.timeline.overlap', { days: phase.overlapDays })}</p> : null}
+              return (
+                <div key={phase.id} className="grid gap-3 md:grid-cols-[220px_1fr]">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900">{phase.name}</p>
+                      {phase.delayDays ? (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          {t('phase.timeline.delayed', { days: phase.delayDays })}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {t('phase.timeline.plannedRange', {
+                        start: format(phase.plannedStart, 'MMM dd, yyyy'),
+                        end: phase.hasEndDate
+                          ? format(phase.plannedEnd, 'MMM dd, yyyy')
+                          : t('phase.timeline.noEndDate'),
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {t('phase.timeline.actualRange', {
+                        end: format(phase.actualEnd, 'MMM dd, yyyy'),
+                      })}
+                    </p>
+                    {phase.gapDays ? (
+                      <p className="text-xs text-amber-600">
+                        {t('phase.timeline.gap', { days: phase.gapDays })}
+                      </p>
+                    ) : null}
+                    {phase.overlapDays ? (
+                      <p className="text-xs text-purple-600">
+                        {t('phase.timeline.overlap', { days: phase.overlapDays })}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="relative">
+                    <div className="relative h-12" style={{ width: `${totalWidth}px` }}>
+                      <div className="absolute inset-0 rounded-lg bg-gray-100" />
+                      {todayOffset >= 0 && todayOffset <= totalDays ? (
+                        <span
+                          className="absolute top-0 h-full w-0.5 rounded bg-red-500/70"
+                          style={{ left: `${Math.min(totalWidth, Math.max(0, todayLeftPx))}px` }}
+                        />
+                      ) : null}
+                      <div className="group absolute inset-0">
+                        <span
+                          className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-blue-200"
+                          style={{
+                            left: `${plannedLeftPx}px`,
+                            width: `${Math.max(8, plannedWidthPx)}px`,
+                          }}
+                        />
+                        <span
+                          className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-blue-600"
+                          style={{
+                            left: `${plannedLeftPx}px`,
+                            width: `${Math.max(8, actualWidthPx)}px`,
+                          }}
+                        />
+                        <div className="pointer-events-none absolute left-0 top-0 z-10 w-72 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700 opacity-0 shadow-lg transition group-hover:opacity-100">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {t('phase.timeline.tooltip.title', { name: phase.name })}
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            <p>
+                              {t('phase.timeline.tooltip.planned', {
+                                start: format(phase.plannedStart, 'MMM dd, yyyy'),
+                                end: format(phase.plannedEnd, 'MMM dd, yyyy'),
+                              })}
+                            </p>
+                            <p>
+                              {t('phase.timeline.tooltip.actual', {
+                                end: format(phase.actualEnd, 'MMM dd, yyyy'),
+                              })}
+                            </p>
+                            <p>
+                              {t('phase.timeline.tooltip.progress', {
+                                progress: phase.progress.toFixed(1),
+                              })}
+                            </p>
+                            {phase.delayDays ? (
+                              <p className="text-red-600">
+                                {t('phase.timeline.delayed', { days: phase.delayDays })}
+                              </p>
+                            ) : null}
+                            {phase.gapDays ? (
+                              <p className="text-amber-600">
+                                {t('phase.timeline.gap', { days: phase.gapDays })}
+                              </p>
+                            ) : null}
+                            {phase.overlapDays ? (
+                              <p className="text-purple-600">
+                                {t('phase.timeline.overlap', { days: phase.overlapDays })}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                    <div
+                      className="mt-1 flex items-center justify-between text-[11px] text-gray-400"
+                      style={{ width: `${totalWidth}px` }}
+                    >
+                      <span>{format(phase.plannedStart, 'MMM dd')}</span>
+                      <span>{format(phase.plannedEnd, 'MMM dd')}</span>
                     </div>
                   </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400" style={{ width: `${totalWidth}px` }}>
-                  <span>{format(phase.plannedStart, 'MMM dd')}</span>
-                  <span>{format(phase.plannedEnd, 'MMM dd')}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
