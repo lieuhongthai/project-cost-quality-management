@@ -119,9 +119,9 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
   const totalWidth = Math.max(600, totalDays * dayWidth);
   const todayLeftPx = todayOffset * dayWidth;
 
-  const tickDates = useMemo(() => {
+  const tickSpans = useMemo(() => {
+    if (!timelineData) return [];
     const ticks: Date[] = [];
-    if (!timelineData) return ticks;
     let cursor =
       view === 'month'
         ? startOfMonth(timelineData.minDate)
@@ -138,8 +138,22 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
         cursor = addDays(cursor, 1);
       }
     }
-    return ticks;
-  }, [timelineData, view]);
+
+    return ticks.map((tick, index) => {
+      const nextTick = ticks[index + 1] ?? addDays(timelineData.maxDate, 1);
+      const widthDays = Math.max(1, differenceInCalendarDays(nextTick, tick));
+      const label =
+        view === 'month'
+          ? format(tick, 'MMM yyyy')
+          : view === 'week'
+            ? format(tick, 'MMM dd')
+            : format(tick, 'dd MMM');
+      return {
+        label,
+        widthPx: widthDays * dayWidth,
+      };
+    });
+  }, [dayWidth, timelineData, view]);
 
   return (
     <div className="space-y-4">
@@ -185,27 +199,17 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
 
       <div className="space-y-4">
         <div className="overflow-x-auto pb-2">
-          <div className="relative h-6" style={{ width: `${totalWidth}px` }}>
-            {tickDates.map((tick) => {
-              const offsetDays = differenceInCalendarDays(tick, timelineData.minDate);
-              const leftPx = offsetDays * dayWidth;
-              const label =
-                view === 'month'
-                  ? format(tick, 'MMM yyyy')
-                  : view === 'week'
-                    ? format(tick, 'MMM dd')
-                    : format(tick, 'dd MMM');
-              return (
-                <div
-                  key={tick.toISOString()}
-                  className="absolute top-0 h-full text-[10px] text-gray-400"
-                  style={{ left: `${leftPx}px` }}
-                >
-                  <span className="block h-2 w-px bg-gray-200" />
-                  <span className="mt-1 block">{label}</span>
-                </div>
-              );
-            })}
+          <div className="flex h-6 items-start" style={{ width: `${totalWidth}px` }}>
+            {tickSpans.map((tick, index) => (
+              <div
+                key={`${tick.label}-${index}`}
+                className="relative flex h-6 items-start text-[10px] text-gray-400"
+                style={{ width: `${tick.widthPx}px` }}
+              >
+                <span className="absolute left-0 top-0 h-2 w-px bg-gray-200" />
+                <span className="mt-1 w-full text-center">{tick.label}</span>
+              </div>
+            ))}
           </div>
           <div className="mt-4 space-y-4">
             {timelineData.phases.map((phase) => {
