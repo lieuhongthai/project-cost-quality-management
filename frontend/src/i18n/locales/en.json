@@ -172,6 +172,19 @@
     "createFirst": "Create your first phase",
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
+    "timeline": {
+      "title": "Phase Timeline (Gantt)",
+      "empty": "Add phase dates to visualize the timeline",
+      "planned": "Planned",
+      "actual": "Actual",
+      "today": "Today",
+      "plannedRange": "Planned: {{start}} → {{end}}",
+      "actualRange": "Actual: {{end}}",
+      "noEndDate": "No end date",
+      "gap": "Gap {{days}} day(s)",
+      "overlap": "Overlap {{days}} day(s)",
+      "delayed": "Delayed {{days}} day(s)"
+    },
     "moveUp": "Move up",
     "moveDown": "Move down",
     "validation": {

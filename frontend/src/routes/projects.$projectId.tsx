@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart } from '@/components/charts';
+import { MetricsChart, PhaseTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
@@ -773,6 +773,10 @@ function ProjectDetail() {
                 }
               />
             )}
+          </Card>
+
+          <Card title={t('phase.timeline.title')}>
+            <PhaseTimelineGantt phases={phases || []} />
           </Card>
         </div>
       )}
