@@ -142,15 +142,18 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
     return ticks.map((tick, index) => {
       const nextTick = ticks[index + 1] ?? addDays(timelineData.maxDate, 1);
       const widthDays = Math.max(1, differenceInCalendarDays(nextTick, tick));
+      const widthPx = widthDays * dayWidth;
       const label =
         view === 'month'
           ? format(tick, 'MMM yyyy')
           : view === 'week'
             ? format(tick, 'MMM dd')
             : format(tick, 'dd MMM');
+      const markerOffsetPx = view === 'day' ? widthPx / 2 : 0;
       return {
         label,
-        widthPx: widthDays * dayWidth,
+        widthPx,
+        markerOffsetPx,
       };
     });
   }, [dayWidth, timelineData, view]);
@@ -206,8 +209,13 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
                 className="relative flex h-6 items-start text-[10px] text-gray-400"
                 style={{ width: `${tick.widthPx}px` }}
               >
-                <span className="absolute left-0 top-0 h-2 w-px bg-gray-200" />
-                <span className="mt-1 w-full text-center">{tick.label}</span>
+                <span
+                  className="absolute top-0 h-2 w-px bg-gray-200"
+                  style={{ left: `${tick.markerOffsetPx}px` }}
+                />
+                <span className={`mt-1 w-full ${view === 'day' ? 'text-center' : 'pl-1 text-left'}`}>
+                  {tick.label}
+                </span>
               </div>
             ))}
           </div>
