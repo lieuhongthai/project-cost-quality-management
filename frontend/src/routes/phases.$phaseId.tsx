@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { phaseApi, effortApi, testingApi, screenFunctionApi, phaseScreenFunctionApi, projectApi, memberApi } from "@/services/api";
+import { phaseApi, effortApi, testingApi, reviewApi, screenFunctionApi, phaseScreenFunctionApi, projectApi, memberApi } from "@/services/api";
 import {
   Card,
   LoadingSpinner,
@@ -12,7 +12,7 @@ import {
   EmptyState,
 } from "@/components/common";
 import { EffortUnitSelector } from "@/components/common/EffortUnitSelector";
-import { EffortForm, TestingForm, PhaseScreenFunctionForm } from "@/components/forms";
+import { EffortForm, TestingForm, ReviewForm, PhaseScreenFunctionForm } from "@/components/forms";
 import {
   ProgressChart,
   TestingQualityChart,
@@ -21,7 +21,7 @@ import {
   PhaseProgressOverview,
 } from "@/components/charts";
 import { format } from "date-fns";
-import type { PhaseScreenFunction, EffortUnit, PhaseScreenFunctionStatus } from "@/types";
+import type { PhaseScreenFunction, EffortUnit, PhaseScreenFunctionStatus, Review } from "@/types";
 import {
   convertEffort,
   formatEffort,
@@ -38,11 +38,13 @@ function PhaseDetail() {
   const { t } = useTranslation();
   const { phaseId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"charts" | "efforts" | "testing" | "screen-functions">("screen-functions");
+  const [activeTab, setActiveTab] = useState<"charts" | "efforts" | "testing" | "review" | "screen-functions">("screen-functions");
   const [showAddEffort, setShowAddEffort] = useState(false);
   const [showAddTesting, setShowAddTesting] = useState(false);
+  const [showAddReview, setShowAddReview] = useState(false);
   const [editingEffort, setEditingEffort] = useState<any>(null);
   const [editingTesting, setEditingTesting] = useState<any>(null);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [editingPSF, setEditingPSF] = useState<PhaseScreenFunction | null>(null);
   const [showLinkScreenFunction, setShowLinkScreenFunction] = useState(false);
   const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
@@ -109,6 +111,22 @@ function PhaseDetail() {
     queryKey: ["testing-summary", parseInt(phaseId)],
     queryFn: async () => {
       const response = await testingApi.getSummary(parseInt(phaseId));
+      return response.data;
+    },
+  });
+
+  const { data: reviews } = useQuery({
+    queryKey: ["reviews", parseInt(phaseId)],
+    queryFn: async () => {
+      const response = await reviewApi.getByPhase(parseInt(phaseId));
+      return response.data;
+    },
+  });
+
+  const { data: reviewSummary } = useQuery({
+    queryKey: ["review-summary", parseInt(phaseId)],
+    queryFn: async () => {
+      const response = await reviewApi.getSummary(parseInt(phaseId));
       return response.data;
     },
   });
@@ -329,6 +347,7 @@ function PhaseDetail() {
     { id: "screen-functions" as const, name: t('phase.detail.tabs.screenFunctions') },
     { id: "charts" as const, name: t('phase.detail.tabs.charts') },
     { id: "testing" as const, name: t('phase.detail.tabs.testing') },
+    { id: "review" as const, name: t('phase.detail.tabs.review') },
     // Hidden: Efforts tab can be re-enabled by uncommenting the line below
     // { id: "efforts" as const, name: t('phase.detail.tabs.efforts') },
   ];
@@ -725,6 +744,143 @@ function PhaseDetail() {
                     {t('phase.detail.testing.addFirst')}
                   </Button>
                 }
+              />
+            )}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "review" && (
+        <div className="space-y-6">
+          {reviewSummary && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.totalReviewEffort')}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {displayEffort(reviewSummary.totalReviewEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.totalReviewRounds')}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {reviewSummary.totalReviewRounds}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.averageReviewRounds')}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {reviewSummary.averageReviewRounds.toFixed(2)}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.firstTimePassRate')}</p>
+                <p className="mt-1 text-2xl font-semibold text-green-600">
+                  {reviewSummary.firstTimePassRate.toFixed(1)}%
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.reviewEffortRatio')}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {(reviewSummary.reviewEffortRatio * 100).toFixed(1)}%
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.issueDensity')}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {reviewSummary.issueDensity.toFixed(3)}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">{t('review.totalDefects')}</p>
+                <p className="mt-1 text-2xl font-semibold text-red-600">
+                  {reviewSummary.totalDefects}
+                </p>
+              </Card>
+            </div>
+          )}
+
+          <Card
+            title={t('review.title')}
+            actions={(
+              <Button size="sm" onClick={() => setShowAddReview(true)}>
+                {t('review.add')}
+              </Button>
+            )}
+          >
+            {reviews && reviews.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead>
+                    <tr>
+                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                        {t('review.screenFunction')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.reviewRound')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.reviewDate')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.reviewer')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.reviewEffort')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.defectsFound')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('review.note')}
+                      </th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        {t('common.actions')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {reviews.map((review) => (
+                      <tr key={review.id}>
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                          {review.phaseScreenFunction?.screenFunction?.name || t('common.unknown')}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {t('review.roundLabel', { round: review.reviewRound })}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {format(new Date(review.reviewDate), "MMM dd, yyyy")}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {review.reviewer?.name || t('review.form.unassigned')}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {displayEffort(review.reviewEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {review.defectsFound}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {review.note || t('common.notAvailable')}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <Button size="sm" variant="secondary" onClick={() => setEditingReview(review)}>
+                            {t('common.edit')}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                title={t('review.emptyTitle')}
+                description={t('review.emptyDescription')}
+                action={(
+                  <Button onClick={() => setShowAddReview(true)}>
+                    {t('review.addFirst')}
+                  </Button>
+                )}
               />
             )}
           </Card>
@@ -1214,6 +1370,30 @@ function PhaseDetail() {
           onCancel={() => {
             setShowAddTesting(false);
             setEditingTesting(null);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showAddReview || !!editingReview}
+        onClose={() => {
+          setShowAddReview(false);
+          setEditingReview(null);
+        }}
+        title={editingReview ? t('review.editRecord') : t('review.addRecord')}
+      >
+        <ReviewForm
+          phaseId={parseInt(phaseId)}
+          review={editingReview || undefined}
+          phaseScreenFunctions={phaseScreenFunctions || []}
+          members={members || []}
+          onSuccess={() => {
+            setShowAddReview(false);
+            setEditingReview(null);
+          }}
+          onCancel={() => {
+            setShowAddReview(false);
+            setEditingReview(null);
           }}
         />
       </Modal>

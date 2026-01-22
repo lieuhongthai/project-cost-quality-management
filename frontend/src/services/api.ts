@@ -10,6 +10,8 @@ import type {
   Metrics,
   EffortSummary,
   TestingSummary,
+  Review,
+  ReviewSummary,
   ScreenFunction,
   PhaseScreenFunction,
   ScreenFunctionSummary,
@@ -87,6 +89,19 @@ export const testingApi = {
   update: (id: number, data: Partial<Testing>) => api.put<Testing>(`/testing/${id}`, data),
   delete: (id: number) => api.delete(`/testing/${id}`),
   getSummary: (phaseId: number) => api.get<TestingSummary>(`/testing/phase/${phaseId}/summary`),
+};
+
+// Review APIs
+export const reviewApi = {
+  getAll: () => api.get<Review[]>('/reviews'),
+  getByPhase: (phaseId: number) => api.get<Review[]>(`/reviews/phase/${phaseId}`),
+  getByPhaseScreenFunction: (phaseScreenFunctionId: number) =>
+    api.get<Review[]>(`/reviews/phase-screen-function/${phaseScreenFunctionId}`),
+  getOne: (id: number) => api.get<Review>(`/reviews/${id}`),
+  create: (data: Partial<Review>) => api.post<Review>('/reviews', data),
+  update: (id: number, data: Partial<Review>) => api.put<Review>(`/reviews/${id}`, data),
+  delete: (id: number) => api.delete(`/reviews/${id}`),
+  getSummary: (phaseId: number) => api.get<ReviewSummary>(`/reviews/phase/${phaseId}/summary`),
 };
 
 // Report APIs

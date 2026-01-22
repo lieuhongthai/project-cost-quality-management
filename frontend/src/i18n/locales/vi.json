@@ -228,6 +228,7 @@
         "screenFunctions": "Màn hình/Chức năng",
         "charts": "Biểu đồ",
         "testing": "Kiểm thử",
+        "review": "Review",
         "efforts": "Công sức"
       },
       "efforts": {
@@ -777,6 +778,43 @@
         "totalTestCasesPositive": "Tổng số test case phải lớn hơn 0",
         "passFailTotal": "Đạt + Không đạt không được vượt tổng số test case",
         "testingTimeNonNegative": "Thời gian kiểm thử không được âm",
+        "defectsNonNegative": "Số lỗi phát hiện không được âm"
+      }
+    }
+  },
+  "review": {
+    "title": "Theo dõi Review",
+    "screenFunction": "Màn hình/Chức năng",
+    "reviewRound": "Lượt review",
+    "reviewDate": "Ngày review",
+    "reviewEffort": "Effort review (giờ)",
+    "reviewer": "Người review",
+    "defectsFound": "Số lỗi phát hiện",
+    "note": "Ghi chú",
+    "reviewEffortRatio": "Tỷ lệ effort review",
+    "averageReviewRounds": "Số lượt review trung bình",
+    "firstTimePassRate": "Tỷ lệ pass lần 1",
+    "issueDensity": "Mật độ issue",
+    "totalReviewEffort": "Tổng effort review",
+    "totalReviewRounds": "Tổng số lượt review",
+    "totalDefects": "Tổng số lỗi",
+    "reviewedItems": "Hạng mục đã review",
+    "add": "Thêm review",
+    "addRecord": "Thêm bản ghi review",
+    "editRecord": "Cập nhật review",
+    "emptyTitle": "Chưa có dữ liệu review",
+    "emptyDescription": "Theo dõi các lượt review cho từng màn hình/chức năng trong phase",
+    "addFirst": "Thêm bản ghi review đầu tiên",
+    "roundLabel": "Lượt {{round}}",
+    "form": {
+      "add": "Thêm review",
+      "update": "Cập nhật review",
+      "unassigned": "Chưa gán",
+      "validation": {
+        "screenFunctionRequired": "Vui lòng chọn màn hình/chức năng",
+        "reviewDateRequired": "Vui lòng chọn ngày review",
+        "reviewRoundPositive": "Lượt review phải lớn hơn 0",
+        "reviewEffortNonNegative": "Effort review không được âm",
         "defectsNonNegative": "Số lỗi phát hiện không được âm"
       }
     }
