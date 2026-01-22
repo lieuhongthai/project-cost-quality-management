@@ -11,6 +11,12 @@ import { ScreenFunction } from "../modules/screen-function/screen-function.model
 import { PhaseScreenFunction } from "../modules/screen-function/phase-screen-function.model";
 import { Member } from "../modules/member/member.model";
 import { Review } from "../modules/review/review.model";
+import { Permission } from "../modules/iam/permission.model";
+import { Role } from "../modules/iam/role.model";
+import { RolePermission } from "../modules/iam/role-permission.model";
+import { Position } from "../modules/iam/position.model";
+import { PositionRole } from "../modules/iam/position-role.model";
+import { User } from "../modules/iam/user.model";
 
 export const databaseProviders = [
   {
@@ -51,6 +57,12 @@ export const databaseProviders = [
         PhaseScreenFunction,
         Member,
         Review,
+        Permission,
+        Role,
+        RolePermission,
+        Position,
+        PositionRole,
+        User,
       ]);
 
       await sequelize.sync({alter: true });
