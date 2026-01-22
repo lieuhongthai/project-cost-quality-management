@@ -41,6 +41,7 @@ const getDurationDays = (start: Date, end: Date) =>
 export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
   const { t } = useTranslation();
   const [view, setView] = useState<TimelineView>('week');
+  const labelColumnWidth = 220;
 
   const timelineData = useMemo(() => {
     if (phases.length === 0) return null;
@@ -201,70 +202,75 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
       </div>
 
       <div className="space-y-4">
-        <div className="overflow-x-auto pb-2">
-          <div className="flex h-6 items-start" style={{ width: `${totalWidth}px` }}>
-            {tickSpans.map((tick, index) => (
-              <div
-                key={`${tick.label}-${index}`}
-                className="relative flex h-6 items-start text-[10px] text-gray-400"
-                style={{ width: `${tick.widthPx}px` }}
-              >
-                <span
-                  className="absolute top-0 h-2 w-px bg-gray-200"
-                  style={{ left: `${tick.markerOffsetPx}px` }}
-                />
-                <span className={`mt-1 w-full ${view === 'day' ? 'text-center' : 'pl-1 text-left'}`}>
-                  {tick.label}
-                </span>
+        <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+          <div className="space-y-4">
+            <div className="hidden h-6 md:block" style={{ width: `${labelColumnWidth}px` }} />
+            {timelineData.phases.map((phase) => (
+              <div key={phase.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-gray-900">{phase.name}</p>
+                  {phase.delayDays ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                      {t('phase.timeline.delayed', { days: phase.delayDays })}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-gray-500">
+                  {t('phase.timeline.plannedRange', {
+                    start: format(phase.plannedStart, 'MMM dd, yyyy'),
+                    end: phase.hasEndDate
+                      ? format(phase.plannedEnd, 'MMM dd, yyyy')
+                      : t('phase.timeline.noEndDate'),
+                  })}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {t('phase.timeline.actualRange', {
+                    end: format(phase.actualEnd, 'MMM dd, yyyy'),
+                  })}
+                </p>
+                {phase.gapDays ? (
+                  <p className="text-xs text-amber-600">
+                    {t('phase.timeline.gap', { days: phase.gapDays })}
+                  </p>
+                ) : null}
+                {phase.overlapDays ? (
+                  <p className="text-xs text-purple-600">
+                    {t('phase.timeline.overlap', { days: phase.overlapDays })}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
-          <div className="mt-4 space-y-4">
-            {timelineData.phases.map((phase) => {
-              const plannedStartOffset = differenceInCalendarDays(phase.plannedStart, timelineData.minDate);
-              const plannedDuration = getDurationDays(phase.plannedStart, phase.plannedEnd);
-              const actualEnd = clampDate(phase.actualEnd, phase.plannedStart, timelineData.maxDate);
-              const actualDuration = getDurationDays(phase.plannedStart, actualEnd);
-              const plannedLeftPx = plannedStartOffset * dayWidth;
-              const plannedWidthPx = plannedDuration * dayWidth;
-              const actualWidthPx = actualDuration * dayWidth;
+          <div className="overflow-x-auto pb-2">
+            <div className="flex h-6 items-start" style={{ width: `${totalWidth}px` }}>
+              {tickSpans.map((tick, index) => (
+                <div
+                  key={`${tick.label}-${index}`}
+                  className="relative flex h-6 items-start text-[10px] text-gray-400"
+                  style={{ width: `${tick.widthPx}px` }}
+                >
+                  <span
+                    className="absolute top-0 h-2 w-px bg-gray-200"
+                    style={{ left: `${tick.markerOffsetPx}px` }}
+                  />
+                  <span className={`mt-1 w-full ${view === 'day' ? 'text-center' : 'pl-1 text-left'}`}>
+                    {tick.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 space-y-4">
+              {timelineData.phases.map((phase) => {
+                const plannedStartOffset = differenceInCalendarDays(phase.plannedStart, timelineData.minDate);
+                const plannedDuration = getDurationDays(phase.plannedStart, phase.plannedEnd);
+                const actualEnd = clampDate(phase.actualEnd, phase.plannedStart, timelineData.maxDate);
+                const actualDuration = getDurationDays(phase.plannedStart, actualEnd);
+                const plannedLeftPx = plannedStartOffset * dayWidth;
+                const plannedWidthPx = plannedDuration * dayWidth;
+                const actualWidthPx = actualDuration * dayWidth;
 
-              return (
-                <div key={phase.id} className="grid gap-3 md:grid-cols-[220px_1fr]">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900">{phase.name}</p>
-                      {phase.delayDays ? (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                          {t('phase.timeline.delayed', { days: phase.delayDays })}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {t('phase.timeline.plannedRange', {
-                        start: format(phase.plannedStart, 'MMM dd, yyyy'),
-                        end: phase.hasEndDate
-                          ? format(phase.plannedEnd, 'MMM dd, yyyy')
-                          : t('phase.timeline.noEndDate'),
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {t('phase.timeline.actualRange', {
-                        end: format(phase.actualEnd, 'MMM dd, yyyy'),
-                      })}
-                    </p>
-                    {phase.gapDays ? (
-                      <p className="text-xs text-amber-600">
-                        {t('phase.timeline.gap', { days: phase.gapDays })}
-                      </p>
-                    ) : null}
-                    {phase.overlapDays ? (
-                      <p className="text-xs text-purple-600">
-                        {t('phase.timeline.overlap', { days: phase.overlapDays })}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="relative">
+                return (
+                  <div key={phase.id} className="relative">
                     <div className="relative h-12" style={{ width: `${totalWidth}px` }}>
                       <div className="absolute inset-0 rounded-lg bg-gray-100" />
                       {todayOffset >= 0 && todayOffset <= totalDays ? (
@@ -336,9 +342,9 @@ export const PhaseTimelineGantt = ({ phases }: PhaseTimelineGanttProps) => {
                       <span>{format(phase.plannedEnd, 'MMM dd')}</span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
