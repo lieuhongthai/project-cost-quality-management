@@ -172,6 +172,9 @@
     "createFirst": "Create your first phase",
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
+    "timelineFrappe": {
+      "title": "Phase Timeline (Frappe Gantt)"
+    },
     "timeline": {
       "title": "Phase Timeline (Gantt)",
       "empty": "Add phase dates to visualize the timeline",

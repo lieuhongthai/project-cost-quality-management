@@ -16,6 +16,30 @@ code {
     monospace;
 }
 
+.gantt-frappe-wrapper .bar {
+  fill: #93c5fd;
+}
+
+.gantt-frappe-wrapper .bar-progress {
+  fill: #2563eb;
+}
+
+.gantt-frappe-wrapper .gantt-complete .bar {
+  fill: #34d399;
+}
+
+.gantt-frappe-wrapper .gantt-complete .bar-progress {
+  fill: #059669;
+}
+
+.gantt-frappe-wrapper .gantt-in-progress .bar {
+  fill: #93c5fd;
+}
+
+.gantt-frappe-wrapper .gantt-in-progress .bar-progress {
+  fill: #2563eb;
+}
+
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors;

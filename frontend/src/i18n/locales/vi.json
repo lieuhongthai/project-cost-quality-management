@@ -172,6 +172,9 @@
     "createFirst": "Tạo giai đoạn đầu tiên",
     "suggestEndDate": "Gợi ý ngày kết thúc",
     "phaseProgress": "Tiến độ giai đoạn",
+    "timelineFrappe": {
+      "title": "Timeline giai đoạn (Frappe Gantt)"
+    },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",
       "empty": "Thêm ngày bắt đầu/kết thúc để xem timeline",
