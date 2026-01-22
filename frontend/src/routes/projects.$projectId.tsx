@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart } from '@/components/charts';
+import { MetricsChart, PhaseTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
@@ -36,7 +36,7 @@ function ProjectDetail() {
   const { projectId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'screen-functions' | 'members' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'phases' | 'screen-functions' | 'members' | 'settings'>('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
@@ -347,6 +347,7 @@ function ProjectDetail() {
 
   const tabs = [
     { id: 'overview' as const, name: t('dashboard.overview') },
+    { id: 'timeline' as const, name: t('phase.timeline.title') },
     { id: 'phases' as const, name: t('nav.phases') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
@@ -774,7 +775,14 @@ function ProjectDetail() {
               />
             )}
           </Card>
+
         </div>
+      )}
+
+      {activeTab === 'timeline' && (
+        <Card title={t('phase.timeline.title')}>
+          <PhaseTimelineGantt phases={phases || []} />
+        </Card>
       )}
 
       {activeTab === 'phases' && (
