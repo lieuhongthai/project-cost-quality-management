@@ -70,6 +70,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     const gantt = new Gantt(containerRef.current, timelineData.tasks, {
       view_mode: view,
       popup_trigger: 'hover',
+      readonly: true,
       custom_popup_html: (task) => {
         const phase = timelineData.phases.find((item) => String(item.id) === String(task.id));
         if (!phase) return '';
