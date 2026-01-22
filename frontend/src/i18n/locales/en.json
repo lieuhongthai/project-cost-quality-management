@@ -228,6 +228,7 @@
         "screenFunctions": "Screen/Function",
         "charts": "Charts",
         "testing": "Testing",
+        "review": "Reviews",
         "efforts": "Efforts"
       },
       "efforts": {
@@ -778,6 +779,43 @@
         "passFailTotal": "Passed + Failed cannot exceed total test cases",
         "testingTimeNonNegative": "Testing time cannot be negative",
         "defectsNonNegative": "Defects detected cannot be negative"
+      }
+    }
+  },
+  "review": {
+    "title": "Review Tracking",
+    "screenFunction": "Screen/Function",
+    "reviewRound": "Review Round",
+    "reviewDate": "Review Date",
+    "reviewEffort": "Review Effort (Hours)",
+    "reviewer": "Reviewer",
+    "defectsFound": "Defects Found",
+    "note": "Note",
+    "reviewEffortRatio": "Review Effort Ratio",
+    "averageReviewRounds": "Average Review Rounds",
+    "firstTimePassRate": "First Time Pass Rate",
+    "issueDensity": "Issue Density",
+    "totalReviewEffort": "Total Review Effort",
+    "totalReviewRounds": "Total Review Rounds",
+    "totalDefects": "Total Defects",
+    "reviewedItems": "Reviewed Items",
+    "add": "Add Review",
+    "addRecord": "Add Review Record",
+    "editRecord": "Edit Review Record",
+    "emptyTitle": "No review data",
+    "emptyDescription": "Track review rounds for each screen/function in this phase",
+    "addFirst": "Add First Review Record",
+    "roundLabel": "Round {{round}}",
+    "form": {
+      "add": "Add Review",
+      "update": "Update Review",
+      "unassigned": "Unassigned",
+      "validation": {
+        "screenFunctionRequired": "Screen/Function is required",
+        "reviewDateRequired": "Review date is required",
+        "reviewRoundPositive": "Review round must be greater than 0",
+        "reviewEffortNonNegative": "Review effort cannot be negative",
+        "defectsNonNegative": "Defects found cannot be negative"
       }
     }
   }

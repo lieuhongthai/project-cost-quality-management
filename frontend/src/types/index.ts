@@ -164,6 +164,31 @@ export interface TestingSummary {
   testCasesPerHour: number;
 }
 
+export interface Review {
+  id: number;
+  phaseId: number;
+  phaseScreenFunctionId: number;
+  reviewerId?: number;
+  reviewRound: number;
+  reviewEffort: number;
+  defectsFound: number;
+  reviewDate: string;
+  note?: string;
+  phaseScreenFunction?: PhaseScreenFunction;
+  reviewer?: Member;
+}
+
+export interface ReviewSummary {
+  totalReviewEffort: number;
+  totalReviewRounds: number;
+  totalDefects: number;
+  reviewedItems: number;
+  averageReviewRounds: number;
+  firstTimePassRate: number;
+  reviewEffortRatio: number;
+  issueDensity: number;
+}
+
 // Screen/Function types
 export type ScreenFunctionType = 'Screen' | 'Function';
 export type Priority = 'High' | 'Medium' | 'Low';
