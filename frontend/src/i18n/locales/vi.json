@@ -173,7 +173,9 @@
     "suggestEndDate": "Gợi ý ngày kết thúc",
     "phaseProgress": "Tiến độ giai đoạn",
     "timelineFrappe": {
-      "title": "Timeline giai đoạn (Frappe Gantt)"
+      "title": "Timeline giai đoạn (Frappe Gantt)",
+      "filterLabel": "Trạng thái",
+      "emptyFiltered": "Không có giai đoạn phù hợp với bộ lọc"
     },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",

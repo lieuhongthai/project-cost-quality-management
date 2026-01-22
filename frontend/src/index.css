@@ -40,6 +40,30 @@ code {
   fill: #2563eb;
 }
 
+.gantt-frappe-wrapper .gantt-status-good .bar {
+  fill: #a7f3d0;
+}
+
+.gantt-frappe-wrapper .gantt-status-good .bar-progress {
+  fill: #10b981;
+}
+
+.gantt-frappe-wrapper .gantt-status-warning .bar {
+  fill: #fde68a;
+}
+
+.gantt-frappe-wrapper .gantt-status-warning .bar-progress {
+  fill: #f59e0b;
+}
+
+.gantt-frappe-wrapper .gantt-status-at-risk .bar {
+  fill: #fecaca;
+}
+
+.gantt-frappe-wrapper .gantt-status-at-risk .bar-progress {
+  fill: #ef4444;
+}
+
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors;

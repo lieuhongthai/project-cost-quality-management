@@ -173,7 +173,9 @@
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
     "timelineFrappe": {
-      "title": "Phase Timeline (Frappe Gantt)"
+      "title": "Phase Timeline (Frappe Gantt)",
+      "filterLabel": "Status",
+      "emptyFiltered": "No phases match the selected filters"
     },
     "timeline": {
       "title": "Phase Timeline (Gantt)",
