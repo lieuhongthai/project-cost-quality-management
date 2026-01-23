@@ -32,6 +32,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     'At Risk',
   ]);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const statusOptions: { value: PhaseStatus; label: string; color: string }[] = useMemo(
     () => [
@@ -130,6 +131,23 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     gantt.change_view_mode(view);
   }, [timelineData, t, view]);
 
+  useEffect(() => {
+    const wrapper = scrollRef.current;
+    if (!wrapper) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        return;
+      }
+      event.stopPropagation();
+    };
+
+    wrapper.addEventListener('wheel', handleWheel, { passive: true, capture: true });
+    return () => {
+      wrapper.removeEventListener('wheel', handleWheel, { capture: true });
+    };
+  }, []);
+
   if (phases.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
@@ -198,7 +216,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
       </div>
 
       {timelineData ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
+        <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white p-3">
           <div className="gantt-frappe-wrapper" ref={containerRef} />
         </div>
       ) : (
