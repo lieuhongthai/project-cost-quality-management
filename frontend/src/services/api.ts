@@ -20,6 +20,8 @@ import type {
   Member,
   MemberSummary,
   MemberWorkload,
+  Permission,
+  Role,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -208,6 +210,13 @@ export const memberApi = {
   getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
   copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
     api.post<{ copied: number; skipped: number; members: Member[] }>('/members/copy', data),
+};
+
+export const iamApi = {
+  listPermissions: () => api.get<Permission[]>('/iam/permissions'),
+  listRoles: () => api.get<Role[]>('/iam/roles'),
+  updateRole: (id: number, data: { name?: string; permissionKeys?: string[] }) =>
+    api.put<Role>(`/iam/roles/${id}`, data),
 };
 
 export default api;

@@ -68,7 +68,23 @@
     "members": "Members",
     "reports": "Reports",
     "benchmarks": "Benchmarks",
-    "settings": "Settings"
+    "settings": "Settings",
+    "accessControl": "Access Control"
+  },
+  "iam": {
+    "title": "Access control",
+    "subtitle": "Manage roles and permissions for the application.",
+    "rolesTitle": "Roles",
+    "permissions": "Permissions",
+    "permissionsTitle": "Permissions for {{role}}",
+    "save": "Save permissions",
+    "systemRole": "System",
+    "systemRoleHint": "System roles are locked and cannot be edited.",
+    "readOnlyHint": "You can view permissions, but you do not have access to edit them.",
+    "selectRole": "Select a role to view permissions.",
+    "permissionCount": "{{count}} permissions",
+    "noRoles": "No roles found",
+    "noRolesHint": "Create roles in the backend to start assigning permissions."
   },
   "benchmark": {
     "title": "Project Benchmarks",

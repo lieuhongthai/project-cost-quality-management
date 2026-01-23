@@ -68,7 +68,23 @@
     "members": "Thành viên",
     "reports": "Báo cáo",
     "benchmarks": "So sánh",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "accessControl": "Phân quyền"
+  },
+  "iam": {
+    "title": "Phân quyền truy cập",
+    "subtitle": "Quản lý vai trò và quyền trong hệ thống.",
+    "rolesTitle": "Vai trò",
+    "permissions": "Quyền",
+    "permissionsTitle": "Quyền cho {{role}}",
+    "save": "Lưu quyền",
+    "systemRole": "Hệ thống",
+    "systemRoleHint": "Vai trò hệ thống bị khóa và không thể chỉnh sửa.",
+    "readOnlyHint": "Bạn chỉ có thể xem quyền, không có quyền chỉnh sửa.",
+    "selectRole": "Chọn vai trò để xem quyền.",
+    "permissionCount": "{{count}} quyền",
+    "noRoles": "Chưa có vai trò",
+    "noRolesHint": "Hãy tạo vai trò ở backend để bắt đầu phân quyền."
   },
   "benchmark": {
     "title": "So sánh dự án",

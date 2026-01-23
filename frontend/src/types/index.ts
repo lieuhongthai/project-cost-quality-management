@@ -26,6 +26,18 @@ export interface ProjectSettings {
   holidays: string[]; // Array of YYYY-MM-DD strings
 }
 
+export interface Permission {
+  id: number;
+  key: string;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  isSystem: boolean;
+  permissions: Permission[];
+}
+
 // Days of week constants
 export const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday', short: 'Sun' },
