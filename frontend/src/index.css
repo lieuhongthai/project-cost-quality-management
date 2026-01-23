@@ -24,43 +24,51 @@ code {
   fill: #2563eb;
 }
 
-.gantt-frappe-wrapper .gantt-complete .bar {
-  fill: #34d399;
-}
-
-.gantt-frappe-wrapper .gantt-complete .bar-progress {
-  fill: #059669;
-}
-
-.gantt-frappe-wrapper .gantt-in-progress .bar {
-  fill: #93c5fd;
-}
-
-.gantt-frappe-wrapper .gantt-in-progress .bar-progress {
-  fill: #2563eb;
-}
-
-.gantt-frappe-wrapper .gantt-status-good .bar {
+.gantt-frappe-wrapper .gantt-status-good-gantt-complete .bar {
   fill: #a7f3d0;
 }
 
-.gantt-frappe-wrapper .gantt-status-good .bar-progress {
+.gantt-frappe-wrapper .gantt-status-good-gantt-complete .bar-progress {
+  fill: #059669;
+}
+
+.gantt-frappe-wrapper .gantt-status-good-gantt-in-progress .bar {
+  fill: #a7f3d0;
+}
+
+.gantt-frappe-wrapper .gantt-status-good-gantt-in-progress .bar-progress {
   fill: #10b981;
 }
 
-.gantt-frappe-wrapper .gantt-status-warning .bar {
+.gantt-frappe-wrapper .gantt-status-warning-gantt-complete .bar {
   fill: #fde68a;
 }
 
-.gantt-frappe-wrapper .gantt-status-warning .bar-progress {
+.gantt-frappe-wrapper .gantt-status-warning-gantt-complete .bar-progress {
+  fill: #d97706;
+}
+
+.gantt-frappe-wrapper .gantt-status-warning-gantt-in-progress .bar {
+  fill: #fde68a;
+}
+
+.gantt-frappe-wrapper .gantt-status-warning-gantt-in-progress .bar-progress {
   fill: #f59e0b;
 }
 
-.gantt-frappe-wrapper .gantt-status-at-risk .bar {
+.gantt-frappe-wrapper .gantt-status-at-risk-gantt-complete .bar {
   fill: #fecaca;
 }
 
-.gantt-frappe-wrapper .gantt-status-at-risk .bar-progress {
+.gantt-frappe-wrapper .gantt-status-at-risk-gantt-complete .bar-progress {
+  fill: #b91c1c;
+}
+
+.gantt-frappe-wrapper .gantt-status-at-risk-gantt-in-progress .bar {
+  fill: #fecaca;
+}
+
+.gantt-frappe-wrapper .gantt-status-at-risk-gantt-in-progress .bar-progress {
   fill: #ef4444;
 }
 

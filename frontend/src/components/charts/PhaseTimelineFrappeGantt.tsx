@@ -58,13 +58,14 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
       const plannedEnd = phase.endDate ? toDate(phase.endDate) : addDays(plannedStart, 1);
       const statusClass = `gantt-status-${phase.status.replace(/\s+/g, '-').toLowerCase()}`;
       const progressClass = phase.progress >= 100 ? 'gantt-complete' : 'gantt-in-progress';
+      const combinedClass = `${statusClass}-${progressClass}`;
       return {
         id: String(phase.id),
         name: phase.name,
         start: format(plannedStart, 'yyyy-MM-dd'),
         end: format(plannedEnd, 'yyyy-MM-dd'),
         progress: Math.max(0, Math.min(100, Math.round(phase.progress))),
-        custom_class: `${statusClass} ${progressClass}`,
+        custom_class: combinedClass,
       };
     });
 
