@@ -38,6 +38,13 @@ export interface Role {
   permissions: Permission[];
 }
 
+export interface Position {
+  id: number;
+  name: string;
+  isSystem: boolean;
+  roles: Role[];
+}
+
 // Days of week constants
 export const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday', short: 'Sun' },

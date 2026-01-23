@@ -21,6 +21,7 @@ import type {
   MemberSummary,
   MemberWorkload,
   Permission,
+  Position,
   Role,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
@@ -215,8 +216,13 @@ export const memberApi = {
 export const iamApi = {
   listPermissions: () => api.get<Permission[]>('/iam/permissions'),
   listRoles: () => api.get<Role[]>('/iam/roles'),
+  createRole: (data: { name: string; permissionKeys: string[] }) =>
+    api.post<Role>('/iam/roles', data),
   updateRole: (id: number, data: { name?: string; permissionKeys?: string[] }) =>
     api.put<Role>(`/iam/roles/${id}`, data),
+  listPositions: () => api.get<Position[]>('/iam/positions'),
+  createPosition: (data: { name: string; roleIds: number[] }) =>
+    api.post<Position>('/iam/positions', data),
 };
 
 export default api;
