@@ -21,6 +21,7 @@ import type {
   MemberSummary,
   MemberWorkload,
 } from '../types';
+import type { AuthResponse, AuthUser } from '../types/auth';
 
 const api = axios.create({
   baseURL: '/api',
@@ -28,6 +29,22 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export const setAuthToken = (token?: string) => {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common.Authorization;
+  }
+};
+
+export const authApi = {
+  login: (data: { username: string; password: string }) =>
+    api.post<AuthResponse>('/auth/login', data),
+  me: () => api.get<AuthUser>('/auth/me'),
+  changeCredentials: (data: { newPassword: string; newUsername?: string }) =>
+    api.post('/auth/change-credentials', data),
+};
 
 // Project APIs
 export const projectApi = {

@@ -46,6 +46,20 @@
     "lastUpdated": "Last Updated",
     "update": "Update"
   },
+  "auth": {
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Sign in to manage projects",
+    "username": "Username",
+    "password": "Password",
+    "login": "Login",
+    "logout": "Logout",
+    "invalidCredentials": "Invalid username or password",
+    "forceChangeTitle": "Update your credentials",
+    "forceChangeSubtitle": "Please change your password before continuing",
+    "newPassword": "New password",
+    "updateCredentials": "Update credentials",
+    "changeFailed": "Unable to update credentials"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",
@@ -172,6 +186,11 @@
     "createFirst": "Create your first phase",
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
+    "timelineFrappe": {
+      "title": "Phase Timeline (Frappe Gantt)",
+      "filterLabel": "Status",
+      "emptyFiltered": "No phases match the selected filters"
+    },
     "timeline": {
       "title": "Phase Timeline (Gantt)",
       "empty": "Add phase dates to visualize the timeline",

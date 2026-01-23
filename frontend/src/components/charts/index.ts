@@ -5,3 +5,4 @@ export { PhaseEfficiencyChart } from './PhaseEfficiencyChart';
 export { PhaseStatusPieChart } from './PhaseStatusPieChart';
 export { PhaseProgressOverview } from './PhaseProgressOverview';
 export { PhaseTimelineGantt } from './PhaseTimelineGantt';
+export { PhaseTimelineFrappeGantt } from './PhaseTimelineFrappeGantt';

@@ -46,6 +46,20 @@
     "lastUpdated": "Cập nhật lần cuối",
     "update": "Cập nhật"
   },
+  "auth": {
+    "loginTitle": "Chào mừng trở lại",
+    "loginSubtitle": "Đăng nhập để quản lý dự án",
+    "username": "Tên đăng nhập",
+    "password": "Mật khẩu",
+    "login": "Đăng nhập",
+    "logout": "Đăng xuất",
+    "invalidCredentials": "Sai tên đăng nhập hoặc mật khẩu",
+    "forceChangeTitle": "Cập nhật thông tin đăng nhập",
+    "forceChangeSubtitle": "Vui lòng đổi mật khẩu trước khi tiếp tục",
+    "newPassword": "Mật khẩu mới",
+    "updateCredentials": "Cập nhật thông tin",
+    "changeFailed": "Không thể cập nhật thông tin đăng nhập"
+  },
   "nav": {
     "dashboard": "Tổng quan",
     "projects": "Dự án",
@@ -172,6 +186,11 @@
     "createFirst": "Tạo giai đoạn đầu tiên",
     "suggestEndDate": "Gợi ý ngày kết thúc",
     "phaseProgress": "Tiến độ giai đoạn",
+    "timelineFrappe": {
+      "title": "Timeline giai đoạn (Frappe Gantt)",
+      "filterLabel": "Trạng thái",
+      "emptyFiltered": "Không có giai đoạn phù hợp với bộ lọc"
+    },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",
       "empty": "Thêm ngày bắt đầu/kết thúc để xem timeline",

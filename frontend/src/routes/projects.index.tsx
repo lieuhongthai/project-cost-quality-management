@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { projectApi } from '../services/api'
 import { format } from 'date-fns'
 import { Button, Modal, LoadingSpinner } from '../components/common'
+import { Can } from '@/ability'
 import { ProjectForm } from '../components/forms/ProjectForm'
 
 export const Route = createFileRoute('/projects/')({
@@ -50,9 +51,11 @@ function ProjectsList() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Button onClick={() => setShowAddProject(true)}>
-            {t('project.create')}
-          </Button>
+          <Can I="create" a="project">
+            <Button onClick={() => setShowAddProject(true)}>
+              {t('project.create')}
+            </Button>
+          </Can>
         </div>
       </div>
 

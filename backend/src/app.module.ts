@@ -12,6 +12,8 @@ import { ScreenFunctionModule } from './modules/screen-function/screen-function.
 import { MemberModule } from './modules/member/member.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
 import { ReviewModule } from './modules/review/review.module';
+import { IamModule } from './modules/iam/iam.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { ReviewModule } from './modules/review/review.module';
     MemberModule,
     HolidaysModule,
     ReviewModule,
+    IamModule,
+    AuthModule,
   ],
 })
 export class AppModule {}
