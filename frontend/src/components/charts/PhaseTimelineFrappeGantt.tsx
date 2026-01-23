@@ -33,6 +33,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
   ]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const isDispatchingWheel = useRef(false);
 
   const statusOptions: { value: PhaseStatus; label: string; color: string }[] = useMemo(
     () => [
@@ -136,13 +137,35 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     if (!wrapper) return;
 
     const handleWheel = (event: WheelEvent) => {
+      if (isDispatchingWheel.current) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('.gantt-container')) {
+        return;
+      }
       if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
         return;
       }
+      event.preventDefault();
       event.stopPropagation();
+      isDispatchingWheel.current = true;
+      try {
+        wrapper.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaX: 0,
+            deltaY: event.deltaY,
+            deltaMode: event.deltaMode,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      } finally {
+        isDispatchingWheel.current = false;
+      }
     };
 
-    wrapper.addEventListener('wheel', handleWheel, { passive: true, capture: true });
+    wrapper.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     return () => {
       wrapper.removeEventListener('wheel', handleWheel, { capture: true });
     };
