@@ -156,6 +156,14 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     );
   }
 
+  if (!timelineData) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
+        {t('phase.timelineFrappe.emptyFiltered')}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -215,15 +223,9 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
         </div>
       </div>
 
-      {timelineData ? (
-        <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="gantt-frappe-wrapper" ref={containerRef} />
-        </div>
-      ) : (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
-          {t('phase.timelineFrappe.emptyFiltered')}
-        </div>
-      )}
+      <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white p-3">
+        <div className="gantt-frappe-wrapper" ref={containerRef} />
+      </div>
     </div>
   );
 };
