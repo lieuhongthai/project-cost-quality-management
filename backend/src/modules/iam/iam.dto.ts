@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, MinLength, ArrayNotEmpty } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, MinLength, ArrayNotEmpty } from 'class-validator';
 
 export class CreateRoleDto {
   @IsString()
@@ -46,12 +46,16 @@ export class CreateUserDto {
   @IsString()
   username: string;
 
-  @IsString()
-  @MinLength(6)
-  password: string;
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsInt()
   positionId: number;
+
+  @IsString()
+  @IsIn(['default', 'email'])
+  passwordMode: 'default' | 'email';
 
   @IsOptional()
   @IsBoolean()
@@ -62,6 +66,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   username?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsOptional()
   @IsInt()

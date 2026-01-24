@@ -23,6 +23,7 @@ import type {
   Permission,
   Position,
   Role,
+  User,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -220,9 +221,25 @@ export const iamApi = {
     api.post<Role>('/iam/roles', data),
   updateRole: (id: number, data: { name?: string; permissionKeys?: string[] }) =>
     api.put<Role>(`/iam/roles/${id}`, data),
+  deleteRole: (id: number) => api.delete(`/iam/roles/${id}`),
   listPositions: () => api.get<Position[]>('/iam/positions'),
   createPosition: (data: { name: string; roleIds: number[] }) =>
     api.post<Position>('/iam/positions', data),
+  updatePosition: (id: number, data: { name?: string; roleIds?: number[] }) =>
+    api.put<Position>(`/iam/positions/${id}`, data),
+  deletePosition: (id: number) => api.delete(`/iam/positions/${id}`),
+  listUsers: () => api.get<User[]>('/iam/users'),
+  createUser: (data: {
+    username: string;
+    email?: string;
+    positionId: number;
+    passwordMode: 'default' | 'email';
+    mustChangePassword?: boolean;
+  }) =>
+    api.post<User>('/iam/users', data),
+  updateUser: (id: number, data: { username?: string; email?: string; positionId?: number; mustChangePassword?: boolean }) =>
+    api.put<User>(`/iam/users/${id}`, data),
+  deleteUser: (id: number) => api.delete(`/iam/users/${id}`),
 };
 
 export default api;

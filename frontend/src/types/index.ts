@@ -45,6 +45,17 @@ export interface Position {
   roles: Role[];
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email?: string;
+  mustChangePassword: boolean;
+  positionId: number;
+  position?: Position;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Days of week constants
 export const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday', short: 'Sun' },
