@@ -13,6 +13,7 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
     @Inject('EMAIL_QUEUE_REPOSITORY')
     private readonly emailQueueRepository: typeof EmailQueue,
     private readonly emailService: EmailService,
+    @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
   ) {}
 
@@ -81,9 +82,9 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
   private getDatabaseUrl(): string {
     const host = process.env.DB_HOST || 'localhost';
     const port = process.env.DB_PORT || '5432';
-    const username = process.env.DB_USERNAME || 'postgres';
+    const username = process.env.DB_USER || 'postgres';
     const password = process.env.DB_PASSWORD || 'postgres';
-    const database = process.env.DB_DATABASE || 'project_management';
+    const database = process.env.DB_NAME || "project_management";
     return `postgresql://${username}:${password}@${host}:${port}/${database}`;
   }
 

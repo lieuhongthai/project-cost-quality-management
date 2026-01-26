@@ -11,4 +11,7 @@ export {
   EmptyState,
   StatusBadge,
   ProgressBar,
+  Checkbox,
+  Radio,
+  IconButton,
 } from './UIComponents';

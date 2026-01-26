@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { iamApi } from '@/services/api'
-import { Button, Card, EmptyState, LoadingSpinner } from '@/components/common'
+import { Button, Card, EmptyState, LoadingSpinner, Checkbox, Radio, IconButton } from '@/components/common'
 import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role, User } from '@/types'
 import {
@@ -451,7 +451,7 @@ function IamPage() {
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition ${
+              className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition focus:outline-none focus:ring-0 ${
                 activeTab === id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -495,7 +495,7 @@ function IamPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedRoleId(role.id)}
-                        className="w-full px-3 py-2.5 text-left"
+                        className="w-full px-3 py-2.5 text-left focus:outline-none focus:ring-0"
                       >
                         <div className="flex items-center justify-between gap-2">
                           {isEditing ? (
@@ -508,27 +508,23 @@ function IamPage() {
                                 onClick={(e) => e.stopPropagation()}
                                 autoFocus
                               />
-                              <button
-                                type="button"
+                              <IconButton
+                                variant="success"
+                                icon={<Check className="h-4 w-4" />}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleSaveRoleName()
                                 }}
-                                className="rounded p-1 text-green-600 hover:bg-green-50"
                                 disabled={updateRoleNameMutation.isPending}
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
+                              />
+                              <IconButton
+                                variant="default"
+                                icon={<X className="h-4 w-4" />}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleCancelEditRole()
                                 }}
-                                className="rounded p-1 text-gray-600 hover:bg-gray-100"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
+                              />
                             </div>
                           ) : (
                             <>
@@ -543,26 +539,24 @@ function IamPage() {
                                 )}
                                 {canManage && (
                                   <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
+                                    <IconButton
+                                      variant="primary"
+                                      icon={<Edit2 className="h-3.5 w-3.5" />}
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         handleEditRole(role)
                                       }}
-                                      className="rounded p-1 text-gray-400 hover:bg-white hover:text-primary-600"
-                                    >
-                                      <Edit2 className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
+                                      className="hover:bg-white"
+                                    />
+                                    <IconButton
+                                      variant="danger"
+                                      icon={<Trash2 className="h-3.5 w-3.5" />}
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         handleDeleteRole(role.id, role.name)
                                       }}
-                                      className="rounded p-1 text-gray-400 hover:bg-white hover:text-red-600"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                      className="hover:bg-white"
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -650,7 +644,7 @@ function IamPage() {
                             >
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded text-primary-600 focus:ring-2 focus:ring-primary-500"
+                                className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
                                 checked={draftPermissionKeys.includes(permission.key)}
                                 disabled={isReadOnly}
                                 onChange={() => togglePermission(permission.key)}
@@ -702,21 +696,17 @@ function IamPage() {
                                 onChange={(e) => setEditingPositionName(e.target.value)}
                                 autoFocus
                               />
-                              <button
-                                type="button"
+                              <IconButton
+                                variant="success"
+                                icon={<Check className="h-4 w-4" />}
                                 onClick={handleSavePositionName}
-                                className="rounded p-1 text-green-600 hover:bg-green-50"
                                 disabled={updatePositionMutation.isPending}
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
+                              />
+                              <IconButton
+                                variant="default"
+                                icon={<X className="h-4 w-4" />}
                                 onClick={handleCancelEditPosition}
-                                className="rounded p-1 text-gray-600 hover:bg-gray-100"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
+                              />
                             </div>
                           ) : (
                             <>
@@ -732,22 +722,18 @@ function IamPage() {
                                 )}
                                 {canManage && (
                                   <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
+                                    <IconButton
+                                      variant="primary"
+                                      icon={<Edit2 className="h-3.5 w-3.5" />}
                                       onClick={() => handleEditPosition(position)}
-                                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-600"
-                                      title={t('iam.editPositionName')}
-                                    >
-                                      <Edit2 className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
+                                      tooltip={t('iam.editPositionName')}
+                                    />
+                                    <IconButton
+                                      variant="danger"
+                                      icon={<Trash2 className="h-3.5 w-3.5" />}
                                       onClick={() => handleDeletePosition(position.id, position.name)}
-                                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
-                                      title={t('iam.deletePosition')}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                      tooltip={t('iam.deletePosition')}
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -761,13 +747,14 @@ function IamPage() {
                                 {t('iam.positionRoleCount', { count: position.roles.length })}
                               </p>
                               {canManage && (
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
                                   onClick={() => handleEditPositionRoles(position)}
-                                  className="text-xs text-primary-600 hover:text-primary-700 hover:underline"
+                                  className="text-primary-600 hover:text-primary-700 hover:underline hover:bg-transparent"
                                 >
                                   {t('iam.editRoles')}
-                                </button>
+                                </Button>
                               )}
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -814,13 +801,13 @@ function IamPage() {
                 )}
                 actions={(
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleCancelEditPositionRoles}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                       {t('common.cancel')}
-                    </button>
+                    </Button>
                     <Button
                       size="sm"
                       onClick={handleSavePositionRoles}
@@ -855,7 +842,7 @@ function IamPage() {
                       >
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded text-primary-600 focus:ring-2 focus:ring-primary-500"
+                          className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
                           checked={editingPositionRoleIds.includes(role.id)}
                           onChange={() => togglePositionRole(role.id)}
                         />
@@ -993,48 +980,38 @@ function IamPage() {
                             <td className="px-4 py-3">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    type="button"
+                                  <IconButton
+                                    variant="success"
+                                    icon={<Check className="h-4 w-4" />}
                                     onClick={handleSaveUser}
-                                    className="rounded p-1 text-green-600 hover:bg-green-50"
                                     disabled={updateUserMutation.isPending}
-                                  >
-                                    <Check className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
+                                  />
+                                  <IconButton
+                                    variant="default"
+                                    icon={<X className="h-4 w-4" />}
                                     onClick={handleCancelEditUser}
-                                    className="rounded p-1 text-gray-600 hover:bg-gray-100"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
+                                  />
                                 </div>
                               ) : canManage ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <button
-                                    type="button"
+                                  <IconButton
+                                    variant="primary"
+                                    icon={<Edit2 className="h-4 w-4" />}
                                     onClick={() => handleEditUser(user)}
-                                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-primary-600"
-                                    title={t('iam.editUser')}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
+                                    tooltip={t('iam.editUser')}
+                                  />
+                                  <IconButton
+                                    variant="info"
+                                    icon={<Key className="h-4 w-4" />}
                                     onClick={() => handleResetPassword(user.id, user.username)}
-                                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600"
-                                    title={t('iam.resetPassword')}
-                                  >
-                                    <Key className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
+                                    tooltip={t('iam.resetPassword')}
+                                  />
+                                  <IconButton
+                                    variant="danger"
+                                    icon={<Trash2 className="h-4 w-4" />}
                                     onClick={() => handleDeleteUser(user.id, user.username)}
-                                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
-                                    title={t('iam.deleteUser')}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
+                                    tooltip={t('iam.deleteUser')}
+                                  />
                                 </div>
                               ) : null}
                             </td>
@@ -1101,7 +1078,7 @@ function IamPage() {
                             >
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded text-primary-600 focus:ring-2 focus:ring-primary-500"
+                                className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
                                 checked={newRolePermissionKeys.includes(permission.key)}
                                 disabled={!ability.can('manage', 'role')}
                                 onChange={() => toggleNewRolePermission(permission.key)}
@@ -1179,7 +1156,7 @@ function IamPage() {
                       >
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded text-primary-600 focus:ring-2 focus:ring-primary-500"
+                          className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
                           checked={newPositionRoleIds.includes(role.id)}
                           disabled={!ability.can('manage', 'position')}
                           onChange={() => toggleNewPositionRole(role.id)}
@@ -1265,26 +1242,20 @@ function IamPage() {
                     {t('iam.passwordMode')}
                   </label>
                   <div className="mt-2 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        className="h-4 w-4 text-primary-600 focus:ring-2 focus:ring-primary-500"
-                        checked={newUserPasswordMode === 'default'}
-                        onChange={() => setNewUserPasswordMode('default')}
-                        disabled={!ability.can('manage', 'user')}
-                      />
-                      <span className="text-sm text-gray-700">{t('iam.passwordModeDefault')}</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        className="h-4 w-4 text-primary-600 focus:ring-2 focus:ring-primary-500"
-                        checked={newUserPasswordMode === 'email'}
-                        onChange={() => setNewUserPasswordMode('email')}
-                        disabled={!ability.can('manage', 'user')}
-                      />
-                      <span className="text-sm text-gray-700">{t('iam.passwordModeEmail')}</span>
-                    </label>
+                    <Radio
+                      name="passwordMode"
+                      checked={newUserPasswordMode === 'default'}
+                      onChange={() => setNewUserPasswordMode('default')}
+                      label={t('iam.passwordModeDefault')}
+                      disabled={!ability.can('manage', 'user')}
+                    />
+                    <Radio
+                      name="passwordMode"
+                      checked={newUserPasswordMode === 'email'}
+                      onChange={() => setNewUserPasswordMode('email')}
+                      label={t('iam.passwordModeEmail')}
+                      disabled={!ability.can('manage', 'user')}
+                    />
                   </div>
                 </div>
                 <div>
