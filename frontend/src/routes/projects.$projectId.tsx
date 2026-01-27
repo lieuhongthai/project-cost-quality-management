@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart, PhaseTimelineFrappeGantt, PhaseTimelineGantt, PhaseTimelineJsGantt } from '@/components/charts';
+import { MetricsChart, PhaseTimelineFrappeGantt, PhaseTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
@@ -37,7 +37,7 @@ function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'timeline' | 'timeline-frappe' | 'timeline-jsgantt' | 'phases' | 'screen-functions' | 'members' | 'settings'
+    'overview' | 'timeline' | 'timeline-frappe' | 'phases' | 'screen-functions' | 'members' | 'settings'
   >('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -351,7 +351,6 @@ function ProjectDetail() {
     { id: 'overview' as const, name: t('dashboard.overview') },
     { id: 'timeline' as const, name: t('phase.timeline.title') },
     { id: 'timeline-frappe' as const, name: t('phase.timelineFrappe.title') },
-    { id: 'timeline-jsgantt' as const, name: t('phase.timelineJsGantt.title') },
     { id: 'phases' as const, name: t('nav.phases') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
@@ -792,12 +791,6 @@ function ProjectDetail() {
       {activeTab === 'timeline-frappe' && (
         <Card title={t('phase.timelineFrappe.title')}>
           <PhaseTimelineFrappeGantt phases={phases || []} />
-        </Card>
-      )}
-
-      {activeTab === 'timeline-jsgantt' && (
-        <Card title={t('phase.timelineJsGantt.title')}>
-          <PhaseTimelineJsGantt phases={phases || []} />
         </Card>
       )}
 

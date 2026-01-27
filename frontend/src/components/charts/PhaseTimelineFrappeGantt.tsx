@@ -10,6 +10,7 @@ interface PhaseTimelineFrappeGanttProps {
 }
 
 type TimelineView = 'Day' | 'Week' | 'Month';
+type ViewMode = 'estimate' | 'actual';
 type PhaseStatus = 'Good' | 'Warning' | 'At Risk';
 
 type GanttTask = {
@@ -26,6 +27,7 @@ const toDate = (value: string) => new Date(value);
 export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttProps) => {
   const { t } = useTranslation();
   const [view, setView] = useState<TimelineView>('Week');
+  const [viewMode, setViewMode] = useState<ViewMode>('estimate');
   const [selectedStatuses, setSelectedStatuses] = useState<PhaseStatus[]>([
     'Good',
     'Warning',
@@ -44,28 +46,52 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     [t],
   );
 
-  const filteredPhases = useMemo(
-    () => phases.filter((phase) => selectedStatuses.includes(phase.status as PhaseStatus)),
-    [phases, selectedStatuses],
-  );
+  // Filter phases based on view mode and status
+  const filteredPhases = useMemo(() => {
+    return phases.filter((phase) => {
+      // Filter by status
+      if (!selectedStatuses.includes(phase.status as PhaseStatus)) {
+        return false;
+      }
+
+      // Filter by view mode
+      if (viewMode === 'estimate') {
+        // Only show phases with both startDate and endDate
+        return phase.startDate && phase.endDate;
+      } else {
+        // Only show phases with both actualStartDate and actualEndDate
+        return phase.actualStartDate && phase.actualEndDate;
+      }
+    });
+  }, [phases, selectedStatuses, viewMode]);
 
   const timelineData = useMemo(() => {
     if (filteredPhases.length === 0) return null;
-    const sorted = [...filteredPhases].sort(
-      (a, b) => toDate(a.startDate).getTime() - toDate(b.startDate).getTime(),
-    );
+
+    // Sort by display order
+    const sorted = [...filteredPhases].sort((a, b) => a.displayOrder - b.displayOrder);
 
     const tasks: GanttTask[] = sorted.map((phase) => {
-      const plannedStart = toDate(phase.startDate);
-      const plannedEnd = phase.endDate ? toDate(phase.endDate) : addDays(plannedStart, 1);
+      let start: Date;
+      let end: Date;
+
+      if (viewMode === 'estimate') {
+        start = toDate(phase.startDate);
+        end = phase.endDate ? toDate(phase.endDate) : addDays(start, 1);
+      } else {
+        start = phase.actualStartDate ? toDate(phase.actualStartDate) : new Date();
+        end = phase.actualEndDate ? toDate(phase.actualEndDate) : addDays(start, 1);
+      }
+
       const statusClass = `gantt-status-${phase.status.replace(/\s+/g, '-').toLowerCase()}`;
       const progressClass = phase.progress >= 100 ? 'gantt-complete' : 'gantt-in-progress';
       const combinedClass = `${statusClass}-${progressClass}`;
+
       return {
         id: String(phase.id),
         name: phase.name,
-        start: format(plannedStart, 'yyyy-MM-dd'),
-        end: format(plannedEnd, 'yyyy-MM-dd'),
+        start: format(start, 'yyyy-MM-dd'),
+        end: format(end, 'yyyy-MM-dd'),
         progress: Math.max(0, Math.min(100, Math.round(phase.progress))),
         custom_class: combinedClass,
       };
@@ -86,7 +112,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
       endDate: maxDate,
       phases: sorted,
     };
-  }, [filteredPhases]);
+  }, [filteredPhases, viewMode]);
 
   const toggleStatus = (status: PhaseStatus) => {
     setSelectedStatuses((prev) =>
@@ -105,20 +131,34 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
       custom_popup_html: (task) => {
         const phase = timelineData.phases.find((item) => String(item.id) === String(task.id));
         if (!phase) return '';
-        const plannedStart = format(toDate(phase.startDate), 'MMM dd, yyyy');
-        const plannedEnd = phase.endDate
-          ? format(toDate(phase.endDate), 'MMM dd, yyyy')
-          : t('phase.timeline.noEndDate');
-        const actualEnd = phase.endDate
-          ? format(toDate(phase.endDate), 'MMM dd, yyyy')
-          : plannedEnd;
+
+        let startLabel: string;
+        let endLabel: string;
+        let dateRange: string;
+
+        if (viewMode === 'estimate') {
+          startLabel = format(toDate(phase.startDate), 'MMM dd, yyyy');
+          endLabel = phase.endDate
+            ? format(toDate(phase.endDate), 'MMM dd, yyyy')
+            : t('phase.timeline.noEndDate');
+          dateRange = t('phase.timeline.plannedRange', { start: startLabel, end: endLabel });
+        } else {
+          startLabel = phase.actualStartDate
+            ? format(toDate(phase.actualStartDate), 'MMM dd, yyyy')
+            : '-';
+          endLabel = phase.actualEndDate
+            ? format(toDate(phase.actualEndDate), 'MMM dd, yyyy')
+            : '-';
+          dateRange = t('phase.timeline.actualRange', { start: startLabel, end: endLabel });
+        }
+
         return `
           <div style="padding:12px;font-size:12px;color:#374151;">
             <p style="font-size:14px;font-weight:600;color:#111827;">${phase.name}</p>
             <div style="margin-top:8px;display:grid;gap:4px;">
-              <p>${t('phase.timeline.plannedRange', { start: plannedStart, end: plannedEnd })}</p>
-              <p>${t('phase.timeline.actualRange', { end: actualEnd })}</p>
-              <p>${t('phase.timeline.tooltip.progress', { progress: phase.progress.toFixed(1) })}</p>
+              <p><strong>${viewMode === 'estimate' ? 'Estimate' : 'Actual'}:</strong> ${dateRange}</p>
+              <p><strong>${t('phase.progress')}:</strong> ${phase.progress.toFixed(1)}%</p>
+              <p><strong>${t('phase.status')}:</strong> ${phase.status}</p>
             </div>
           </div>
         `;
@@ -182,41 +222,66 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
   if (!timelineData) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
-        {t('phase.timelineFrappe.emptyFiltered')}
+        {viewMode === 'estimate'
+          ? t('phase.timelineFrappe.noEstimatePhases')
+          : t('phase.timelineFrappe.noActualPhases')}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Header with Date Range and Phase Count */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
-        </p>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-6 rounded-full bg-blue-500" />
-            {t('phase.timeline.planned')}
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-6 rounded-full bg-emerald-500" />
-            {t('phase.timeline.actual')}
-          </div>
+        <div>
+          <p className="text-sm font-medium text-gray-700">
+            {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {filteredPhases.length} {filteredPhases.length === 1 ? 'phase' : 'phases'} • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">{t('phase.timeline.viewLabel')}</span>
+      {/* View Mode Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="text-sm font-medium text-blue-900">{t('phase.timelineFrappe.viewMode')}</span>
+        </div>
+        <div className="flex gap-2">
+          {(['estimate', 'actual'] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                viewMode === mode
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white text-blue-600 hover:bg-blue-100'
+              }`}
+            >
+              {t(`phase.timelineFrappe.mode.${mode}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Controls: Time Scale & Status Filter */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">{t('phase.timeline.viewLabel')}</span>
           {(['Day', 'Week', 'Month'] as TimelineView[]).map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => setView(option)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                 view === option
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-200'
               }`}
             >
               {t(`phase.timeline.view.${option.toLowerCase()}`)}
@@ -224,7 +289,7 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">{t('phase.timelineFrappe.filterLabel')}</span>
+          <span className="text-sm font-medium text-gray-700">{t('phase.timelineFrappe.filterLabel')}</span>
           {statusOptions.map((status) => {
             const selected = selectedStatuses.includes(status.value);
             return (
@@ -232,13 +297,13 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
                 key={status.value}
                 type="button"
                 onClick={() => toggleStatus(status.value)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                   selected
-                    ? 'border-transparent bg-white text-gray-700 shadow-sm'
-                    : 'border-gray-200 bg-gray-100 text-gray-400'
+                    ? 'border-gray-300 bg-white text-gray-800 shadow-sm'
+                    : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200'
                 }`}
               >
-                <span className={`h-2 w-2 rounded-full ${status.color}`} />
+                <span className={`h-2.5 w-2.5 rounded-full ${status.color}`} />
                 {status.label}
               </button>
             );
@@ -246,8 +311,9 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
         </div>
       </div>
 
-      <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white p-3">
-        <div className="gantt-frappe-wrapper" ref={containerRef} />
+      {/* Gantt Chart */}
+      <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="gantt-frappe-wrapper p-4" ref={containerRef} />
       </div>
     </div>
   );

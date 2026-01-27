@@ -257,18 +257,14 @@
     "suggestEndDate": "Suggest End Date",
     "phaseProgress": "Phase Progress",
     "timelineFrappe": {
-      "title": "Phase Timeline (Frappe Gantt)",
-      "filterLabel": "Status",
-      "emptyFiltered": "No phases match the selected filters"
-    },
-    "timelineJsGantt": {
-      "title": "Phase Timeline (jsGantt)",
+      "title": "Phase Timeline",
       "viewMode": "View Mode",
-      "timeScale": "Time Scale",
       "mode": {
         "estimate": "Estimate",
         "actual": "Actual"
       },
+      "filterLabel": "Filter by Status",
+      "emptyFiltered": "No phases match the selected filters",
       "noEstimatePhases": "No phases have complete estimate time (start date and end date)",
       "noActualPhases": "No phases have complete actual time (actual start date and actual end date)"
     },

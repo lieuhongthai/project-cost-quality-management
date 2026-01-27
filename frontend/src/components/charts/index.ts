@@ -6,4 +6,3 @@ export { PhaseStatusPieChart } from './PhaseStatusPieChart';
 export { PhaseProgressOverview } from './PhaseProgressOverview';
 export { PhaseTimelineGantt } from './PhaseTimelineGantt';
 export { PhaseTimelineFrappeGantt } from './PhaseTimelineFrappeGantt';
-export { PhaseTimelineJsGantt } from './PhaseTimelineJsGantt';
