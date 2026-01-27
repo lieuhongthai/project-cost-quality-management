@@ -245,6 +245,8 @@
     "name": "Phase Name",
     "startDate": "Start Date",
     "endDate": "End Date",
+    "actualStartDate": "Actual Start Date",
+    "actualEndDate": "Actual End Date",
     "estimatedEffort": "Estimated Effort",
     "actualEffort": "Actual Effort",
     "progress": "Progress",
@@ -258,6 +260,17 @@
       "title": "Phase Timeline (Frappe Gantt)",
       "filterLabel": "Status",
       "emptyFiltered": "No phases match the selected filters"
+    },
+    "timelineJsGantt": {
+      "title": "Phase Timeline (jsGantt)",
+      "viewMode": "View Mode",
+      "timeScale": "Time Scale",
+      "mode": {
+        "estimate": "Estimate",
+        "actual": "Actual"
+      },
+      "noEstimatePhases": "No phases have complete estimate time (start date and end date)",
+      "noActualPhases": "No phases have complete actual time (actual start date and actual end date)"
     },
     "timeline": {
       "title": "Phase Timeline (Gantt)",

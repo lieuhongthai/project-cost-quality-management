@@ -75,6 +75,8 @@ export interface Phase {
   name: string; // Changed to string for flexibility - allows custom phase names
   startDate: string;
   endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
   estimatedEffort: number;
   actualEffort: number;
   progress: number;

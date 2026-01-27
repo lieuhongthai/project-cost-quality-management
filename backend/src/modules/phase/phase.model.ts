@@ -58,6 +58,16 @@ export class Phase extends Model {
   endDate: Date;
 
   @Column({
+    type: DataType.DATE,
+  })
+  actualStartDate: Date;
+
+  @Column({
+    type: DataType.DATE,
+  })
+  actualEndDate: Date;
+
+  @Column({
     type: DataType.FLOAT,
     allowNull: false,
     defaultValue: 0,

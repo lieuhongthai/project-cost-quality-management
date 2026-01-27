@@ -51,6 +51,8 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
     name: phase?.name || '',
     startDate: phase?.startDate ? phase.startDate.split('T')[0] : '',
     endDate: phase?.endDate ? phase.endDate.split('T')[0] : '',
+    actualStartDate: phase?.actualStartDate ? phase.actualStartDate.split('T')[0] : '',
+    actualEndDate: phase?.actualEndDate ? phase.actualEndDate.split('T')[0] : '',
     estimatedEffort: initialEffort,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -176,6 +178,8 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
       estimatedEffort: effortInManMonths,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
+      actualStartDate: formData.actualStartDate ? new Date(formData.actualStartDate).toISOString() : undefined,
+      actualEndDate: formData.actualEndDate ? new Date(formData.actualEndDate).toISOString() : undefined,
     };
 
     if (phase) {
@@ -273,6 +277,26 @@ export const PhaseForm: React.FC<PhaseFormProps> = ({
           value={formData.endDate}
           onChange={handleChange}
           error={errors.endDate}
+          disabled={isLoading}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <DateInput
+          label={t('phase.actualStartDate')}
+          name="actualStartDate"
+          value={formData.actualStartDate}
+          onChange={handleChange}
+          error={errors.actualStartDate}
+          disabled={isLoading}
+        />
+
+        <DateInput
+          label={t('phase.actualEndDate')}
+          name="actualEndDate"
+          value={formData.actualEndDate}
+          onChange={handleChange}
+          error={errors.actualEndDate}
           disabled={isLoading}
         />
       </div>

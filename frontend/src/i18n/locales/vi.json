@@ -245,6 +245,8 @@
     "name": "Tên giai đoạn",
     "startDate": "Ngày bắt đầu",
     "endDate": "Ngày kết thúc",
+    "actualStartDate": "Ngày bắt đầu thực tế",
+    "actualEndDate": "Ngày kết thúc thực tế",
     "estimatedEffort": "Công sức ước tính",
     "actualEffort": "Công sức thực tế",
     "progress": "Tiến độ",
@@ -258,6 +260,17 @@
       "title": "Timeline giai đoạn (Frappe Gantt)",
       "filterLabel": "Trạng thái",
       "emptyFiltered": "Không có giai đoạn phù hợp với bộ lọc"
+    },
+    "timelineJsGantt": {
+      "title": "Timeline giai đoạn (jsGantt)",
+      "viewMode": "Chế độ xem",
+      "timeScale": "Thang thời gian",
+      "mode": {
+        "estimate": "Ước tính",
+        "actual": "Thực tế"
+      },
+      "noEstimatePhases": "Không có giai đoạn nào có đầy đủ thời gian ước tính (ngày bắt đầu và ngày kết thúc)",
+      "noActualPhases": "Không có giai đoạn nào có đầy đủ thời gian thực tế (ngày bắt đầu và ngày kết thúc thực tế)"
     },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",
