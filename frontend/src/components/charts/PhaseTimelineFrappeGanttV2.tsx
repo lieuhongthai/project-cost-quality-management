@@ -96,6 +96,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
     'At Risk',
   ]);
   const [pendingChanges, setPendingChanges] = useState<Map<number, PhaseChange>>(new Map());
+  const [ganttKey, setGanttKey] = useState(0); // Force re-render on undo
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const ganttInstanceRef = useRef<any>(null);
@@ -107,6 +108,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
         queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
       }
       setPendingChanges(new Map());
+      setGanttKey((prev) => prev + 1); // Force gantt refresh with new data
     },
   });
 
@@ -124,10 +126,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
 
   const handleUndoChanges = useCallback(() => {
     setPendingChanges(new Map());
-    // Force re-render by clearing container
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-    }
+    setGanttKey((prev) => prev + 1); // Force gantt to recreate with original data
   }, []);
 
   const statusOptions: { value: PhaseStatus; label: string; color: string; bgColor: string }[] = useMemo(
@@ -266,7 +265,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
     return () => {
       ganttInstanceRef.current = null;
     };
-  }, [timelineData, view, viewMode]);
+  }, [timelineData, view, viewMode, ganttKey]);
 
   if (phases.length === 0) {
     return (
