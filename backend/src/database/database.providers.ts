@@ -17,6 +17,7 @@ import { RolePermission } from "../modules/iam/role-permission.model";
 import { Position } from "../modules/iam/position.model";
 import { PositionRole } from "../modules/iam/position-role.model";
 import { User } from "../modules/iam/user.model";
+import { EmailQueue } from "../modules/iam/email-queue.model";
 
 export const databaseProviders = [
   {
@@ -63,6 +64,7 @@ export const databaseProviders = [
         Position,
         PositionRole,
         User,
+        EmailQueue,
       ]);
 
       await sequelize.sync({alter: true });

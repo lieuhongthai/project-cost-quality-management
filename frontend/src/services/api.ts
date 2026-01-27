@@ -20,6 +20,10 @@ import type {
   Member,
   MemberSummary,
   MemberWorkload,
+  Permission,
+  Position,
+  Role,
+  User,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -208,6 +212,34 @@ export const memberApi = {
   getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
   copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
     api.post<{ copied: number; skipped: number; members: Member[] }>('/members/copy', data),
+};
+
+export const iamApi = {
+  listPermissions: () => api.get<Permission[]>('/iam/permissions'),
+  listRoles: () => api.get<Role[]>('/iam/roles'),
+  createRole: (data: { name: string; permissionKeys: string[] }) =>
+    api.post<Role>('/iam/roles', data),
+  updateRole: (id: number, data: { name?: string; permissionKeys?: string[] }) =>
+    api.put<Role>(`/iam/roles/${id}`, data),
+  deleteRole: (id: number) => api.delete(`/iam/roles/${id}`),
+  listPositions: () => api.get<Position[]>('/iam/positions'),
+  createPosition: (data: { name: string; roleIds: number[] }) =>
+    api.post<Position>('/iam/positions', data),
+  updatePosition: (id: number, data: { name?: string; roleIds?: number[] }) =>
+    api.put<Position>(`/iam/positions/${id}`, data),
+  deletePosition: (id: number) => api.delete(`/iam/positions/${id}`),
+  listUsers: () => api.get<User[]>('/iam/users'),
+  createUser: (data: {
+    username: string;
+    email?: string;
+    positionId: number;
+    passwordMode: 'default' | 'email';
+    mustChangePassword?: boolean;
+  }) =>
+    api.post<User>('/iam/users', data),
+  updateUser: (id: number, data: { username?: string; email?: string; positionId?: number; mustChangePassword?: boolean }) =>
+    api.put<User>(`/iam/users/${id}`, data),
+  deleteUser: (id: number) => api.delete(`/iam/users/${id}`),
 };
 
 export default api;

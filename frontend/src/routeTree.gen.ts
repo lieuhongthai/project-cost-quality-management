@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as IamRouteImport } from './routes/iam'
 import { Route as ForceChangePasswordRouteImport } from './routes/force-change-password'
 import { Route as BenchmarksRouteImport } from './routes/benchmarks'
 import { Route as IndexRouteImport } from './routes/index'
@@ -34,6 +35,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IamRoute = IamRouteImport.update({
+  id: '/iam',
+  path: '/iam',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForceChangePasswordRoute = ForceChangePasswordRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/benchmarks': typeof BenchmarksRoute
   '/force-change-password': typeof ForceChangePasswordRoute
+  '/iam': typeof IamRoute
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/benchmarks': typeof BenchmarksRoute
   '/force-change-password': typeof ForceChangePasswordRoute
+  '/iam': typeof IamRoute
   '/login': typeof LoginRoute
   '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/benchmarks': typeof BenchmarksRoute
   '/force-change-password': typeof ForceChangePasswordRoute
+  '/iam': typeof IamRoute
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/'
     | '/benchmarks'
     | '/force-change-password'
+    | '/iam'
     | '/login'
     | '/projects'
     | '/reports'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/'
     | '/benchmarks'
     | '/force-change-password'
+    | '/iam'
     | '/login'
     | '/phases/$phaseId'
     | '/projects/$projectId'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/benchmarks'
     | '/force-change-password'
+    | '/iam'
     | '/login'
     | '/projects'
     | '/reports'
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BenchmarksRoute: typeof BenchmarksRoute
   ForceChangePasswordRoute: typeof ForceChangePasswordRoute
+  IamRoute: typeof IamRoute
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
@@ -186,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/iam': {
+      id: '/iam'
+      path: '/iam'
+      fullPath: '/iam'
+      preLoaderRoute: typeof IamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/force-change-password': {
@@ -278,6 +298,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BenchmarksRoute: BenchmarksRoute,
   ForceChangePasswordRoute: ForceChangePasswordRoute,
+  IamRoute: IamRoute,
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,

@@ -4,6 +4,7 @@ import { RolePermission } from './role-permission.model';
 import { Position } from './position.model';
 import { PositionRole } from './position-role.model';
 import { User } from './user.model';
+import { EmailQueue } from './email-queue.model';
 
 export const iamProviders = [
   {
@@ -29,5 +30,9 @@ export const iamProviders = [
   {
     provide: 'POSITION_ROLE_REPOSITORY',
     useValue: PositionRole,
+  },
+  {
+    provide: 'EMAIL_QUEUE_REPOSITORY',
+    useValue: EmailQueue,
   },
 ];

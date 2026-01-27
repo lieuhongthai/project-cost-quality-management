@@ -83,6 +83,15 @@ function RootComponent() {
                   >
                     {t('nav.benchmarks')}
                   </Link>
+                  {(ability.can('manage', 'role') || ability.can('manage', 'position') || ability.can('manage', 'user')) && (
+                    <Link
+                      to="/iam"
+                      className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      activeProps={{ className: 'border-primary-500 text-primary-600' }}
+                    >
+                      {t('nav.accessControl')}
+                    </Link>
+                  )}
                 </div>
               ) : null}
             </div>

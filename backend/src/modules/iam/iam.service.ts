@@ -7,6 +7,7 @@ import { RolePermission } from './role-permission.model';
 import { Position } from './position.model';
 import { PositionRole } from './position-role.model';
 import { User } from './user.model';
+import { EmailQueueService } from './email-queue.service';
 import { PERMISSION_KEYS } from './permissions.constants';
 import {
   CreatePositionDto,
@@ -32,6 +33,7 @@ export class IamService implements OnModuleInit {
     private readonly positionRepository: typeof Position,
     @Inject('POSITION_ROLE_REPOSITORY')
     private readonly positionRoleRepository: typeof PositionRole,
+    private readonly emailQueueService: EmailQueueService,
   ) {}
 
   async onModuleInit() {
@@ -39,6 +41,7 @@ export class IamService implements OnModuleInit {
     const superAdminRole = await this.ensureRole('SUPER_ADMIN', true);
     const superAdminPosition = await this.ensurePosition('SUPER_ADMIN', true, [superAdminRole.id]);
     await this.ensureSuperAdminUser(superAdminPosition.id);
+    await this.seedDefaultPositions();
   }
 
   async seedPermissions() {
@@ -102,6 +105,30 @@ export class IamService implements OnModuleInit {
       mustChangePassword: true,
       positionId,
     });
+  }
+
+  async seedDefaultPositions() {
+    const defaultPositions = [
+      'Project Manager (PM)',
+      'Team Leader (TL)',
+      'Business Analyst (BA)',
+      'Developer (DEV)',
+      'Quality Assurance (QA)',
+      'Designer',
+      'DevOps',
+      'Comtor',
+      'Other',
+    ];
+
+    for (const positionName of defaultPositions) {
+      const existing = await this.positionRepository.findOne({ where: { name: positionName } });
+      if (!existing) {
+        await this.positionRepository.create({
+          name: positionName,
+          isSystem: false,
+        });
+      }
+    }
   }
 
   async findUserByUsername(username: string) {
@@ -264,13 +291,37 @@ export class IamService implements OnModuleInit {
     if (existing) {
       throw new BadRequestException('Username already exists');
     }
-    const passwordHash = await bcrypt.hash(payload.password, 10);
+
+    // Generate password based on passwordMode
+    let password: string;
+    if (payload.passwordMode === 'default') {
+      password = '999999';
+    } else if (payload.passwordMode === 'email') {
+      if (!payload.email) {
+        throw new BadRequestException('Email is required when using email password mode');
+      }
+      // Generate random password (8 characters: letters and numbers)
+      password = Math.random().toString(36).slice(-8);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
     const user = await this.userRepository.create({
       username: payload.username,
+      email: payload.email,
       passwordHash,
       mustChangePassword: payload.mustChangePassword ?? true,
       positionId: payload.positionId,
     });
+
+    // Send password via email if in email mode
+    if (payload.passwordMode === 'email' && payload.email) {
+      await this.emailQueueService.addPasswordEmail(
+        payload.email,
+        payload.username,
+        password,
+      );
+    }
+
     return this.userRepository.findByPk(user.id, { include: [Position] });
   }
 
@@ -285,6 +336,9 @@ export class IamService implements OnModuleInit {
         throw new BadRequestException('Username already exists');
       }
       user.username = payload.username;
+    }
+    if (payload.email !== undefined) {
+      user.email = payload.email;
     }
     if (payload.positionId) {
       const position = await this.positionRepository.findByPk(payload.positionId);

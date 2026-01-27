@@ -22,6 +22,12 @@ export class User extends Model {
 
   @Column({
     type: DataType.STRING,
+    allowNull: true,
+  })
+  email: string;
+
+  @Column({
+    type: DataType.STRING,
     allowNull: false,
   })
   passwordHash: string;
