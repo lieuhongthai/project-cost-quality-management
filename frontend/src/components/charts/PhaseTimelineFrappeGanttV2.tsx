@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addDays, format } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
 import Gantt from 'frappe-gantt';
 import 'frappe-gantt/dist/frappe-gantt.css';
 import type { Phase } from '@/types';
@@ -49,46 +49,12 @@ const ganttStyleV2 = `
   }
 
   /* Grid styling */
-  .gantt .grid-background {
-    fill: #fafafa;
-  }
-
-  .gantt .grid-header {
-    fill: #f3f4f6;
-  }
-
   .gantt .grid-row:nth-child(even) {
     fill: #ffffff;
   }
 
   .gantt .grid-row:nth-child(odd) {
     fill: #f9fafb;
-  }
-
-  /* Today line */
-  .gantt .today-highlight {
-    stroke: #6366f1;
-    stroke-width: 2;
-    stroke-dasharray: 5,5;
-  }
-
-  /* Arrow styling */
-  .gantt .arrow {
-    stroke: #94a3b8;
-    stroke-width: 1.5;
-  }
-
-  /* Lower header text */
-  .gantt .lower-text {
-    font-size: 11px;
-    fill: #6b7280;
-  }
-
-  /* Upper header text */
-  .gantt .upper-text {
-    font-size: 12px;
-    font-weight: 600;
-    fill: #374151;
   }
 </style>
 `;
@@ -117,10 +83,7 @@ type GanttTask = {
   end: string;
   progress: number;
   custom_class?: string;
-  dependencies?: string;
 };
-
-const toDate = (value: string) => new Date(value);
 
 export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineFrappeGanttV2Props) => {
   const { t } = useTranslation();
@@ -134,9 +97,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
   ]);
   const [pendingChanges, setPendingChanges] = useState<Map<number, PhaseChange>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const ganttInstanceRef = useRef<any>(null);
 
   const updatePhaseMutation = useMutation({
@@ -149,7 +110,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
     },
   });
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = useCallback(() => {
     pendingChanges.forEach((change) => {
       const updateData: Partial<Phase> = {};
       if (change.startDate) updateData.startDate = change.startDate;
@@ -159,31 +120,15 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
 
       updatePhaseMutation.mutate({ id: change.phaseId, data: updateData });
     });
-  };
+  }, [pendingChanges, updatePhaseMutation]);
 
-  const handleUndoChanges = () => {
+  const handleUndoChanges = useCallback(() => {
     setPendingChanges(new Map());
-    // Refresh gantt to original data
-    if (ganttInstanceRef.current && timelineData) {
-      ganttInstanceRef.current.refresh(timelineData.tasks);
+    // Force re-render by clearing container
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
     }
-  };
-
-  const toggleFullscreen = () => {
-    if (!wrapperRef.current) return;
-
-    if (!isFullscreen) {
-      wrapperRef.current.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
+  }, []);
 
   const statusOptions: { value: PhaseStatus; label: string; color: string; bgColor: string }[] = useMemo(
     () => [
@@ -197,12 +142,10 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
   // Filter phases based on view mode and status
   const filteredPhases = useMemo(() => {
     return phases.filter((phase) => {
-      // Filter by status
       if (!selectedStatuses.includes(phase.status as PhaseStatus)) {
         return false;
       }
 
-      // Filter by view mode
       if (viewMode === 'estimate') {
         return phase.startDate && phase.endDate;
       } else {
@@ -217,15 +160,15 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
     const sorted = [...filteredPhases].sort((a, b) => a.displayOrder - b.displayOrder);
 
     const tasks: GanttTask[] = sorted.map((phase) => {
-      let start: Date;
-      let end: Date;
+      let start: string;
+      let end: string;
 
       if (viewMode === 'estimate') {
-        start = toDate(phase.startDate);
-        end = phase.endDate ? toDate(phase.endDate) : addDays(start, 1);
+        start = phase.startDate;
+        end = phase.endDate || format(addDays(parseISO(phase.startDate), 1), 'yyyy-MM-dd');
       } else {
-        start = phase.actualStartDate ? toDate(phase.actualStartDate) : new Date();
-        end = phase.actualEndDate ? toDate(phase.actualEndDate) : addDays(start, 1);
+        start = phase.actualStartDate || format(new Date(), 'yyyy-MM-dd');
+        end = phase.actualEndDate || format(addDays(parseISO(start), 1), 'yyyy-MM-dd');
       }
 
       const statusClass = `gantt-status-${phase.status.replace(/\s+/g, '-').toLowerCase()}`;
@@ -233,27 +176,15 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
       return {
         id: String(phase.id),
         name: phase.name,
-        start: format(start, 'yyyy-MM-dd'),
-        end: format(end, 'yyyy-MM-dd'),
+        start,
+        end,
         progress: Math.max(0, Math.min(100, Math.round(phase.progress))),
         custom_class: statusClass,
       };
     });
 
-    const minDate = tasks.reduce((minValue, task) => {
-      const taskStart = toDate(task.start);
-      return taskStart < minValue ? taskStart : minValue;
-    }, toDate(tasks[0].start));
-
-    const maxDate = tasks.reduce((maxValue, task) => {
-      const taskEnd = toDate(task.end);
-      return taskEnd > maxValue ? taskEnd : maxValue;
-    }, toDate(tasks[0].end));
-
     return {
       tasks,
-      startDate: minDate,
-      endDate: maxDate,
       phases: sorted,
     };
   }, [filteredPhases, viewMode]);
@@ -270,17 +201,18 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
     return { total, completed, inProgress, notStarted, avgProgress };
   }, [filteredPhases]);
 
-  const toggleStatus = (status: PhaseStatus) => {
+  const toggleStatus = useCallback((status: PhaseStatus) => {
     setSelectedStatuses((prev) =>
       prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status],
     );
-  };
+  }, []);
 
   useEffect(() => {
     if (!timelineData || !containerRef.current) return;
+
     containerRef.current.innerHTML = '';
 
-    // Inject custom CSS
+    // Inject custom CSS once
     const styleId = 'gantt-custom-styles-v2';
     if (!document.getElementById(styleId)) {
       const styleElement = document.createElement('div');
@@ -289,143 +221,52 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
       document.head.appendChild(styleElement);
     }
 
-    // Using any type to bypass incomplete Frappe Gantt type definitions
-    const ganttOptions: any = {
-      view_mode: view,
-      popup_trigger: 'click',
-      readonly_dates: false,
-      readonly_progress: true,
-      bar_height: 35,
-      bar_corner_radius: 4,
-      arrow_curve: 5,
-      padding: 20,
-      date_format: 'YYYY-MM-DD',
-      language: 'en',
-      today_button: true,
-      view_mode_select: false, // We'll use our custom controls
-      scroll_to: 'today',
-      auto_move_label: true,
-      lines: 'both',
-      column_width: view === 'Day' ? 40 : view === 'Week' ? 120 : view === 'Month' ? 160 : 200,
+    try {
+      const ganttOptions: any = {
+        view_mode: view,
+        bar_height: 30,
+        padding: 18,
+        date_format: 'YYYY-MM-DD',
+        language: 'en',
+        on_date_change: (task: any, start: any, end: any) => {
+          const phase = timelineData.phases.find((p) => String(p.id) === String(task.id));
+          if (!phase) return;
 
-      // Custom popup with enhanced information
-      popup: (data: any) => {
-        const phase = timelineData.phases.find((item) => String(item.id) === String(data.task.id));
-        if (!phase) return '';
+          const change: PhaseChange = { phaseId: phase.id };
 
-        let startLabel: string;
-        let endLabel: string;
+          const startDate = typeof start === 'string' ? parseISO(start) : start;
+          const endDate = typeof end === 'string' ? parseISO(end) : end;
 
-        if (viewMode === 'estimate') {
-          startLabel = format(toDate(phase.startDate), 'MMM dd, yyyy');
-          endLabel = phase.endDate ? format(toDate(phase.endDate), 'MMM dd, yyyy') : '-';
-        } else {
-          startLabel = phase.actualStartDate ? format(toDate(phase.actualStartDate), 'MMM dd, yyyy') : '-';
-          endLabel = phase.actualEndDate ? format(toDate(phase.actualEndDate), 'MMM dd, yyyy') : '-';
-        }
+          if (viewMode === 'estimate') {
+            change.startDate = format(startDate, 'yyyy-MM-dd');
+            change.endDate = format(endDate, 'yyyy-MM-dd');
+          } else {
+            change.actualStartDate = format(startDate, 'yyyy-MM-dd');
+            change.actualEndDate = format(endDate, 'yyyy-MM-dd');
+          }
 
-        const statusColors = {
-          Good: '#10b981',
-          Warning: '#f59e0b',
-          'At Risk': '#ef4444',
-        };
-        const statusColor = statusColors[phase.status as PhaseStatus] || '#6b7280';
+          setPendingChanges((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(phase.id, change);
+            return newMap;
+          });
+        },
+      };
 
-        // Set custom HTML content
-        data.set_title(`
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <span style="font-size:16px;font-weight:700;color:#111827;">${phase.name}</span>
-            <span style="display:inline-block;padding:4px 10px;border-radius:16px;font-size:11px;font-weight:700;background:${statusColor};color:white;">${phase.status}</span>
-          </div>
-        `);
+      // @ts-ignore - Frappe Gantt types are incomplete
+      const gantt = new Gantt(containerRef.current, timelineData.tasks, ganttOptions);
 
-        data.set_subtitle(`
-          <div style="display:grid;gap:8px;margin-top:12px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <svg style="width:16px;height:16px;color:#6b7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span style="font-size:13px;color:#374151;font-weight:500;">${startLabel} → ${endLabel}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <svg style="width:16px;height:16px;color:#6b7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <div style="flex:1;">
-                <div style="background:#e5e7eb;height:10px;border-radius:5px;overflow:hidden;">
-                  <div style="background:${statusColor};height:100%;width:${phase.progress}%;transition:width 0.3s;"></div>
-                </div>
-              </div>
-              <span style="font-size:13px;font-weight:700;color:${statusColor};">${phase.progress.toFixed(0)}%</span>
-            </div>
-          </div>
-        `);
-
-        data.set_details(`
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;display:grid;gap:6px;">
-            <div style="display:flex;justify-content:space-between;">
-              <span style="font-size:12px;color:#6b7280;">Estimated Effort:</span>
-              <span style="font-size:12px;font-weight:600;color:#374151;">${phase.estimatedEffort}h</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="font-size:12px;color:#6b7280;">Actual Effort:</span>
-              <span style="font-size:12px;font-weight:600;color:#374151;">${phase.actualEffort}h</span>
-            </div>
-            <div style="margin-top:6px;padding:8px;background:#f9fafb;border-radius:6px;">
-              <p style="font-size:11px;color:#6b7280;margin:0;">💡 Drag the bar to adjust dates or resize edges to change duration</p>
-            </div>
-          </div>
-        `);
-      },
-
-      // Track changes instead of auto-save
-      on_date_change: (task: any, start: Date, end: Date) => {
-        const phase = timelineData.phases.find((p) => String(p.id) === String(task.id));
-        if (!phase) return;
-
-        const change: PhaseChange = { phaseId: phase.id };
-
-        if (viewMode === 'estimate') {
-          change.startDate = format(start, 'yyyy-MM-dd');
-          change.endDate = format(end, 'yyyy-MM-dd');
-        } else {
-          change.actualStartDate = format(start, 'yyyy-MM-dd');
-          change.actualEndDate = format(end, 'yyyy-MM-dd');
-        }
-
-        setPendingChanges((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(phase.id, change);
-          return newMap;
-        });
-      },
-
-      on_view_change: (mode: any) => {
-        const newView = mode as TimelineView;
-        setView(newView);
-      },
-    };
-
-    const gantt = new Gantt(containerRef.current!, timelineData.tasks, ganttOptions);
-    gantt.change_view_mode(view as any);
-    ganttInstanceRef.current = gantt;
+      // @ts-ignore
+      gantt.change_view_mode(view);
+      ganttInstanceRef.current = gantt;
+    } catch (error) {
+      console.error('Failed to create Gantt chart:', error);
+    }
 
     return () => {
       ganttInstanceRef.current = null;
     };
-  }, [timelineData, t, view, viewMode, updatePhaseMutation]);
-
-  // Handle fullscreen change event
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, []);
+  }, [timelineData, view, viewMode]);
 
   if (phases.length === 0) {
     return (
@@ -436,7 +277,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
   }
 
   return (
-    <div ref={wrapperRef} className={`gantt-v2-container flex gap-0 ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : 'rounded-lg border border-gray-200'} overflow-hidden`}>
+    <div className={`gantt-v2-container flex gap-0 rounded-lg border border-gray-200 overflow-hidden bg-white`}>
       {/* Sidebar */}
       <div
         className={`${
@@ -577,7 +418,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white min-w-0">
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -587,10 +428,8 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="font-semibold text-slate-700">
-                  {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
+                  {filteredPhases.length} phases • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
                 </span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-600">{filteredPhases.length} phases</span>
               </div>
             )}
           </div>
@@ -603,7 +442,7 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  {pendingChanges.size} unsaved change{pendingChanges.size > 1 ? 's' : ''}
+                  {pendingChanges.size} unsaved
                 </div>
                 <button
                   onClick={handleUndoChanges}
@@ -623,35 +462,10 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  {updatePhaseMutation.isPending ? 'Saving...' : 'Save All'}
+                  {updatePhaseMutation.isPending ? 'Saving...' : 'Save'}
                 </button>
               </>
             )}
-
-            {/* Action buttons */}
-            <div className="h-6 w-px bg-slate-300" />
-            <button
-              onClick={handlePrint}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
-              title="Print timeline"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
-              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isFullscreen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                )}
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -671,8 +485,8 @@ export const PhaseTimelineFrappeGanttV2 = ({ phases, projectId }: PhaseTimelineF
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto bg-white">
-            <div className="p-6" ref={containerRef} />
+          <div className="flex-1 overflow-auto bg-white p-4">
+            <div ref={containerRef} />
           </div>
         )}
       </div>
