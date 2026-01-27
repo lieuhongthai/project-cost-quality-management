@@ -135,9 +135,16 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
       });
 
       console.log('Drawing chart...');
-      // Draw the chart
-      g.Draw();
-      console.log('Chart drawn successfully');
+
+      // Draw the chart in next tick to avoid blocking UI
+      setTimeout(() => {
+        try {
+          g.Draw();
+          console.log('Chart drawn successfully');
+        } catch (drawError) {
+          console.error('Error drawing chart:', drawError);
+        }
+      }, 0);
 
       ganttChartRef.current = g;
     } catch (error) {
