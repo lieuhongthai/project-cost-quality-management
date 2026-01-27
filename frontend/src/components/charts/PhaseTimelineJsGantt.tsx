@@ -5,8 +5,11 @@ import type { Phase } from '@/types';
 
 // Import jsgantt-improved
 // @ts-ignore - jsgantt-improved doesn't have TypeScript definitions
-import JSGantt from 'jsgantt-improved';
+import * as JSGanttModule from 'jsgantt-improved';
 import 'jsgantt-improved/dist/jsgantt.css';
+
+// @ts-ignore
+const JSGantt = JSGanttModule.JSGantt || JSGanttModule.default?.JSGantt || JSGanttModule;
 
 interface PhaseTimelineJsGanttProps {
   phases: Phase[];
