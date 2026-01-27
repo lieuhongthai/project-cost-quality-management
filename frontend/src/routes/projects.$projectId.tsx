@@ -790,7 +790,7 @@ function ProjectDetail() {
 
       {activeTab === 'timeline-frappe' && (
         <Card title={t('phase.timelineFrappe.title')}>
-          <PhaseTimelineFrappeGantt phases={phases || []} />
+          <PhaseTimelineFrappeGantt phases={phases || []} projectId={parseInt(projectId)} />
         </Card>
       )}
 
