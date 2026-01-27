@@ -46,81 +46,106 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
   useEffect(() => {
     if (!ganttRef.current || sortedPhases.length === 0) return;
 
-    // Clear previous chart
-    ganttRef.current.innerHTML = '';
+    try {
+      console.log('JSGanttModule:', JSGanttModule);
+      console.log('JSGantt:', JSGantt);
 
-    // Create a new div for the gantt chart
-    const ganttDiv = document.createElement('div');
-    ganttDiv.id = 'gantt-chart-container';
-    ganttDiv.style.position = 'relative';
-    ganttDiv.style.width = '100%';
-    ganttRef.current.appendChild(ganttDiv);
-
-    // Initialize JSGantt
-    const g = new JSGantt.GanttChart(ganttDiv, timeScale);
-
-    // Configure the gantt chart using setOptions
-    g.setOptions({
-      vCaptionType: 'Complete',
-      vQuarterColWidth: 36,
-      vDateTaskDisplayFormat: 'day dd month yyyy',
-      vDayMajorDateDisplayFormat: 'mon yyyy - Week ww',
-      vWeekMinorDateDisplayFormat: 'dd mon',
-      vShowTaskInfoLink: 0,
-      vShowEndWeekDate: 0,
-      vUseSingleCell: 10000,
-      vFormatArr: ['Day', 'Week', 'Month'],
-      vShowRes: 0,
-      vShowDur: 1,
-      vShowComp: 1,
-      vShowStartDate: 1,
-      vShowEndDate: 1,
-    });
-
-    // Add tasks to gantt chart
-    sortedPhases.forEach((phase, index) => {
-      let startDate: Date;
-      let endDate: Date;
-
-      if (viewMode === 'estimate') {
-        startDate = toDate(phase.startDate);
-        endDate = phase.endDate ? toDate(phase.endDate) : startDate;
-      } else {
-        startDate = phase.actualStartDate ? toDate(phase.actualStartDate) : new Date();
-        endDate = phase.actualEndDate ? toDate(phase.actualEndDate) : startDate;
+      // Check if JSGantt is available
+      if (!JSGantt || !JSGantt.GanttChart) {
+        console.error('JSGantt or GanttChart is not available');
+        return;
       }
 
-      // Determine class based on status
-      let pClass = 'gtaskgreen'; // Good - green
-      if (phase.status === 'Warning') {
-        pClass = 'gtaskyellow'; // Warning - yellow
-      } else if (phase.status === 'At Risk') {
-        pClass = 'gtaskred'; // At Risk - red
-      }
+      // Clear previous chart
+      ganttRef.current.innerHTML = '';
 
-      // Add task using AddTaskItemObject
-      g.AddTaskItemObject({
-        pID: phase.id,
-        pName: phase.name,
-        pStart: format(startDate, 'yyyy-MM-dd'),
-        pEnd: format(endDate, 'yyyy-MM-dd'),
-        pClass: pClass,
-        pLink: '',
-        pMile: 0,
-        pRes: '',
-        pComp: Math.round(phase.progress),
-        pGroup: 0,
-        pParent: 0,
-        pOpen: 1,
-        pDepend: '',
-        pCaption: '',
-        pNotes: `Status: ${phase.status}`,
+      // Create a new div for the gantt chart
+      const ganttDiv = document.createElement('div');
+      ganttDiv.id = 'gantt-chart-container';
+      ganttDiv.style.position = 'relative';
+      ganttDiv.style.width = '100%';
+      ganttRef.current.appendChild(ganttDiv);
+
+      console.log('Initializing JSGantt with timeScale:', timeScale);
+
+      // Initialize JSGantt
+      const g = new JSGantt.GanttChart(ganttDiv, timeScale);
+
+      console.log('GanttChart created:', g);
+
+      // Configure the gantt chart using setOptions
+      g.setOptions({
+        vCaptionType: 'Complete',
+        vQuarterColWidth: 36,
+        vDateTaskDisplayFormat: 'day dd month yyyy',
+        vDayMajorDateDisplayFormat: 'mon yyyy - Week ww',
+        vWeekMinorDateDisplayFormat: 'dd mon',
+        vShowTaskInfoLink: 0,
+        vShowEndWeekDate: 0,
+        vUseSingleCell: 10000,
+        vFormatArr: ['Day', 'Week', 'Month'],
+        vShowRes: 0,
+        vShowDur: 1,
+        vShowComp: 1,
+        vShowStartDate: 1,
+        vShowEndDate: 1,
       });
-    });
 
-    // Draw the chart
-    g.Draw();
-    ganttChartRef.current = g;
+      console.log('Adding tasks:', sortedPhases.length);
+
+      // Add tasks to gantt chart
+      sortedPhases.forEach((phase, index) => {
+        let startDate: Date;
+        let endDate: Date;
+
+        if (viewMode === 'estimate') {
+          startDate = toDate(phase.startDate);
+          endDate = phase.endDate ? toDate(phase.endDate) : startDate;
+        } else {
+          startDate = phase.actualStartDate ? toDate(phase.actualStartDate) : new Date();
+          endDate = phase.actualEndDate ? toDate(phase.actualEndDate) : startDate;
+        }
+
+        // Determine class based on status
+        let pClass = 'gtaskgreen'; // Good - green
+        if (phase.status === 'Warning') {
+          pClass = 'gtaskyellow'; // Warning - yellow
+        } else if (phase.status === 'At Risk') {
+          pClass = 'gtaskred'; // At Risk - red
+        }
+
+        // Add task using AddTaskItemObject
+        g.AddTaskItemObject({
+          pID: phase.id,
+          pName: phase.name,
+          pStart: format(startDate, 'yyyy-MM-dd'),
+          pEnd: format(endDate, 'yyyy-MM-dd'),
+          pClass: pClass,
+          pLink: '',
+          pMile: 0,
+          pRes: '',
+          pComp: Math.round(phase.progress),
+          pGroup: 0,
+          pParent: 0,
+          pOpen: 1,
+          pDepend: '',
+          pCaption: '',
+          pNotes: `Status: ${phase.status}`,
+        });
+      });
+
+      console.log('Drawing chart...');
+      // Draw the chart
+      g.Draw();
+      console.log('Chart drawn successfully');
+
+      ganttChartRef.current = g;
+    } catch (error) {
+      console.error('Error initializing JSGantt:', error);
+      if (ganttRef.current) {
+        ganttRef.current.innerHTML = '<div style="padding: 20px; color: red;">Error loading Gantt chart. Please check console for details.</div>';
+      }
+    }
 
     // Cleanup
     return () => {
