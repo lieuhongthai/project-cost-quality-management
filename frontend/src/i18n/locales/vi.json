@@ -266,7 +266,9 @@
       "filterLabel": "Lọc theo trạng thái",
       "emptyFiltered": "Không có giai đoạn phù hợp với bộ lọc",
       "noEstimatePhases": "Không có giai đoạn nào có đầy đủ thời gian ước tính (ngày bắt đầu và ngày kết thúc)",
-      "noActualPhases": "Không có giai đoạn nào có đầy đủ thời gian thực tế (ngày bắt đầu và ngày kết thúc thực tế)"
+      "noActualPhases": "Không có giai đoạn nào có đầy đủ thời gian thực tế (ngày bắt đầu và ngày kết thúc thực tế)",
+      "switchToEstimate": "Chuyển sang chế độ Ước tính để xem timeline",
+      "addPhaseDates": "Thêm ngày bắt đầu và ngày kết thúc cho các giai đoạn"
     },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",

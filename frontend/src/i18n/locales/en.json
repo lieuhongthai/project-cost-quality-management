@@ -266,7 +266,9 @@
       "filterLabel": "Filter by Status",
       "emptyFiltered": "No phases match the selected filters",
       "noEstimatePhases": "No phases have complete estimate time (start date and end date)",
-      "noActualPhases": "No phases have complete actual time (actual start date and actual end date)"
+      "noActualPhases": "No phases have complete actual time (actual start date and actual end date)",
+      "switchToEstimate": "Switch to Estimate mode to view timeline",
+      "addPhaseDates": "Add start and end dates to phases"
     },
     "timeline": {
       "title": "Phase Timeline (Gantt)",

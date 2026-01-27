@@ -219,31 +219,9 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
     );
   }
 
-  if (!timelineData) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
-        {viewMode === 'estimate'
-          ? t('phase.timelineFrappe.noEstimatePhases')
-          : t('phase.timelineFrappe.noActualPhases')}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {/* Header with Date Range and Phase Count */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-gray-700">
-            {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {filteredPhases.length} {filteredPhases.length === 1 ? 'phase' : 'phases'} • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
-          </p>
-        </div>
-      </div>
-
-      {/* View Mode Toggle */}
+      {/* View Mode Toggle - Always visible */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
         <div className="flex items-center gap-2">
           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,52 +247,87 @@ export const PhaseTimelineFrappeGantt = ({ phases }: PhaseTimelineFrappeGanttPro
         </div>
       </div>
 
-      {/* Controls: Time Scale & Status Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">{t('phase.timeline.viewLabel')}</span>
-          {(['Day', 'Week', 'Month'] as TimelineView[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setView(option)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                view === option
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {t(`phase.timeline.view.${option.toLowerCase()}`)}
-            </button>
-          ))}
+      {!timelineData ? (
+        // Empty state when no phases match the filter
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 py-16 text-sm text-gray-500">
+          <div className="text-center">
+            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <p className="font-medium text-gray-700 mb-1">
+              {viewMode === 'estimate'
+                ? t('phase.timelineFrappe.noEstimatePhases')
+                : t('phase.timelineFrappe.noActualPhases')}
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              {viewMode === 'actual'
+                ? t('phase.timelineFrappe.switchToEstimate')
+                : t('phase.timelineFrappe.addPhaseDates')}
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">{t('phase.timelineFrappe.filterLabel')}</span>
-          {statusOptions.map((status) => {
-            const selected = selectedStatuses.includes(status.value);
-            return (
-              <button
-                key={status.value}
-                type="button"
-                onClick={() => toggleStatus(status.value)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                  selected
-                    ? 'border-gray-300 bg-white text-gray-800 shadow-sm'
-                    : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200'
-                }`}
-              >
-                <span className={`h-2.5 w-2.5 rounded-full ${status.color}`} />
-                {status.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      ) : (
+        <>
+          {/* Header with Date Range and Phase Count */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {filteredPhases.length} {filteredPhases.length === 1 ? 'phase' : 'phases'} • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
+              </p>
+            </div>
+          </div>
 
-      {/* Gantt Chart */}
-      <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="gantt-frappe-wrapper p-4" ref={containerRef} />
-      </div>
+          {/* Controls: Time Scale & Status Filter */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">{t('phase.timeline.viewLabel')}</span>
+              {(['Day', 'Week', 'Month'] as TimelineView[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setView(option)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    view === option
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {t(`phase.timeline.view.${option.toLowerCase()}`)}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">{t('phase.timelineFrappe.filterLabel')}</span>
+              {statusOptions.map((status) => {
+                const selected = selectedStatuses.includes(status.value);
+                return (
+                  <button
+                    key={status.value}
+                    type="button"
+                    onClick={() => toggleStatus(status.value)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                      selected
+                        ? 'border-gray-300 bg-white text-gray-800 shadow-sm'
+                        : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full ${status.color}`} />
+                    {status.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Gantt Chart */}
+          <div ref={scrollRef} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="gantt-frappe-wrapper p-4" ref={containerRef} />
+          </div>
+        </>
+      )}
     </div>
   );
 };
