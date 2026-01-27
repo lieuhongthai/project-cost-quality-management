@@ -5,7 +5,7 @@ import type { Phase } from '@/types';
 
 // Import jsgantt-improved
 // @ts-ignore - jsgantt-improved doesn't have TypeScript definitions
-import { JSGantt } from 'jsgantt-improved';
+import JSGantt from 'jsgantt-improved';
 import 'jsgantt-improved/dist/jsgantt.css';
 
 interface PhaseTimelineJsGanttProps {
