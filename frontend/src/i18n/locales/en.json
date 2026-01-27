@@ -270,6 +270,9 @@
       "switchToEstimate": "Switch to Estimate mode to view timeline",
       "addPhaseDates": "Add start and end dates to phases"
     },
+    "timelineFrappeV2": {
+      "title": "Phase Timeline V2"
+    },
     "timeline": {
       "title": "Phase Timeline (Gantt)",
       "empty": "Add phase dates to visualize the timeline",

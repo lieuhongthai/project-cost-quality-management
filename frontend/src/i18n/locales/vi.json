@@ -270,6 +270,9 @@
       "switchToEstimate": "Chuyển sang chế độ Ước tính để xem timeline",
       "addPhaseDates": "Thêm ngày bắt đầu và ngày kết thúc cho các giai đoạn"
     },
+    "timelineFrappeV2": {
+      "title": "Timeline giai đoạn V2"
+    },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",
       "empty": "Thêm ngày bắt đầu/kết thúc để xem timeline",
