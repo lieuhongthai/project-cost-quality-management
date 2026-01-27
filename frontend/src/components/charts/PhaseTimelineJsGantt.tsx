@@ -5,7 +5,7 @@ import type { Phase } from '@/types';
 
 // Import jsgantt-improved
 // @ts-ignore - jsgantt-improved doesn't have TypeScript definitions
-import JSGantt from 'jsgantt-improved';
+import { JSGantt } from 'jsgantt-improved';
 import 'jsgantt-improved/dist/jsgantt.css';
 
 interface PhaseTimelineJsGanttProps {
@@ -13,14 +13,14 @@ interface PhaseTimelineJsGanttProps {
 }
 
 type ViewMode = 'estimate' | 'actual';
-type TimeScale = 'day' | 'week' | 'month';
+type TimeScale = 'Day' | 'Week' | 'Month';
 
 const toDate = (value: string) => new Date(value);
 
 export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<ViewMode>('estimate');
-  const [timeScale, setTimeScale] = useState<TimeScale>('week');
+  const [timeScale, setTimeScale] = useState<TimeScale>('Week');
   const ganttRef = useRef<HTMLDivElement | null>(null);
   const ganttChartRef = useRef<any>(null);
 
@@ -54,34 +54,28 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
     ganttRef.current.appendChild(ganttDiv);
 
     // Initialize JSGantt
-    const g = new JSGantt.GanttChart(ganttDiv, 'week');
+    const g = new JSGantt.GanttChart(ganttDiv, timeScale);
 
-    // Configure the gantt chart
-    g.setShowRes(0); // Don't show resource column
-    g.setShowDur(1); // Show duration column
-    g.setShowComp(1); // Show completion column
-    g.setShowStartDate(1); // Show start date column
-    g.setShowEndDate(1); // Show end date column
-    g.setCaptionType('Complete'); // Set caption type
-    g.setQuarterColWidth(36);
-    g.setDateTaskDisplayFormat('day dd month yyyy'); // Set date format
-    g.setDayMajorDateDisplayFormat('mon yyyy');
-    g.setWeekMinorDateDisplayFormat('dd mon');
-    g.setShowTaskInfoLink(0); // Don't show info link
-    g.setShowEndWeekDate(0);
-    g.setUseSingleCell(10000);
-
-    // Set format based on time scale
-    if (timeScale === 'day') {
-      g.setFormat('day');
-    } else if (timeScale === 'week') {
-      g.setFormat('week');
-    } else {
-      g.setFormat('month');
-    }
+    // Configure the gantt chart using setOptions
+    g.setOptions({
+      vCaptionType: 'Complete',
+      vQuarterColWidth: 36,
+      vDateTaskDisplayFormat: 'day dd month yyyy',
+      vDayMajorDateDisplayFormat: 'mon yyyy - Week ww',
+      vWeekMinorDateDisplayFormat: 'dd mon',
+      vShowTaskInfoLink: 0,
+      vShowEndWeekDate: 0,
+      vUseSingleCell: 10000,
+      vFormatArr: ['Day', 'Week', 'Month'],
+      vShowRes: 0,
+      vShowDur: 1,
+      vShowComp: 1,
+      vShowStartDate: 1,
+      vShowEndDate: 1,
+    });
 
     // Add tasks to gantt chart
-    sortedPhases.forEach((phase) => {
+    sortedPhases.forEach((phase, index) => {
       let startDate: Date;
       let endDate: Date;
 
@@ -93,33 +87,32 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
         endDate = phase.actualEndDate ? toDate(phase.actualEndDate) : startDate;
       }
 
-      // Determine color based on status
-      let color = '#4ade80'; // Good - green
+      // Determine class based on status
+      let pClass = 'gtaskgreen'; // Good - green
       if (phase.status === 'Warning') {
-        color = '#fbbf24'; // Warning - yellow
+        pClass = 'gtaskyellow'; // Warning - yellow
       } else if (phase.status === 'At Risk') {
-        color = '#f87171'; // At Risk - red
+        pClass = 'gtaskred'; // At Risk - red
       }
 
-      // Add task
-      g.AddTaskItem(new JSGantt.TaskItem(
-        phase.id, // pID
-        phase.name, // pName
-        format(startDate, 'yyyy-MM-dd'), // pStart
-        format(endDate, 'yyyy-MM-dd'), // pEnd
-        color, // pColor
-        '', // pLink
-        0, // pMile (milestone)
-        '', // pRes (resource)
-        Math.round(phase.progress), // pComp (completion %)
-        0, // pGroup (is group?)
-        0, // pParent
-        1, // pOpen
-        '', // pDepend
-        '', // pCaption
-        0, // pNotes
-        phase.status // pGanttBar - use status for tooltip
-      ));
+      // Add task using AddTaskItemObject
+      g.AddTaskItemObject({
+        pID: phase.id,
+        pName: phase.name,
+        pStart: format(startDate, 'yyyy-MM-dd'),
+        pEnd: format(endDate, 'yyyy-MM-dd'),
+        pClass: pClass,
+        pLink: '',
+        pMile: 0,
+        pRes: '',
+        pComp: Math.round(phase.progress),
+        pGroup: 0,
+        pParent: 0,
+        pOpen: 1,
+        pDepend: '',
+        pCaption: '',
+        pNotes: `Status: ${phase.status}`,
+      });
     });
 
     // Draw the chart
@@ -175,7 +168,7 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-gray-500">{t('phase.timelineJsGantt.timeScale')}</span>
-          {(['day', 'week', 'month'] as TimeScale[]).map((scale) => (
+          {(['Day', 'Week', 'Month'] as TimeScale[]).map((scale) => (
             <button
               key={scale}
               type="button"
@@ -186,7 +179,7 @@ export const PhaseTimelineJsGantt = ({ phases }: PhaseTimelineJsGanttProps) => {
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
-              {t(`phase.timeline.view.${scale}`)}
+              {t(`phase.timeline.view.${scale.toLowerCase()}`)}
             </button>
           ))}
         </div>
