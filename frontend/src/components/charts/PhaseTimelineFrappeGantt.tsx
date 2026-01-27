@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addDays, format, isWeekend, parseISO } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import Gantt from 'frappe-gantt';
 import 'frappe-gantt/dist/frappe-gantt.css';
 import type { Phase } from '@/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { phaseApi } from '@/services/api';
 
-// Custom CSS cho weekend highlighting
-const weekendStyle = `
+// Custom CSS for better styling (removed weekend highlighting)
+const ganttStyle = `
 <style>
-  .gantt .grid-row:nth-child(7n),
-  .gantt .grid-row:nth-child(7n+1) {
-    fill: #fef3c7 !important;
-  }
-
   .gantt .bar {
     cursor: move;
   }
@@ -53,6 +48,14 @@ const weekendStyle = `
 </style>
 `;
 
+interface PhaseChange {
+  phaseId: number;
+  startDate?: string;
+  endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+}
+
 interface PhaseTimelineFrappeGanttProps {
   phases: Phase[];
   projectId?: number;
@@ -83,6 +86,8 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
     'Warning',
     'At Risk',
   ]);
+  const [pendingChanges, setPendingChanges] = useState<Map<number, PhaseChange>>(new Map());
+  const [ganttKey, setGanttKey] = useState(0); // Force re-render on undo
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const ganttInstanceRef = useRef<any>(null);
@@ -94,8 +99,27 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: ['phases', projectId] });
       }
+      setPendingChanges(new Map());
+      setGanttKey((prev) => prev + 1); // Force gantt refresh with new data
     },
   });
+
+  const handleSaveChanges = () => {
+    pendingChanges.forEach((change, phaseId) => {
+      const updateData: Partial<Phase> = {};
+      if (change.startDate) updateData.startDate = change.startDate;
+      if (change.endDate) updateData.endDate = change.endDate;
+      if (change.actualStartDate) updateData.actualStartDate = change.actualStartDate;
+      if (change.actualEndDate) updateData.actualEndDate = change.actualEndDate;
+
+      updatePhaseMutation.mutate({ id: phaseId, data: updateData });
+    });
+  };
+
+  const handleUndoChanges = () => {
+    setPendingChanges(new Map());
+    setGanttKey((prev) => prev + 1); // Force gantt to recreate with original data
+  };
 
   const statusOptions: { value: PhaseStatus; label: string; color: string }[] = useMemo(
     () => [
@@ -189,7 +213,7 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
     if (!document.getElementById(styleId)) {
       const styleElement = document.createElement('div');
       styleElement.id = styleId;
-      styleElement.innerHTML = weekendStyle;
+      styleElement.innerHTML = ganttStyle;
       document.head.appendChild(styleElement);
     }
 
@@ -197,6 +221,7 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
       view_mode: view,
       popup_trigger: 'click',
       readonly: false, // Enable drag & drop
+      // @ts-ignore - Frappe Gantt types are incomplete
       bar_height: 30,
       bar_corner_radius: 3,
       arrow_curve: 5,
@@ -254,33 +279,32 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
         `;
       },
 
-      // Callback khi user drag để thay đổi dates
+      // Callback khi user drag để thay đổi dates - track changes instead of auto-save
       on_date_change: (task, start, end) => {
         const phase = timelineData.phases.find((p) => String(p.id) === String(task.id));
         if (!phase) return;
 
-        const updateData: Partial<Phase> = {};
+        const change: PhaseChange = { phaseId: phase.id };
 
         if (viewMode === 'estimate') {
-          updateData.startDate = format(start, 'yyyy-MM-dd');
-          updateData.endDate = format(end, 'yyyy-MM-dd');
+          change.startDate = format(start, 'yyyy-MM-dd');
+          change.endDate = format(end, 'yyyy-MM-dd');
         } else {
-          updateData.actualStartDate = format(start, 'yyyy-MM-dd');
-          updateData.actualEndDate = format(end, 'yyyy-MM-dd');
+          change.actualStartDate = format(start, 'yyyy-MM-dd');
+          change.actualEndDate = format(end, 'yyyy-MM-dd');
         }
 
-        updatePhaseMutation.mutate({ id: phase.id, data: updateData });
+        setPendingChanges((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(phase.id, change);
+          return newMap;
+        });
       },
 
-      // Callback khi user thay đổi progress
-      on_progress_change: (task, progress) => {
-        const phase = timelineData.phases.find((p) => String(p.id) === String(task.id));
-        if (!phase) return;
-
-        updatePhaseMutation.mutate({
-          id: phase.id,
-          data: { progress: Math.round(progress) }
-        });
+      // Callback khi user thay đổi progress - disabled for now
+      on_progress_change: () => {
+        // Progress changes can be auto-saved if needed
+        // For now, only track date changes
       },
 
       on_view_change: (mode) => {
@@ -295,7 +319,7 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
     return () => {
       ganttInstanceRef.current = null;
     };
-  }, [timelineData, t, view, viewMode, updatePhaseMutation]);
+  }, [timelineData, t, view, viewMode, updatePhaseMutation, ganttKey]);
 
   useEffect(() => {
     const wrapper = scrollRef.current;
@@ -435,15 +459,43 @@ export const PhaseTimelineFrappeGantt = ({ phases, projectId }: PhaseTimelineFra
         </div>
       ) : (
         <>
-          {/* Header with Date Range and Phase Count */}
+          {/* Header with Date Range, Phase Count, and Save/Undo Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg px-4 py-3 border border-blue-100">
-            <div>
-              <p className="text-sm font-semibold text-gray-800">
-                📅 {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {filteredPhases.length} {filteredPhases.length === 1 ? 'phase' : 'phases'} • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
-              </p>
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  📅 {format(timelineData.startDate, 'MMM dd, yyyy')} - {format(timelineData.endDate, 'MMM dd, yyyy')}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {filteredPhases.length} {filteredPhases.length === 1 ? 'phase' : 'phases'} • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
+                </p>
+              </div>
+              {pendingChanges.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveChanges}
+                    disabled={updatePhaseMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {updatePhaseMutation.isPending ? 'Saving...' : `Save ${pendingChanges.size} change${pendingChanges.size > 1 ? 's' : ''}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUndoChanges}
+                    disabled={updatePhaseMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    Undo
+                  </button>
+                </div>
+              )}
             </div>
             <div className="text-xs text-gray-600 bg-white px-3 py-2 rounded-md shadow-sm">
               <p className="font-medium">💡 Interactive Timeline</p>
