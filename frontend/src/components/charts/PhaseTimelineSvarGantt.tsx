@@ -127,27 +127,27 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
       case 'Day':
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'day', step: 1, format: 'd' },
+          { unit: 'day', step: 1, format: 'dd MMM' },
         ];
       case 'Week':
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'week', step: 1, format: 'w' },
+          { unit: 'week', step: 1, format: "'Week' w" },
         ];
       case 'Month':
         return [
           { unit: 'year', step: 1, format: 'yyyy' },
-          { unit: 'month', step: 1, format: 'MMM' },
+          { unit: 'month', step: 1, format: 'MMM yyyy' },
         ];
       case 'Year':
         return [
           { unit: 'year', step: 1, format: 'yyyy' },
-          { unit: 'quarter', step: 1, format: 'QQQ' },
+          { unit: 'quarter', step: 1, format: "'Q'Q yyyy" },
         ];
       default:
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'week', step: 1, format: 'w' },
+          { unit: 'week', step: 1, format: "'Week' w" },
         ];
     }
   }, [view]);
@@ -376,7 +376,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden">
+        <div className="overflow-auto pb-8">
           <Willow>
             <Gantt
               tasks={tasks}
