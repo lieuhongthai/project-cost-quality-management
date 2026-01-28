@@ -72,6 +72,34 @@ code {
   fill: #ef4444;
 }
 
+/* Svar Gantt overrides - fix last phase visibility */
+.gantt-svar-container .wx-willow {
+  overflow: visible !important;
+}
+
+.gantt-svar-container [class*="wx-gantt"],
+.gantt-svar-container [class*="gantt"] {
+  overflow: visible !important;
+}
+
+.gantt-svar-container .wx-gantt-body,
+.gantt-svar-container .wx-gantt-rows,
+.gantt-svar-container .wx-grid-body {
+  overflow: visible !important;
+  padding-bottom: 60px !important;
+}
+
+.gantt-svar-container .wx-gantt-area {
+  overflow: visible !important;
+  min-height: auto !important;
+}
+
+/* Ensure the bars container doesn't clip */
+.gantt-svar-container .wx-bars,
+.gantt-svar-container .wx-gantt-bars {
+  overflow: visible !important;
+}
+
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors;
