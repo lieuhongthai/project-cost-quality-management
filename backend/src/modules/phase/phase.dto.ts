@@ -33,6 +33,16 @@ export class CreatePhaseDto {
   @IsDate()
   endDate?: Date;
 
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  actualStartDate?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  actualEndDate?: Date;
+
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()
@@ -53,6 +63,16 @@ export class UpdatePhaseDto {
   @Type(() => Date)
   @IsDate()
   endDate?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  actualStartDate?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  actualEndDate?: Date;
 
   @IsOptional()
   @Type(() => Number)

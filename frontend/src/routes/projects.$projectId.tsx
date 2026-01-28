@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart, PhaseTimelineFrappeGantt, PhaseTimelineGantt } from '@/components/charts';
+import { MetricsChart, PhaseTimelineFrappeGantt, PhaseTimelineFrappeGanttV2, PhaseTimelineSvarGantt, PhaseTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { format } from 'date-fns';
@@ -37,7 +37,7 @@ function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'timeline' | 'timeline-frappe' | 'phases' | 'screen-functions' | 'members' | 'settings'
+    'overview' | 'timeline' | 'timeline-frappe' | 'timeline-frappe-v2' | 'timeline-svar' | 'phases' | 'screen-functions' | 'members' | 'settings'
   >('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -351,6 +351,8 @@ function ProjectDetail() {
     { id: 'overview' as const, name: t('dashboard.overview') },
     { id: 'timeline' as const, name: t('phase.timeline.title') },
     { id: 'timeline-frappe' as const, name: t('phase.timelineFrappe.title') },
+    { id: 'timeline-frappe-v2' as const, name: t('phase.timelineFrappeV2.title') },
+    { id: 'timeline-svar' as const, name: t('phase.timelineSvar.title') },
     { id: 'phases' as const, name: t('nav.phases') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
@@ -790,8 +792,20 @@ function ProjectDetail() {
 
       {activeTab === 'timeline-frappe' && (
         <Card title={t('phase.timelineFrappe.title')}>
-          <PhaseTimelineFrappeGantt phases={phases || []} />
+          <PhaseTimelineFrappeGantt phases={phases || []} projectId={parseInt(projectId)} />
         </Card>
+      )}
+
+      {activeTab === 'timeline-frappe-v2' && (
+        <div className="mb-6">
+          <PhaseTimelineFrappeGanttV2 phases={phases || []} projectId={parseInt(projectId)} />
+        </div>
+      )}
+
+      {activeTab === 'timeline-svar' && (
+        <div className="mb-6">
+          <PhaseTimelineSvarGantt phases={phases || []} projectId={parseInt(projectId)} />
+        </div>
       )}
 
       {activeTab === 'phases' && (
