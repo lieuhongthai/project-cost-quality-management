@@ -127,12 +127,12 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
       case 'Day':
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'day', step: 1, format: 'dd MMM' },
+          { unit: 'day', step: 1, format: 'd MMM' },
         ];
       case 'Week':
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'week', step: 1, format: "'Week' w" },
+          { unit: 'week', step: 1, format: (date: Date) => `Week ${Math.ceil(date.getDate() / 7)}` },
         ];
       case 'Month':
         return [
@@ -142,12 +142,19 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
       case 'Year':
         return [
           { unit: 'year', step: 1, format: 'yyyy' },
-          { unit: 'quarter', step: 1, format: "'Q'Q yyyy" },
+          {
+            unit: 'quarter',
+            step: 1,
+            format: (date: Date) => {
+              const quarter = Math.floor(date.getMonth() / 3) + 1;
+              return `Q${quarter} ${date.getFullYear()}`;
+            }
+          },
         ];
       default:
         return [
           { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'week', step: 1, format: "'Week' w" },
+          { unit: 'week', step: 1, format: (date: Date) => `Week ${Math.ceil(date.getDate() / 7)}` },
         ];
     }
   }, [view]);
