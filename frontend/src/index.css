@@ -73,31 +73,39 @@ code {
 }
 
 /* Svar Gantt overrides - fix last phase visibility */
-.gantt-svar-container .wx-willow {
+.gantt-svar-container,
+.gantt-svar-container * {
   overflow: visible !important;
 }
 
-.gantt-svar-container [class*="wx-gantt"],
-.gantt-svar-container [class*="gantt"] {
+.gantt-svar-container > div {
+  overflow: auto !important;
+}
+
+/* Force all internal containers to show content */
+.gantt-svar-container [class*="wx-"],
+.gantt-svar-container [class*="gantt"],
+.gantt-svar-container [class*="grid"],
+.gantt-svar-container [class*="area"],
+.gantt-svar-container [class*="body"],
+.gantt-svar-container [class*="rows"],
+.gantt-svar-container [class*="bars"] {
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+}
+
+/* Ensure proper height for content */
+.gantt-svar-container .wx-willow,
+.gantt-svar-container [class*="willow"] {
+  height: auto !important;
+  min-height: 100% !important;
   overflow: visible !important;
 }
 
-.gantt-svar-container .wx-gantt-body,
-.gantt-svar-container .wx-gantt-rows,
-.gantt-svar-container .wx-grid-body {
-  overflow: visible !important;
-  padding-bottom: 60px !important;
-}
-
-.gantt-svar-container .wx-gantt-area {
-  overflow: visible !important;
-  min-height: auto !important;
-}
-
-/* Ensure the bars container doesn't clip */
-.gantt-svar-container .wx-bars,
-.gantt-svar-container .wx-gantt-bars {
-  overflow: visible !important;
+/* Add margin to last row for visibility */
+.gantt-svar-container [class*="row"]:last-child {
+  margin-bottom: 60px !important;
 }
 
 @layer components {
