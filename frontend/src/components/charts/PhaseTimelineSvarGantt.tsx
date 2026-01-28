@@ -25,11 +25,29 @@ type TimelineView = 'Day' | 'Week' | 'Month' | 'Year';
 type ViewMode = 'estimate' | 'actual';
 type PhaseStatus = 'Good' | 'Warning' | 'At Risk';
 
+// LocalStorage key for persisting time scale
+const TIME_SCALE_STORAGE_KEY = 'gantt-timeline-time-scale';
+
+const getStoredTimeScale = (): TimelineView => {
+  if (typeof window === 'undefined') return 'Week';
+  const stored = localStorage.getItem(TIME_SCALE_STORAGE_KEY);
+  if (stored && ['Day', 'Week', 'Month', 'Year'].includes(stored)) {
+    return stored as TimelineView;
+  }
+  return 'Week';
+};
+
 export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarGanttProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<TimelineView>('Week');
+  const [view, setView] = useState<TimelineView>(getStoredTimeScale);
   const [viewMode, setViewMode] = useState<ViewMode>('estimate');
+
+  // Persist time scale to localStorage
+  const handleViewChange = useCallback((newView: TimelineView) => {
+    setView(newView);
+    localStorage.setItem(TIME_SCALE_STORAGE_KEY, newView);
+  }, []);
   const [selectedStatuses, setSelectedStatuses] = useState<PhaseStatus[]>([
     'Good',
     'Warning',
@@ -122,26 +140,27 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
   }, [filteredPhases, viewMode]);
 
   // Configure scales based on view
+  // Using function callbacks for date formatting to ensure proper display
   const scales: IScaleConfig[] = useMemo(() => {
     switch (view) {
       case 'Day':
         return [
-          { unit: 'month', step: 1, format: 'MMMM yyyy' },
-          { unit: 'day', step: 1, format: 'd MMM' },
+          { unit: 'month', step: 1, format: (date: Date) => format(date, 'MMMM yyyy') },
+          { unit: 'day', step: 1, format: (date: Date) => format(date, 'd MMM') },
         ];
       case 'Week':
         return [
-          { unit: 'month', step: 1, format: 'MMMM yyyy' },
+          { unit: 'month', step: 1, format: (date: Date) => format(date, 'MMMM yyyy') },
           { unit: 'week', step: 1, format: (date: Date) => `Week ${Math.ceil(date.getDate() / 7)}` },
         ];
       case 'Month':
         return [
-          { unit: 'year', step: 1, format: 'yyyy' },
-          { unit: 'month', step: 1, format: 'MMM yyyy' },
+          { unit: 'year', step: 1, format: (date: Date) => format(date, 'yyyy') },
+          { unit: 'month', step: 1, format: (date: Date) => format(date, 'MMM yyyy') },
         ];
       case 'Year':
         return [
-          { unit: 'year', step: 1, format: 'yyyy' },
+          { unit: 'year', step: 1, format: (date: Date) => format(date, 'yyyy') },
           {
             unit: 'quarter',
             step: 1,
@@ -153,7 +172,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
         ];
       default:
         return [
-          { unit: 'month', step: 1, format: 'MMMM yyyy' },
+          { unit: 'month', step: 1, format: (date: Date) => format(date, 'MMMM yyyy') },
           { unit: 'week', step: 1, format: (date: Date) => `Week ${Math.ceil(date.getDate() / 7)}` },
         ];
     }
@@ -216,7 +235,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
   }
 
   return (
-    <div className="gantt-svar-container rounded-lg border border-gray-200 overflow-hidden bg-white">
+    <div className="gantt-svar-container rounded-lg border border-gray-200 bg-white">
       {/* Horizontal Controls Header */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200">
         {/* Title & Actions Row */}
@@ -302,7 +321,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
               {(['Day', 'Week', 'Month', 'Year'] as TimelineView[]).map((option) => (
                 <button
                   key={option}
-                  onClick={() => setView(option)}
+                  onClick={() => handleViewChange(option)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     view === option
                       ? 'bg-indigo-600 text-white shadow-md'
@@ -383,7 +402,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
           </div>
         </div>
       ) : (
-        <div className="overflow-auto pb-8">
+        <div className="overflow-auto pb-16" style={{ minHeight: '300px' }}>
           <Willow>
             <Gantt
               tasks={tasks}
@@ -396,6 +415,8 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
               onupdatetask={handleUpdateTask}
             />
           </Willow>
+          {/* Extra space at bottom for last phase visibility */}
+          <div className="h-16" aria-hidden="true" />
         </div>
       )}
     </div>
