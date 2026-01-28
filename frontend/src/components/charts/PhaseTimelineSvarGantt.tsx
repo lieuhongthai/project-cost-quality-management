@@ -402,13 +402,7 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
           </div>
         </div>
       ) : (
-        <div
-          className="overflow-auto"
-          style={{
-            minHeight: `${Math.max(300, (tasks.length + 3) * 40 + 80)}px`,
-            paddingBottom: '80px'
-          }}
-        >
+        <div className="gantt-chart-wrapper">
           <Willow>
             <Gantt
               tasks={tasks}

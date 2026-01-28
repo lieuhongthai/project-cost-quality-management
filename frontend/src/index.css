@@ -72,40 +72,14 @@ code {
   fill: #ef4444;
 }
 
-/* Svar Gantt overrides - fix last phase visibility */
-.gantt-svar-container,
-.gantt-svar-container * {
-  overflow: visible !important;
+/* Svar Gantt - fix for last phase visibility */
+.gantt-svar-container {
+  overflow: hidden;
 }
 
-.gantt-svar-container > div {
-  overflow: auto !important;
-}
-
-/* Force all internal containers to show content */
-.gantt-svar-container [class*="wx-"],
-.gantt-svar-container [class*="gantt"],
-.gantt-svar-container [class*="grid"],
-.gantt-svar-container [class*="area"],
-.gantt-svar-container [class*="body"],
-.gantt-svar-container [class*="rows"],
-.gantt-svar-container [class*="bars"] {
-  overflow: visible !important;
-  clip: auto !important;
-  clip-path: none !important;
-}
-
-/* Ensure proper height for content */
-.gantt-svar-container .wx-willow,
-.gantt-svar-container [class*="willow"] {
-  height: auto !important;
-  min-height: 100% !important;
-  overflow: visible !important;
-}
-
-/* Add margin to last row for visibility */
-.gantt-svar-container [class*="row"]:last-child {
-  margin-bottom: 60px !important;
+.gantt-svar-container .gantt-chart-wrapper {
+  overflow: auto;
+  padding-bottom: 80px;
 }
 
 @layer components {
