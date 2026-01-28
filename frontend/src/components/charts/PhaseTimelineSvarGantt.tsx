@@ -36,7 +36,6 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
     'At Risk',
   ]);
   const [pendingChanges, setPendingChanges] = useState<Map<number, PhaseChange>>(new Map());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const updatePhaseMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Phase> }) => phaseApi.update(id, data),
@@ -210,165 +209,30 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
   }
 
   return (
-    <div className="gantt-svar-container flex gap-0 rounded-lg border border-gray-200 overflow-hidden bg-white">
-      {/* Sidebar */}
-      <div
-        className={`${
-          sidebarCollapsed ? 'w-16' : 'w-80'
-        } bg-gradient-to-b from-indigo-50 to-indigo-100 border-r border-indigo-200 transition-all duration-300 flex flex-col`}
-      >
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-indigo-200 bg-white">
-          <div className="flex items-center justify-between">
-            {!sidebarCollapsed && (
-              <div>
-                <h3 className="text-lg font-bold text-indigo-800">Timeline Svar</h3>
-                <p className="text-xs text-indigo-500 mt-0.5">Professional Gantt</p>
-              </div>
-            )}
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 rounded-lg hover:bg-indigo-100 transition-colors"
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {sidebarCollapsed ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {!sidebarCollapsed && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {/* View Mode Toggle */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">View Mode</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['estimate', 'actual'] as ViewMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      viewMode === mode
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                        : 'bg-white text-indigo-600 hover:bg-indigo-50 border border-indigo-200'
-                    }`}
-                  >
-                    {mode === 'estimate' ? '📊 Estimate' : '✅ Actual'}
-                  </button>
-                ))}
-              </div>
+    <div className="gantt-svar-container rounded-lg border border-gray-200 overflow-hidden bg-white">
+      {/* Horizontal Controls Header */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200">
+        {/* Title & Actions Row */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-indigo-200">
+          <div className="flex items-center gap-4">
+            <div>
+              <h3 className="text-base font-bold text-indigo-800">Timeline Svar</h3>
+              <p className="text-xs text-indigo-500">Professional Gantt Chart</p>
             </div>
-
-            {/* Time Scale */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Time Scale</label>
-              <div className="space-y-2">
-                {(['Day', 'Week', 'Month', 'Year'] as TimelineView[]).map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setView(option)}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium text-left transition-all ${
-                      view === option
-                        ? 'bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600'
-                        : 'bg-white text-indigo-600 hover:bg-indigo-50 border border-indigo-200'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Status Filters */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Filter by Status</label>
-              <div className="space-y-2">
-                {statusOptions.map((status) => {
-                  const selected = selectedStatuses.includes(status.value);
-                  return (
-                    <button
-                      key={status.value}
-                      onClick={() => toggleStatus(status.value)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        selected
-                          ? `${status.bgColor} ${status.color} border-2 border-current`
-                          : 'bg-white text-gray-400 border border-indigo-200 hover:bg-indigo-50'
-                      }`}
-                    >
-                      <div className={`w-3 h-3 rounded-full ${selected ? 'bg-current' : 'bg-gray-300'}`} />
-                      {status.label}
-                      {selected && (
-                        <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Statistics */}
-            {stats && (
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Statistics</label>
-                <div className="bg-white rounded-lg p-4 border border-indigo-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-indigo-600">Total Phases</span>
-                    <span className="text-sm font-bold text-indigo-800">{stats.total}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-indigo-600">Completed</span>
-                    <span className="text-sm font-bold text-emerald-600">{stats.completed}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-indigo-600">In Progress</span>
-                    <span className="text-sm font-bold text-amber-600">{stats.inProgress}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-indigo-600">Not Started</span>
-                    <span className="text-sm font-bold text-indigo-600">{stats.notStarted}</span>
-                  </div>
-                  <div className="pt-3 border-t border-indigo-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-indigo-600">Avg Progress</span>
-                      <span className="text-sm font-bold text-indigo-700">{stats.avgProgress.toFixed(1)}%</span>
-                    </div>
-                    <div className="bg-indigo-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-indigo-600 h-full transition-all" style={{ width: `${stats.avgProgress}%` }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-white min-w-0">
-        {/* Top Actions Bar */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-indigo-50 border-b border-indigo-200">
-          <div className="flex items-center gap-3">
             {tasks.length > 0 && (
               <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="font-semibold text-indigo-700">
-                  {filteredPhases.length} phases • {viewMode === 'estimate' ? 'Estimate' : 'Actual'} view
+                  {filteredPhases.length} phases • {viewMode === 'estimate' ? 'Estimate' : 'Actual'}
                 </span>
               </div>
             )}
           </div>
 
+          {/* Save/Undo buttons */}
           <div className="flex items-center gap-2">
-            {/* Save/Undo buttons */}
             {pendingChanges.size > 0 && (
               <>
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-lg border border-amber-200">
@@ -402,37 +266,131 @@ export const PhaseTimelineSvarGantt = ({ phases, projectId }: PhaseTimelineSvarG
           </div>
         </div>
 
-        {/* Gantt Chart */}
-        {tasks.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center bg-indigo-50">
-            <div className="text-center max-w-md px-6">
-              <svg className="mx-auto h-16 w-16 text-indigo-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <h3 className="text-lg font-semibold text-indigo-700 mb-2">No phases to display</h3>
-              <p className="text-sm text-indigo-500">
-                {viewMode === 'estimate'
-                  ? 'Add phases with start and end dates to see them on the timeline'
-                  : 'No phases with actual dates found. Switch to Estimate mode or add actual dates to phases'}
-              </p>
+        {/* Controls Row */}
+        <div className="px-4 py-3 flex flex-wrap items-center gap-6">
+          {/* View Mode */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-indigo-700 uppercase">View Mode:</label>
+            <div className="flex gap-2">
+              {(['estimate', 'actual'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    viewMode === mode
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                >
+                  {mode === 'estimate' ? '📊 Estimate' : '✅ Actual'}
+                </button>
+              ))}
             </div>
           </div>
-        ) : (
-          <div className="flex-1 overflow-hidden">
-            <Willow>
-              <Gantt
-                tasks={tasks}
-                scales={scales}
-                cellHeight={40}
-                cellWidth={100}
-                highlightTime={highlightTime}
-                readonly={false}
-                onupdatetask={handleUpdateTask}
-              />
-            </Willow>
+
+          {/* Time Scale */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-indigo-700 uppercase">Time Scale:</label>
+            <div className="flex gap-2">
+              {(['Day', 'Week', 'Month', 'Year'] as TimelineView[]).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setView(option)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    view === option
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+
+          {/* Status Filters */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-indigo-700 uppercase">Status:</label>
+            <div className="flex gap-2">
+              {statusOptions.map((status) => {
+                const selected = selectedStatuses.includes(status.value);
+                return (
+                  <button
+                    key={status.value}
+                    onClick={() => toggleStatus(status.value)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      selected
+                        ? `${status.bgColor} ${status.color} border-2 border-current`
+                        : 'bg-white text-gray-400 border border-indigo-200 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${selected ? 'bg-current' : 'bg-gray-300'}`} />
+                    {status.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Statistics */}
+          {stats && (
+            <div className="ml-auto flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-indigo-200">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-indigo-600">Total:</span>
+                <span className="text-xs font-bold text-indigo-800">{stats.total}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-emerald-600">✓</span>
+                <span className="text-xs font-bold text-emerald-600">{stats.completed}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-600">◐</span>
+                <span className="text-xs font-bold text-amber-600">{stats.inProgress}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600">○</span>
+                <span className="text-xs font-bold text-gray-600">{stats.notStarted}</span>
+              </div>
+              <div className="flex items-center gap-2 pl-3 border-l border-indigo-200">
+                <span className="text-xs text-indigo-600">Avg:</span>
+                <span className="text-xs font-bold text-indigo-700">{stats.avgProgress.toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Gantt Chart */}
+      {tasks.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center bg-indigo-50 py-20">
+          <div className="text-center max-w-md px-6">
+            <svg className="mx-auto h-16 w-16 text-indigo-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <h3 className="text-lg font-semibold text-indigo-700 mb-2">No phases to display</h3>
+            <p className="text-sm text-indigo-500">
+              {viewMode === 'estimate'
+                ? 'Add phases with start and end dates to see them on the timeline'
+                : 'No phases with actual dates found. Switch to Estimate mode or add actual dates to phases'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-hidden">
+          <Willow>
+            <Gantt
+              tasks={tasks}
+              scales={scales}
+              cellHeight={40}
+              cellWidth={100}
+              highlightTime={highlightTime}
+              readonly={false}
+              columns={[] as any}
+              onupdatetask={handleUpdateTask}
+            />
+          </Willow>
+        </div>
+      )}
     </div>
   );
 };
