@@ -273,6 +273,9 @@
     "timelineFrappeV2": {
       "title": "Timeline giai đoạn V2"
     },
+    "timelineSvar": {
+      "title": "Timeline giai đoạn Svar"
+    },
     "timeline": {
       "title": "Timeline giai đoạn (Gantt)",
       "empty": "Thêm ngày bắt đầu/kết thúc để xem timeline",

@@ -273,6 +273,9 @@
     "timelineFrappeV2": {
       "title": "Phase Timeline V2"
     },
+    "timelineSvar": {
+      "title": "Phase Timeline Svar"
+    },
     "timeline": {
       "title": "Phase Timeline (Gantt)",
       "empty": "Add phase dates to visualize the timeline",
