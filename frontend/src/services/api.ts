@@ -24,6 +24,12 @@ import type {
   Position,
   Role,
   User,
+  WorkflowStage,
+  WorkflowStep,
+  TaskWorkflow,
+  ProjectWorkflowData,
+  ProjectWorkflowProgress,
+  TaskWorkflowProgress,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -212,6 +218,67 @@ export const memberApi = {
   getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
   copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
     api.post<{ copied: number; skipped: number; members: Member[] }>('/members/copy', data),
+};
+
+// Task Workflow APIs
+export const taskWorkflowApi = {
+  // Workflow Stages
+  getStages: (projectId: number) =>
+    api.get<WorkflowStage[]>(`/task-workflow/stages/project/${projectId}`),
+  createStage: (data: { projectId: number; name: string; displayOrder?: number; color?: string }) =>
+    api.post<WorkflowStage>('/task-workflow/stages', data),
+  updateStage: (id: number, data: { name?: string; displayOrder?: number; isActive?: boolean; color?: string }) =>
+    api.put<WorkflowStage>(`/task-workflow/stages/${id}`, data),
+  deleteStage: (id: number) => api.delete(`/task-workflow/stages/${id}`),
+  reorderStages: (stageOrders: Array<{ id: number; displayOrder: number }>) =>
+    api.put('/task-workflow/stages/reorder', { stageOrders }),
+
+  // Workflow Steps
+  getSteps: (stageId: number) =>
+    api.get<WorkflowStep[]>(`/task-workflow/steps/stage/${stageId}`),
+  createStep: (data: { stageId: number; name: string; displayOrder?: number }) =>
+    api.post<WorkflowStep>('/task-workflow/steps', data),
+  bulkCreateSteps: (data: { stageId: number; stepNames: string[] }) =>
+    api.post<WorkflowStep[]>('/task-workflow/steps/bulk', data),
+  updateStep: (id: number, data: { name?: string; displayOrder?: number; isActive?: boolean }) =>
+    api.put<WorkflowStep>(`/task-workflow/steps/${id}`, data),
+  deleteStep: (id: number) => api.delete(`/task-workflow/steps/${id}`),
+  reorderSteps: (stepOrders: Array<{ id: number; displayOrder: number }>) =>
+    api.put('/task-workflow/steps/reorder', { stepOrders }),
+
+  // Task Workflow
+  getProjectWorkflow: (projectId: number, filter?: { screenName?: string; stageId?: number; status?: string }) => {
+    const params = new URLSearchParams();
+    if (filter?.screenName) params.append('screenName', filter.screenName);
+    if (filter?.stageId) params.append('stageId', filter.stageId.toString());
+    if (filter?.status) params.append('status', filter.status);
+    const queryString = params.toString();
+    return api.get<ProjectWorkflowData>(`/task-workflow/project/${projectId}${queryString ? `?${queryString}` : ''}`);
+  },
+  toggleTaskWorkflow: (data: { screenFunctionId: number; stepId: number; isCompleted: boolean; completedBy?: number; note?: string }) =>
+    api.post<TaskWorkflow>('/task-workflow/toggle', data),
+  bulkToggleTaskWorkflow: (items: Array<{ screenFunctionId: number; stepId: number; isCompleted: boolean; completedBy?: number }>) =>
+    api.put<TaskWorkflow[]>('/task-workflow/bulk-toggle', { items }),
+  updateNote: (id: number, data: { note?: string; completedBy?: number }) =>
+    api.put<TaskWorkflow>(`/task-workflow/${id}/note`, data),
+
+  // Initialize workflow for project
+  initializeWorkflow: (projectId: number) =>
+    api.post<{ stages: WorkflowStage[]; steps: WorkflowStep[] }>('/task-workflow/initialize', { projectId, useDefaultTemplate: true }),
+
+  // Progress
+  getProjectProgress: (projectId: number) =>
+    api.get<ProjectWorkflowProgress>(`/task-workflow/progress/project/${projectId}`),
+  getScreenFunctionProgress: (screenFunctionId: number) =>
+    api.get<TaskWorkflowProgress>(`/task-workflow/progress/screen-function/${screenFunctionId}`),
+
+  // Configuration
+  getConfiguration: (projectId: number) =>
+    api.get<{ stages: Array<WorkflowStage & { steps: WorkflowStep[] }> }>(`/task-workflow/configuration/project/${projectId}`),
+
+  // Export
+  exportExcel: (projectId: number) =>
+    api.get(`/task-workflow/export/${projectId}`, { responseType: 'blob' }),
 };
 
 export const iamApi = {

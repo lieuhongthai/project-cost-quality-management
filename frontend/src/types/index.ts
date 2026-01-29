@@ -346,3 +346,68 @@ export interface MemberWorkload {
   inProgressTasks: number;
   pendingTasks: number;
 }
+
+// Task Workflow types
+export interface WorkflowStage {
+  id: number;
+  projectId: number;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  color?: string;
+  steps?: WorkflowStep[];
+}
+
+export interface WorkflowStep {
+  id: number;
+  stageId: number;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface TaskWorkflow {
+  id: number;
+  screenFunctionId: number;
+  stepId: number;
+  isCompleted: boolean;
+  completedAt?: string;
+  completedBy?: number;
+  note?: string;
+  completedByMember?: Member;
+}
+
+export interface TaskWorkflowProgress {
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface ProjectWorkflowData {
+  stages: (WorkflowStage & { steps: WorkflowStep[] })[];
+  screenFunctions: ScreenFunction[];
+  taskWorkflows: TaskWorkflow[];
+  progress: TaskWorkflowProgress;
+}
+
+export interface WorkflowProgressByStage {
+  stageId: number;
+  stageName: string;
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface WorkflowProgressByScreenFunction {
+  screenFunctionId: number;
+  screenFunctionName: string;
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface ProjectWorkflowProgress {
+  overall: TaskWorkflowProgress;
+  byStage: WorkflowProgressByStage[];
+  byScreenFunction: WorkflowProgressByScreenFunction[];
+}

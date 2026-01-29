@@ -14,6 +14,7 @@ import { HolidaysModule } from './modules/holidays/holidays.module';
 import { ReviewModule } from './modules/review/review.module';
 import { IamModule } from './modules/iam/iam.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { TaskWorkflowModule } from './modules/task-workflow/task-workflow.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AuthModule } from './modules/auth/auth.module';
     ReviewModule,
     IamModule,
     AuthModule,
+    TaskWorkflowModule,
   ],
 })
 export class AppModule {}

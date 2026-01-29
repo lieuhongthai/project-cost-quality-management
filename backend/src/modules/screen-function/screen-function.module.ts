@@ -15,6 +15,6 @@ import { PhaseModule } from '../phase/phase.module';
     PhaseScreenFunctionService,
     ...screenFunctionProviders,
   ],
-  exports: [ScreenFunctionService, PhaseScreenFunctionService],
+  exports: [ScreenFunctionService, PhaseScreenFunctionService, ...screenFunctionProviders],
 })
 export class ScreenFunctionModule {}

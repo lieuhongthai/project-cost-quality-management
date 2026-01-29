@@ -40,11 +40,13 @@ export class ProjectService {
 
   // Default phases to create for new projects
   private readonly DEFAULT_PHASES = [
-    { name: 'Functional Design', displayOrder: 1 },
-    { name: 'Coding', displayOrder: 2 },
-    { name: 'Unit Test', displayOrder: 3 },
-    { name: 'Integration Test', displayOrder: 4 },
-    { name: 'System Test', displayOrder: 5 },
+    { name: 'Requirement', displayOrder: 1 },
+    { name: 'Functional Design', displayOrder: 2 },
+    { name: 'Coding', displayOrder: 3 },
+    { name: 'Unit Test', displayOrder: 4 },
+    { name: 'Integration Test', displayOrder: 5 },
+    { name: 'System Test', displayOrder: 6 },
+    { name: 'User Test', displayOrder: 7 },
   ];
 
   async create(createProjectDto: CreateProjectDto): Promise<Project> {

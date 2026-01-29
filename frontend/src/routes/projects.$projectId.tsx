@@ -17,6 +17,7 @@ import {
 import { MetricsChart, PhaseTimelineGantt, PhaseTimelineSvarGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
+import { TaskWorkflowTable, WorkflowConfigPanel } from '@/components/task-workflow';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
@@ -37,7 +38,7 @@ function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'timeline' | 'timeline-svar' | 'phases' | 'screen-functions' | 'members' | 'settings'
+    'overview' | 'timeline' | 'timeline-svar' | 'phases' | 'screen-functions' | 'members' | 'task-workflow' | 'settings'
   >('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -354,6 +355,7 @@ function ProjectDetail() {
     { id: 'phases' as const, name: t('nav.phases') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
+    { id: 'task-workflow' as const, name: t('taskWorkflow.title') },
     { id: 'settings' as const, name: t('nav.settings') },
   ];
 
@@ -1364,8 +1366,15 @@ function ProjectDetail() {
         </div>
       )}
 
+      {activeTab === 'task-workflow' && (
+        <TaskWorkflowTable projectId={parseInt(projectId)} members={members} />
+      )}
+
       {activeTab === 'settings' && (
         <div className="space-y-6">
+          {/* Workflow Configuration Section */}
+          <WorkflowConfigPanel projectId={parseInt(projectId)} />
+
           <Card title={t('settings.workTimeConfig')}>
             <p className="text-sm text-gray-500 mb-6">
               {t('settings.workTimeConfigDesc')}
