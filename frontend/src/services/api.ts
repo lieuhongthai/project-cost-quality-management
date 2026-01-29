@@ -30,6 +30,9 @@ import type {
   ProjectWorkflowData,
   ProjectWorkflowProgress,
   TaskWorkflowProgress,
+  StepScreenFunction,
+  StageDetailData,
+  StageOverviewData,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -227,11 +230,30 @@ export const taskWorkflowApi = {
     api.get<WorkflowStage[]>(`/task-workflow/stages/project/${projectId}`),
   createStage: (data: { projectId: number; name: string; displayOrder?: number; color?: string }) =>
     api.post<WorkflowStage>('/task-workflow/stages', data),
-  updateStage: (id: number, data: { name?: string; displayOrder?: number; isActive?: boolean; color?: string }) =>
+  updateStage: (id: number, data: {
+    name?: string;
+    displayOrder?: number;
+    isActive?: boolean;
+    color?: string;
+    startDate?: string;
+    endDate?: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    status?: 'Good' | 'Warning' | 'At Risk';
+  }) =>
     api.put<WorkflowStage>(`/task-workflow/stages/${id}`, data),
   deleteStage: (id: number) => api.delete(`/task-workflow/stages/${id}`),
   reorderStages: (stageOrders: Array<{ id: number; displayOrder: number }>) =>
     api.put('/task-workflow/stages/reorder', { stageOrders }),
+
+  // Stage Detail
+  getStageDetail: (stageId: number) =>
+    api.get<StageDetailData>(`/task-workflow/stages/${stageId}/detail`),
+  getStagesOverview: (projectId: number) =>
+    api.get<StageOverviewData[]>(`/task-workflow/stages/overview/project/${projectId}`),
 
   // Workflow Steps
   getSteps: (stageId: number) =>
@@ -245,6 +267,48 @@ export const taskWorkflowApi = {
   deleteStep: (id: number) => api.delete(`/task-workflow/steps/${id}`),
   reorderSteps: (stepOrders: Array<{ id: number; displayOrder: number }>) =>
     api.put('/task-workflow/steps/reorder', { stepOrders }),
+  getAvailableScreenFunctions: (stepId: number) =>
+    api.get<ScreenFunction[]>(`/task-workflow/steps/${stepId}/available-screen-functions`),
+
+  // Step Screen Functions
+  getStepScreenFunctions: (stepId: number) =>
+    api.get<StepScreenFunction[]>(`/task-workflow/step-screen-functions/step/${stepId}`),
+  createStepScreenFunction: (data: {
+    stepId: number;
+    screenFunctionId: number;
+    assigneeId?: number;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+    note?: string;
+  }) =>
+    api.post<StepScreenFunction>('/task-workflow/step-screen-functions', data),
+  updateStepScreenFunction: (id: number, data: {
+    assigneeId?: number;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+    note?: string;
+  }) =>
+    api.put<StepScreenFunction>(`/task-workflow/step-screen-functions/${id}`, data),
+  deleteStepScreenFunction: (id: number) =>
+    api.delete(`/task-workflow/step-screen-functions/${id}`),
+  bulkCreateStepScreenFunctions: (data: {
+    stepId: number;
+    items: Array<{ screenFunctionId: number; estimatedEffort?: number; note?: string }>
+  }) =>
+    api.post<StepScreenFunction[]>('/task-workflow/step-screen-functions/bulk', data),
+  bulkUpdateStepScreenFunctions: (items: Array<{
+    id: number;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+    note?: string;
+  }>) =>
+    api.put<StepScreenFunction[]>('/task-workflow/step-screen-functions/bulk', { items }),
 
   // Task Workflow
   getProjectWorkflow: (projectId: number, filter?: { screenName?: string; stageId?: number; status?: string }) => {

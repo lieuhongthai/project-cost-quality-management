@@ -1,2 +1,4 @@
 export { TaskWorkflowTable } from './TaskWorkflowTable';
 export { WorkflowConfigPanel } from './WorkflowConfigPanel';
+export { StagesOverviewPanel } from './StagesOverviewPanel';
+export { StageEditModal } from './StageEditModal';

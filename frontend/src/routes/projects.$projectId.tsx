@@ -17,7 +17,7 @@ import {
 import { MetricsChart, PhaseTimelineGantt, PhaseTimelineSvarGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
-import { TaskWorkflowTable, WorkflowConfigPanel } from '@/components/task-workflow';
+import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel } from '@/components/task-workflow';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
@@ -38,7 +38,7 @@ function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'timeline' | 'timeline-svar' | 'phases' | 'screen-functions' | 'members' | 'task-workflow' | 'settings'
+    'overview' | 'timeline' | 'timeline-svar' | 'phases' | 'stages' | 'screen-functions' | 'members' | 'task-workflow' | 'settings'
   >('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -353,6 +353,7 @@ function ProjectDetail() {
     { id: 'timeline' as const, name: t('phase.timeline.title') },
     { id: 'timeline-svar' as const, name: t('phase.timelineSvar.title') },
     { id: 'phases' as const, name: t('nav.phases') },
+    { id: 'stages' as const, name: t('stages.title') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
     { id: 'task-workflow' as const, name: t('taskWorkflow.title') },
@@ -1364,6 +1365,10 @@ function ProjectDetail() {
             )}
           </Card>
         </div>
+      )}
+
+      {activeTab === 'stages' && (
+        <StagesOverviewPanel projectId={parseInt(projectId)} />
       )}
 
       {activeTab === 'task-workflow' && (

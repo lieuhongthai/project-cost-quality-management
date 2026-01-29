@@ -20,6 +20,12 @@ export const DEFAULT_WORKFLOW_STAGES = [
   { name: 'User Test', displayOrder: 7 },
 ] as const;
 
+export enum StageStatus {
+  GOOD = 'Good',
+  WARNING = 'Warning',
+  AT_RISK = 'At Risk',
+}
+
 @Table({
   tableName: 'workflow_stages',
   timestamps: true,
@@ -62,6 +68,57 @@ export class WorkflowStage extends Model {
     allowNull: true,
   })
   color: string; // For UI display (e.g., '#4CAF50')
+
+  // Date fields
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  startDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  endDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  actualStartDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  actualEndDate: string;
+
+  // Effort fields (in man-hours, will be converted based on project settings)
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  estimatedEffort: number;
+
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  actualEffort: number;
+
+  // Progress and status
+  @Column({
+    type: DataType.FLOAT,
+    defaultValue: 0,
+  })
+  progress: number; // 0-100
+
+  @Column({
+    type: DataType.ENUM('Good', 'Warning', 'At Risk'),
+    defaultValue: 'Good',
+  })
+  status: string;
 
   @BelongsTo(() => Project)
   project: Project;

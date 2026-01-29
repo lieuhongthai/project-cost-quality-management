@@ -25,6 +25,10 @@ import {
   UpdateTaskWorkflowNoteDto,
   InitializeProjectWorkflowDto,
   TaskWorkflowFilterDto,
+  CreateStepScreenFunctionDto,
+  UpdateStepScreenFunctionDto,
+  BulkCreateStepScreenFunctionDto,
+  BulkUpdateStepScreenFunctionDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -368,5 +372,62 @@ export class TaskWorkflowController {
     // Write to response
     await workbook.xlsx.write(res);
     res.end();
+  }
+
+  // ===== Step Screen Function Endpoints =====
+
+  @Get('step-screen-functions/step/:stepId')
+  getStepScreenFunctions(@Param('stepId', ParseIntPipe) stepId: number) {
+    return this.taskWorkflowService.findAllStepScreenFunctions(stepId);
+  }
+
+  @Get('step-screen-functions/:id')
+  getStepScreenFunction(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.findStepScreenFunctionById(id);
+  }
+
+  @Post('step-screen-functions')
+  createStepScreenFunction(@Body() dto: CreateStepScreenFunctionDto) {
+    return this.taskWorkflowService.createStepScreenFunction(dto);
+  }
+
+  @Post('step-screen-functions/bulk')
+  bulkCreateStepScreenFunctions(@Body() dto: BulkCreateStepScreenFunctionDto) {
+    return this.taskWorkflowService.bulkCreateStepScreenFunctions(dto);
+  }
+
+  @Put('step-screen-functions/bulk')
+  bulkUpdateStepScreenFunctions(@Body() dto: BulkUpdateStepScreenFunctionDto) {
+    return this.taskWorkflowService.bulkUpdateStepScreenFunctions(dto);
+  }
+
+  @Put('step-screen-functions/:id')
+  updateStepScreenFunction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateStepScreenFunctionDto,
+  ) {
+    return this.taskWorkflowService.updateStepScreenFunction(id, dto);
+  }
+
+  @Delete('step-screen-functions/:id')
+  deleteStepScreenFunction(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteStepScreenFunction(id);
+  }
+
+  // ===== Stage Detail Endpoints =====
+
+  @Get('stages/:id/detail')
+  getStageDetail(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.getStageDetail(id);
+  }
+
+  @Get('stages/overview/project/:projectId')
+  getStagesOverview(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.getStagesOverview(projectId);
+  }
+
+  @Get('steps/:stepId/available-screen-functions')
+  getAvailableScreenFunctionsForStep(@Param('stepId', ParseIntPipe) stepId: number) {
+    return this.taskWorkflowService.getAvailableScreenFunctionsForStep(stepId);
   }
 }

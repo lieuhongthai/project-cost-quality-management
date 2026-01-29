@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import { WorkflowStage, DEFAULT_WORKFLOW_STAGES } from './workflow-stage.model';
+import { WorkflowStage, StageStatus, DEFAULT_WORKFLOW_STAGES } from './workflow-stage.model';
 import { WorkflowStep, DEFAULT_WORKFLOW_STEPS } from './workflow-step.model';
 import { TaskWorkflow } from './task-workflow.model';
+import { StepScreenFunction } from './step-screen-function.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { Member } from '../member/member.model';
 import {
@@ -18,6 +19,10 @@ import {
   InitializeProjectWorkflowDto,
   TaskWorkflowFilterDto,
   UpdateScreenFunctionAssigneeDto,
+  CreateStepScreenFunctionDto,
+  UpdateStepScreenFunctionDto,
+  BulkCreateStepScreenFunctionDto,
+  BulkUpdateStepScreenFunctionDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 
@@ -32,6 +37,8 @@ export class TaskWorkflowService {
     private taskWorkflowRepository: typeof TaskWorkflow,
     @Inject('SCREEN_FUNCTION_REPOSITORY')
     private screenFunctionRepository: typeof ScreenFunction,
+    @Inject('STEP_SCREEN_FUNCTION_REPOSITORY')
+    private stepScreenFunctionRepository: typeof StepScreenFunction,
   ) {}
 
   // ===== Workflow Stage Methods =====
@@ -504,5 +511,327 @@ export class TaskWorkflowService {
     }));
 
     return { stages: stagesWithSteps };
+  }
+
+  // ===== Step Screen Function Methods =====
+
+  async findAllStepScreenFunctions(stepId: number): Promise<StepScreenFunction[]> {
+    return this.stepScreenFunctionRepository.findAll({
+      where: { stepId },
+      include: [
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
+      ],
+    });
+  }
+
+  async findStepScreenFunctionById(id: number): Promise<StepScreenFunction> {
+    const ssf = await this.stepScreenFunctionRepository.findByPk(id, {
+      include: [
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
+      ],
+    });
+    if (!ssf) {
+      throw new NotFoundException(`Step screen function with ID ${id} not found`);
+    }
+    return ssf;
+  }
+
+  async createStepScreenFunction(dto: CreateStepScreenFunctionDto): Promise<StepScreenFunction> {
+    return this.stepScreenFunctionRepository.create(dto as any);
+  }
+
+  async updateStepScreenFunction(id: number, dto: UpdateStepScreenFunctionDto): Promise<StepScreenFunction> {
+    const ssf = await this.findStepScreenFunctionById(id);
+    await ssf.update(dto);
+    return ssf;
+  }
+
+  async deleteStepScreenFunction(id: number): Promise<void> {
+    const ssf = await this.findStepScreenFunctionById(id);
+    await ssf.destroy();
+  }
+
+  async bulkCreateStepScreenFunctions(dto: BulkCreateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
+    const items = dto.items.map(item => ({
+      stepId: dto.stepId,
+      screenFunctionId: item.screenFunctionId,
+      estimatedEffort: item.estimatedEffort || 0,
+      note: item.note || null,
+    }));
+    return this.stepScreenFunctionRepository.bulkCreate(items as any[]);
+  }
+
+  async bulkUpdateStepScreenFunctions(dto: BulkUpdateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
+    const results: StepScreenFunction[] = [];
+    for (const item of dto.items) {
+      const ssf = await this.stepScreenFunctionRepository.findByPk(item.id);
+      if (ssf) {
+        const { id, ...updateData } = item;
+        await ssf.update(updateData);
+        results.push(ssf);
+      }
+    }
+    return results;
+  }
+
+  // ===== Stage Detail Methods =====
+
+  async getStageDetail(stageId: number): Promise<{
+    stage: any;
+    steps: any[];
+    progress: {
+      total: number;
+      completed: number;
+      percentage: number;
+    };
+    effort: {
+      estimated: number;
+      actual: number;
+      variance: number;
+    };
+    status: StageStatus;
+  }> {
+    const stage = await this.stageRepository.findByPk(stageId);
+    if (!stage) {
+      throw new NotFoundException(`Stage with ID ${stageId} not found`);
+    }
+
+    // Get all steps for this stage
+    const steps = await this.stepRepository.findAll({
+      where: { stageId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const stepIds = steps.map(s => s.id);
+
+    // Get all step-screen-function links for these steps
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+      include: [
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: Member, as: 'assignee' },
+      ],
+    });
+
+    // Calculate progress based on linked screen functions
+    // Progress = screens that completed ALL steps / Total screens
+    const screenFunctionIds = [...new Set(stepScreenFunctions.map(ssf => ssf.screenFunctionId))];
+    let completedScreens = 0;
+
+    for (const sfId of screenFunctionIds) {
+      const sfStepLinks = stepScreenFunctions.filter(ssf => ssf.screenFunctionId === sfId);
+      const allCompleted = sfStepLinks.length === stepIds.length &&
+        sfStepLinks.every(ssf => ssf.status === 'Completed');
+      if (allCompleted) {
+        completedScreens++;
+      }
+    }
+
+    const totalScreens = screenFunctionIds.length;
+    const progressPercentage = totalScreens > 0
+      ? Math.round((completedScreens / totalScreens) * 100)
+      : 0;
+
+    // Calculate effort from step-screen-functions
+    const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+    const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+    const effortVariance = estimatedEffort > 0
+      ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
+      : 0;
+
+    // Calculate status based on effort and schedule
+    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+
+    // Build steps with their linked screen functions
+    const stepsWithLinks = steps.map(step => ({
+      ...step.toJSON(),
+      screenFunctions: stepScreenFunctions
+        .filter(ssf => ssf.stepId === step.id)
+        .map(ssf => ({
+          id: ssf.id,
+          screenFunctionId: ssf.screenFunctionId,
+          screenFunction: ssf.screenFunction,
+          assignee: ssf.assignee,
+          estimatedEffort: ssf.estimatedEffort,
+          actualEffort: ssf.actualEffort,
+          progress: ssf.progress,
+          status: ssf.status,
+          note: ssf.note,
+        })),
+    }));
+
+    return {
+      stage: stage.toJSON(),
+      steps: stepsWithLinks,
+      progress: {
+        total: totalScreens,
+        completed: completedScreens,
+        percentage: progressPercentage,
+      },
+      effort: {
+        estimated: estimatedEffort,
+        actual: actualEffort,
+        variance: effortVariance,
+      },
+      status,
+    };
+  }
+
+  // Evaluate stage status based on effort variance and schedule
+  private evaluateStageStatus(
+    stage: WorkflowStage,
+    progressPercentage: number,
+    effortVariance: number,
+  ): StageStatus {
+    const now = new Date();
+
+    // Check effort variance (more than 20% over = At Risk, 10-20% = Warning)
+    if (effortVariance > 20) {
+      return StageStatus.AT_RISK;
+    }
+
+    // Check schedule if dates are set
+    if (stage.endDate) {
+      const endDate = new Date(stage.endDate);
+      const startDate = stage.startDate ? new Date(stage.startDate) : now;
+      const totalDuration = endDate.getTime() - startDate.getTime();
+      const elapsed = now.getTime() - startDate.getTime();
+      const expectedProgress = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
+
+      // If we're behind schedule by more than 20%, At Risk
+      if (now > endDate && progressPercentage < 100) {
+        return StageStatus.AT_RISK;
+      }
+
+      // If we're behind expected progress by more than 20%, Warning
+      if (expectedProgress > 0 && progressPercentage < expectedProgress - 20) {
+        return StageStatus.WARNING;
+      }
+    }
+
+    // Check effort variance for Warning level
+    if (effortVariance > 10) {
+      return StageStatus.WARNING;
+    }
+
+    return StageStatus.GOOD;
+  }
+
+  // Get all stages with overview for project detail
+  async getStagesOverview(projectId: number): Promise<Array<{
+    id: number;
+    name: string;
+    displayOrder: number;
+    color: string | null;
+    startDate: Date | null;
+    endDate: Date | null;
+    actualStartDate: Date | null;
+    actualEndDate: Date | null;
+    estimatedEffort: number;
+    actualEffort: number;
+    progress: number;
+    status: StageStatus;
+    stepsCount: number;
+    linkedScreensCount: number;
+  }>> {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const result = [];
+
+    for (const stage of stages) {
+      // Get steps count
+      const steps = await this.stepRepository.findAll({
+        where: { stageId: stage.id, isActive: true },
+      });
+      const stepIds = steps.map(s => s.id);
+
+      // Get linked screen functions
+      const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+        where: { stepId: { [Op.in]: stepIds } },
+      });
+
+      // Calculate unique linked screens
+      const uniqueScreenIds = [...new Set(stepScreenFunctions.map(ssf => ssf.screenFunctionId))];
+
+      // Calculate progress
+      let completedScreens = 0;
+      for (const sfId of uniqueScreenIds) {
+        const sfStepLinks = stepScreenFunctions.filter(ssf => ssf.screenFunctionId === sfId);
+        const allCompleted = sfStepLinks.length === stepIds.length &&
+          sfStepLinks.every(ssf => ssf.status === 'Completed');
+        if (allCompleted) {
+          completedScreens++;
+        }
+      }
+
+      const totalScreens = uniqueScreenIds.length;
+      const progressPercentage = totalScreens > 0
+        ? Math.round((completedScreens / totalScreens) * 100)
+        : 0;
+
+      // Calculate effort
+      const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+      const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+      const effortVariance = estimatedEffort > 0
+        ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
+        : 0;
+
+      // Evaluate status
+      const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+
+      result.push({
+        id: stage.id,
+        name: stage.name,
+        displayOrder: stage.displayOrder,
+        color: stage.color,
+        startDate: stage.startDate,
+        endDate: stage.endDate,
+        actualStartDate: stage.actualStartDate,
+        actualEndDate: stage.actualEndDate,
+        estimatedEffort: stage.estimatedEffort || estimatedEffort,
+        actualEffort: stage.actualEffort || actualEffort,
+        progress: stage.progress || progressPercentage,
+        status: (stage.status as StageStatus) || status,
+        stepsCount: steps.length,
+        linkedScreensCount: uniqueScreenIds.length,
+      });
+    }
+
+    return result;
+  }
+
+  // Get available screen functions that can be linked to a step
+  async getAvailableScreenFunctionsForStep(stepId: number): Promise<ScreenFunction[]> {
+    const step = await this.stepRepository.findByPk(stepId);
+    if (!step) {
+      throw new NotFoundException(`Step with ID ${stepId} not found`);
+    }
+
+    // Get the stage to find the project
+    const stage = await this.stageRepository.findByPk(step.stageId);
+    if (!stage) {
+      throw new NotFoundException(`Stage for step ${stepId} not found`);
+    }
+
+    // Get already linked screen functions for this step
+    const linkedSFs = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId },
+      attributes: ['screenFunctionId'],
+    });
+    const linkedSFIds = linkedSFs.map(sf => sf.screenFunctionId);
+
+    // Get all screen functions for the project that are not linked
+    return this.screenFunctionRepository.findAll({
+      where: {
+        projectId: stage.projectId,
+        ...(linkedSFIds.length > 0 ? { id: { [Op.notIn]: linkedSFIds } } : {}),
+      },
+      order: [['displayOrder', 'ASC'], ['name', 'ASC']],
+    });
   }
 }

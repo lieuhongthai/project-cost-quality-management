@@ -348,6 +348,9 @@ export interface MemberWorkload {
 }
 
 // Task Workflow types
+export type StageStatus = 'Good' | 'Warning' | 'At Risk';
+export type StepScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
 export interface WorkflowStage {
   id: number;
   projectId: number;
@@ -355,6 +358,14 @@ export interface WorkflowStage {
   displayOrder: number;
   isActive: boolean;
   color?: string;
+  startDate?: string;
+  endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  estimatedEffort?: number;
+  actualEffort?: number;
+  progress?: number;
+  status?: StageStatus;
   steps?: WorkflowStep[];
 }
 
@@ -410,4 +421,67 @@ export interface ProjectWorkflowProgress {
   overall: TaskWorkflowProgress;
   byStage: WorkflowProgressByStage[];
   byScreenFunction: WorkflowProgressByScreenFunction[];
+}
+
+// Step Screen Function types
+export interface StepScreenFunction {
+  id: number;
+  stepId: number;
+  screenFunctionId: number;
+  assigneeId?: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StepScreenFunctionStatus;
+  note?: string;
+  screenFunction?: ScreenFunction;
+  assignee?: Member;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Stage Detail types
+export interface StageDetailData {
+  stage: WorkflowStage;
+  steps: (WorkflowStep & {
+    screenFunctions: Array<{
+      id: number;
+      screenFunctionId: number;
+      screenFunction: ScreenFunction;
+      assignee?: Member;
+      estimatedEffort: number;
+      actualEffort: number;
+      progress: number;
+      status: StepScreenFunctionStatus;
+      note?: string;
+    }>;
+  })[];
+  progress: {
+    total: number;
+    completed: number;
+    percentage: number;
+  };
+  effort: {
+    estimated: number;
+    actual: number;
+    variance: number;
+  };
+  status: StageStatus;
+}
+
+export interface StageOverviewData {
+  id: number;
+  name: string;
+  displayOrder: number;
+  color?: string;
+  startDate?: string;
+  endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StageStatus;
+  stepsCount: number;
+  linkedScreensCount: number;
 }

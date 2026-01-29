@@ -53,6 +53,44 @@ export class UpdateWorkflowStageDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  // Date fields
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  // Effort fields
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  // Progress and status (usually calculated, but can be manually set)
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsEnum(['Good', 'Warning', 'At Risk'])
+  status?: 'Good' | 'Warning' | 'At Risk';
 }
 
 export class StageOrderDto {
@@ -228,6 +266,143 @@ export class UpdateScreenFunctionAssigneeDto {
   @Type(() => Number)
   @IsNumber()
   assigneeId?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+// ===== Step Screen Function DTOs =====
+
+export class CreateStepScreenFunctionDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  screenFunctionId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  assigneeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsEnum(['Not Started', 'In Progress', 'Completed', 'Skipped'])
+  status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateStepScreenFunctionDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  assigneeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsEnum(['Not Started', 'In Progress', 'Completed', 'Skipped'])
+  status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkCreateStepScreenFunctionDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StepScreenFunctionItemDto)
+  items: StepScreenFunctionItemDto[];
+}
+
+export class StepScreenFunctionItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  screenFunctionId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkUpdateStepScreenFunctionDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StepScreenFunctionUpdateItemDto)
+  items: StepScreenFunctionUpdateItemDto[];
+}
+
+export class StepScreenFunctionUpdateItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  id: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsEnum(['Not Started', 'In Progress', 'Completed', 'Skipped'])
+  status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
 
   @IsOptional()
   @IsString()

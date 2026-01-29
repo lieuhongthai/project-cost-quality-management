@@ -21,6 +21,7 @@ import { EmailQueue } from "../modules/iam/email-queue.model";
 import { WorkflowStage } from "../modules/task-workflow/workflow-stage.model";
 import { WorkflowStep } from "../modules/task-workflow/workflow-step.model";
 import { TaskWorkflow } from "../modules/task-workflow/task-workflow.model";
+import { StepScreenFunction } from "../modules/task-workflow/step-screen-function.model";
 
 export const databaseProviders = [
   {
@@ -71,6 +72,7 @@ export const databaseProviders = [
         WorkflowStage,
         WorkflowStep,
         TaskWorkflow,
+        StepScreenFunction,
       ]);
 
       await sequelize.sync({alter: true });
