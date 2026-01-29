@@ -16,60 +16,14 @@ code {
     monospace;
 }
 
-.gantt-frappe-wrapper .bar {
-  fill: #93c5fd;
+/* Svar Gantt - fix for last phase visibility */
+.gantt-svar-container {
+  overflow: hidden;
 }
 
-.gantt-frappe-wrapper .bar-progress {
-  fill: #2563eb;
-}
-
-.gantt-frappe-wrapper .gantt-status-good-gantt-complete .bar {
-  fill: #a7f3d0;
-}
-
-.gantt-frappe-wrapper .gantt-status-good-gantt-complete .bar-progress {
-  fill: #059669;
-}
-
-.gantt-frappe-wrapper .gantt-status-good-gantt-in-progress .bar {
-  fill: #a7f3d0;
-}
-
-.gantt-frappe-wrapper .gantt-status-good-gantt-in-progress .bar-progress {
-  fill: #10b981;
-}
-
-.gantt-frappe-wrapper .gantt-status-warning-gantt-complete .bar {
-  fill: #fde68a;
-}
-
-.gantt-frappe-wrapper .gantt-status-warning-gantt-complete .bar-progress {
-  fill: #d97706;
-}
-
-.gantt-frappe-wrapper .gantt-status-warning-gantt-in-progress .bar {
-  fill: #fde68a;
-}
-
-.gantt-frappe-wrapper .gantt-status-warning-gantt-in-progress .bar-progress {
-  fill: #f59e0b;
-}
-
-.gantt-frappe-wrapper .gantt-status-at-risk-gantt-complete .bar {
-  fill: #fecaca;
-}
-
-.gantt-frappe-wrapper .gantt-status-at-risk-gantt-complete .bar-progress {
-  fill: #b91c1c;
-}
-
-.gantt-frappe-wrapper .gantt-status-at-risk-gantt-in-progress .bar {
-  fill: #fecaca;
-}
-
-.gantt-frappe-wrapper .gantt-status-at-risk-gantt-in-progress .bar-progress {
-  fill: #ef4444;
+.gantt-svar-container .gantt-chart-wrapper {
+  overflow: auto;
+  padding-bottom: 80px;
 }
 
 @layer components {
