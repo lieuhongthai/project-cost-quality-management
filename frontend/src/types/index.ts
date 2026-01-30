@@ -444,10 +444,20 @@ export interface StepScreenFunction {
   updatedAt?: string;
 }
 
+// Step-level statistics
+export interface StepStatistics {
+  totalTasks: number;
+  completedTasks: number;
+  progressPercentage: number;
+  estimatedEffort: number;
+  actualEffort: number;
+}
+
 // Stage Detail types
 export interface StageDetailData {
   stage: WorkflowStage;
   steps: (WorkflowStep & {
+    statistics?: StepStatistics;
     screenFunctions: Array<{
       id: number;
       screenFunctionId: number;

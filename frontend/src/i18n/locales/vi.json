@@ -993,7 +993,11 @@
     "actualEndDateApplied": "Đã áp dụng ngày kết thúc thực tế",
     "basedOnWorkingDays": "Dựa trên {{days}} ngày làm việc",
     "useThisDate": "Sử dụng ngày này",
-    "unableToCalculate": "Không thể tính toán"
+    "unableToCalculate": "Không thể tính toán",
+    "stepProgress": "Tiến độ Step",
+    "stepEstEffort": "Est. Effort Step",
+    "stepActEffort": "Act. Effort Step",
+    "stepTasksCount": "Số task trong Step"
   },
   "status": {
     "good": "Tốt",

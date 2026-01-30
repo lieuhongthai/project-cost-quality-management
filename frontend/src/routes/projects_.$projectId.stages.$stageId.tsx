@@ -483,14 +483,49 @@ function StageDetail() {
 
           {/* Active Step Content */}
           {activeStep && (
-            <Card
-              title={`${activeStep.name} - ${t('stages.linkedScreenFunctions')}`}
-              actions={
-                <Button size="sm" onClick={() => setShowLinkScreenFunction(true)}>
-                  {t('stages.linkScreenFunction')}
-                </Button>
-              }
-            >
+            <>
+              {/* Step Statistics */}
+              {activeStep.statistics && (
+                <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('stages.stepProgress')}</p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {activeStep.statistics.progressPercentage}%
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {activeStep.statistics.completedTasks} / {activeStep.statistics.totalTasks} {t('stages.tasksCompleted')}
+                    </p>
+                    <ProgressBar progress={activeStep.statistics.progressPercentage} />
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('stages.stepEstEffort')}</p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {activeStep.statistics.estimatedEffort}h
+                    </p>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('stages.stepActEffort')}</p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {activeStep.statistics.actualEffort}h
+                    </p>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('stages.stepTasksCount')}</p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {activeStep.statistics.totalTasks}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Card
+                title={`${activeStep.name} - ${t('stages.linkedScreenFunctions')}`}
+                actions={
+                  <Button size="sm" onClick={() => setShowLinkScreenFunction(true)}>
+                    {t('stages.linkScreenFunction')}
+                  </Button>
+                }
+              >
               {activeStep.screenFunctions && activeStep.screenFunctions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-300">
@@ -740,7 +775,8 @@ function StageDetail() {
                   }
                 />
               )}
-            </Card>
+              </Card>
+            </>
           )}
         </>
       ) : (

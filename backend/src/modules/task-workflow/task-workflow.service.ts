@@ -539,18 +539,70 @@ export class TaskWorkflowService {
   }
 
   async createStepScreenFunction(dto: CreateStepScreenFunctionDto): Promise<StepScreenFunction> {
-    return this.stepScreenFunctionRepository.create(dto as any);
+    const ssf = await this.stepScreenFunctionRepository.create(dto as any);
+    // Recalculate parent Stage's effort values
+    await this.recalculateStageEffort(dto.stepId);
+    return ssf;
   }
 
   async updateStepScreenFunction(id: number, dto: UpdateStepScreenFunctionDto): Promise<StepScreenFunction> {
     const ssf = await this.findStepScreenFunctionById(id);
     await ssf.update(dto);
+
+    // Recalculate and update parent Stage's effort values
+    await this.recalculateStageEffort(ssf.stepId);
+
     return ssf;
+  }
+
+  // Helper method to recalculate and save Stage effort values
+  private async recalculateStageEffort(stepId: number): Promise<void> {
+    // Get the step to find the stage
+    const step = await this.stepRepository.findByPk(stepId);
+    if (!step) return;
+
+    const stage = await this.stageRepository.findByPk(step.stageId);
+    if (!stage) return;
+
+    // Get all steps for this stage
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: stage.id, isActive: true },
+    });
+    const stepIds = steps.map(s => s.id);
+
+    // Get all step-screen-functions for these steps
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+
+    // Calculate totals
+    const totalTasks = stepScreenFunctions.length;
+    const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
+    const progressPercentage = totalTasks > 0
+      ? Math.round((completedTasks / totalTasks) * 100)
+      : 0;
+    const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+    const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+    const effortVariance = estimatedEffort > 0
+      ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
+      : 0;
+    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+
+    // Update Stage
+    await stage.update({
+      progress: progressPercentage,
+      estimatedEffort,
+      actualEffort,
+      status,
+    });
   }
 
   async deleteStepScreenFunction(id: number): Promise<void> {
     const ssf = await this.findStepScreenFunctionById(id);
+    const stepId = ssf.stepId;
     await ssf.destroy();
+    // Recalculate parent Stage's effort values
+    await this.recalculateStageEffort(stepId);
   }
 
   async bulkCreateStepScreenFunctions(dto: BulkCreateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
@@ -560,19 +612,31 @@ export class TaskWorkflowService {
       estimatedEffort: item.estimatedEffort || 0,
       note: item.note || null,
     }));
-    return this.stepScreenFunctionRepository.bulkCreate(items as any[]);
+    const result = await this.stepScreenFunctionRepository.bulkCreate(items as any[]);
+    // Recalculate parent Stage's effort values
+    await this.recalculateStageEffort(dto.stepId);
+    return result;
   }
 
   async bulkUpdateStepScreenFunctions(dto: BulkUpdateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
     const results: StepScreenFunction[] = [];
+    const updatedStepIds = new Set<number>();
+
     for (const item of dto.items) {
       const ssf = await this.stepScreenFunctionRepository.findByPk(item.id);
       if (ssf) {
         const { id, ...updateData } = item;
         await ssf.update(updateData);
         results.push(ssf);
+        updatedStepIds.add(ssf.stepId);
       }
     }
+
+    // Recalculate parent Stage's effort values for all affected steps
+    for (const stepId of updatedStepIds) {
+      await this.recalculateStageEffort(stepId);
+    }
+
     return results;
   }
 
@@ -641,12 +705,28 @@ export class TaskWorkflowService {
       status,
     });
 
-    // Build steps with their linked screen functions
-    const stepsWithLinks = steps.map(step => ({
-      ...step.toJSON(),
-      screenFunctions: stepScreenFunctions
-        .filter(ssf => ssf.stepId === step.id)
-        .map(ssf => ({
+    // Build steps with their linked screen functions and statistics
+    const stepsWithLinks = steps.map(step => {
+      const stepTasks = stepScreenFunctions.filter(ssf => ssf.stepId === step.id);
+      const stepTotalTasks = stepTasks.length;
+      const stepCompletedTasks = stepTasks.filter(ssf => ssf.status === 'Completed').length;
+      const stepProgressPercentage = stepTotalTasks > 0
+        ? Math.round((stepCompletedTasks / stepTotalTasks) * 100)
+        : 0;
+      const stepEstimatedEffort = stepTasks.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+      const stepActualEffort = stepTasks.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+
+      return {
+        ...step.toJSON(),
+        // Step-level statistics
+        statistics: {
+          totalTasks: stepTotalTasks,
+          completedTasks: stepCompletedTasks,
+          progressPercentage: stepProgressPercentage,
+          estimatedEffort: stepEstimatedEffort,
+          actualEffort: stepActualEffort,
+        },
+        screenFunctions: stepTasks.map(ssf => ({
           id: ssf.id,
           screenFunctionId: ssf.screenFunctionId,
           screenFunction: ssf.screenFunction,
@@ -661,7 +741,8 @@ export class TaskWorkflowService {
           actualStartDate: ssf.actualStartDate,
           actualEndDate: ssf.actualEndDate,
         })),
-    }));
+      };
+    });
 
     return {
       stage: stage.toJSON(),
@@ -776,6 +857,17 @@ export class TaskWorkflowService {
       // Evaluate status
       const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
 
+      // Update Stage if values have changed (in case of legacy data)
+      if (stage.estimatedEffort !== estimatedEffort || stage.actualEffort !== actualEffort ||
+          stage.progress !== progressPercentage) {
+        await stage.update({
+          progress: progressPercentage,
+          estimatedEffort,
+          actualEffort,
+          status,
+        });
+      }
+
       result.push({
         id: stage.id,
         name: stage.name,
@@ -785,10 +877,10 @@ export class TaskWorkflowService {
         endDate: stage.endDate,
         actualStartDate: stage.actualStartDate,
         actualEndDate: stage.actualEndDate,
-        estimatedEffort: stage.estimatedEffort || estimatedEffort,
-        actualEffort: stage.actualEffort || actualEffort,
-        progress: stage.progress ?? progressPercentage,
-        status: (stage.status as StageStatus) || status,
+        estimatedEffort: estimatedEffort,
+        actualEffort: actualEffort,
+        progress: progressPercentage,
+        status: status,
         stepsCount: steps.length,
         linkedScreensCount: uniqueScreenIds.length,
       });
