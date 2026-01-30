@@ -47,7 +47,8 @@
     "update": "Update",
     "saving": "Saving...",
     "hours": "hours",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "applied": "Applied!"
   },
   "auth": {
     "loginTitle": "Welcome back",
@@ -966,7 +967,14 @@
     "allScreenFunctionsLinked": "All screen/functions are already linked to this step.",
     "unassigned": "Unassigned",
     "unlinkConfirm": "Are you sure you want to unlink this screen/function?",
-    "unlink": "Unlink"
+    "unlink": "Unlink",
+    "suggestedEndDate": "Suggested End Date",
+    "suggestedActualEndDate": "Suggested Actual End Date",
+    "endDateApplied": "End Date Applied",
+    "actualEndDateApplied": "Actual End Date Applied",
+    "basedOnWorkingDays": "Based on {{days}} working days",
+    "useThisDate": "Use this date",
+    "unableToCalculate": "Unable to calculate"
   },
   "status": {
     "good": "Good",

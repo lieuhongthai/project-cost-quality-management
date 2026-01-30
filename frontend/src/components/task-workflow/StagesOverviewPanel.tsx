@@ -4,13 +4,20 @@ import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, EmptyState, ProgressBar } from '@/components/common';
 import { StageEditModal } from './StageEditModal';
-import type { StageOverviewData, StageStatus } from '@/types';
+import type { StageOverviewData, StageStatus, EffortUnit, ProjectSettings } from '@/types';
+import { convertEffort, formatEffort, EFFORT_UNIT_LABELS } from '@/utils/effortUtils';
 
 interface StagesOverviewPanelProps {
   projectId: number;
+  effortUnit?: EffortUnit;
+  workSettings?: Partial<ProjectSettings>;
 }
 
-export function StagesOverviewPanel({ projectId }: StagesOverviewPanelProps) {
+export function StagesOverviewPanel({
+  projectId,
+  effortUnit = 'man-hour',
+  workSettings,
+}: StagesOverviewPanelProps) {
   const { t } = useTranslation();
   const [editingStage, setEditingStage] = useState<StageOverviewData | null>(null);
 
@@ -42,6 +49,12 @@ export function StagesOverviewPanel({ projectId }: StagesOverviewPanelProps) {
     return new Date(dateStr).toLocaleDateString();
   };
 
+  // Format effort with unit conversion
+  const displayEffort = (hours: number): string => {
+    const converted = convertEffort(hours, 'man-hour', effortUnit, workSettings);
+    return formatEffort(converted, effortUnit);
+  };
+
   // Get status color class
   const getStatusColor = (status: StageStatus): string => {
     switch (status) {
@@ -55,6 +68,9 @@ export function StagesOverviewPanel({ projectId }: StagesOverviewPanelProps) {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Get unit label
+  const unitLabel = EFFORT_UNIT_LABELS[effortUnit];
 
   if (isLoading) {
     return (
@@ -152,11 +168,15 @@ export function StagesOverviewPanel({ projectId }: StagesOverviewPanelProps) {
             <div className="grid grid-cols-2 gap-2 text-sm border-t pt-3">
               <div>
                 <span className="text-gray-500">{t('stages.estimatedEffort')}:</span>
-                <span className="ml-1 font-medium">{stage.estimatedEffort || 0}h</span>
+                <span className="ml-1 font-medium">
+                  {displayEffort(stage.estimatedEffort || 0)} {unitLabel}
+                </span>
               </div>
               <div>
                 <span className="text-gray-500">{t('stages.actualEffort')}:</span>
-                <span className="ml-1 font-medium">{stage.actualEffort || 0}h</span>
+                <span className="ml-1 font-medium">
+                  {displayEffort(stage.actualEffort || 0)} {unitLabel}
+                </span>
               </div>
             </div>
 
@@ -177,6 +197,9 @@ export function StagesOverviewPanel({ projectId }: StagesOverviewPanelProps) {
       {editingStage && (
         <StageEditModal
           stage={editingStage}
+          projectId={projectId}
+          effortUnit={effortUnit}
+          workSettings={workSettings}
           onClose={handleEditClose}
         />
       )}

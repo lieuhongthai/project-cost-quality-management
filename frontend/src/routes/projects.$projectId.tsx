@@ -1368,7 +1368,11 @@ function ProjectDetail() {
       )}
 
       {activeTab === 'stages' && (
-        <StagesOverviewPanel projectId={parseInt(projectId)} />
+        <StagesOverviewPanel
+          projectId={parseInt(projectId)}
+          effortUnit={effortUnit}
+          workSettings={settingsForm}
+        />
       )}
 
       {activeTab === 'task-workflow' && (

@@ -47,7 +47,8 @@
     "update": "Cập nhật",
     "saving": "Đang lưu...",
     "hours": "giờ",
-    "refresh": "Làm mới"
+    "refresh": "Làm mới",
+    "applied": "Đã áp dụng!"
   },
   "auth": {
     "loginTitle": "Chào mừng trở lại",
@@ -966,7 +967,14 @@
     "allScreenFunctionsLinked": "Tất cả MH/CN đã được liên kết với bước này.",
     "unassigned": "Chưa phân công",
     "unlinkConfirm": "Bạn có chắc muốn hủy liên kết màn hình/chức năng này?",
-    "unlink": "Hủy liên kết"
+    "unlink": "Hủy liên kết",
+    "suggestedEndDate": "Ngày kết thúc đề xuất",
+    "suggestedActualEndDate": "Ngày kết thúc thực tế đề xuất",
+    "endDateApplied": "Đã áp dụng ngày kết thúc",
+    "actualEndDateApplied": "Đã áp dụng ngày kết thúc thực tế",
+    "basedOnWorkingDays": "Dựa trên {{days}} ngày làm việc",
+    "useThisDate": "Sử dụng ngày này",
+    "unableToCalculate": "Không thể tính toán"
   },
   "status": {
     "good": "Tốt",
