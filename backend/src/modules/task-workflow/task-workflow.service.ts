@@ -616,13 +616,15 @@ export class TaskWorkflowService {
     });
 
     // Calculate progress based on linked screen functions
-    // Progress = screens that completed ALL steps / Total screens
+    // Progress = screens that completed ALL steps where they are linked / Total screens
+    // A screen is "completed" when it has status "Completed" in ALL steps it's linked to
     const screenFunctionIds = [...new Set(stepScreenFunctions.map(ssf => ssf.screenFunctionId))];
     let completedScreens = 0;
 
     for (const sfId of screenFunctionIds) {
       const sfStepLinks = stepScreenFunctions.filter(ssf => ssf.screenFunctionId === sfId);
-      const allCompleted = sfStepLinks.length === stepIds.length &&
+      // Check if ALL links for this screen have status "Completed"
+      const allCompleted = sfStepLinks.length > 0 &&
         sfStepLinks.every(ssf => ssf.status === 'Completed');
       if (allCompleted) {
         completedScreens++;
@@ -659,6 +661,10 @@ export class TaskWorkflowService {
           progress: ssf.progress,
           status: ssf.status,
           note: ssf.note,
+          estimatedStartDate: ssf.estimatedStartDate,
+          estimatedEndDate: ssf.estimatedEndDate,
+          actualStartDate: ssf.actualStartDate,
+          actualEndDate: ssf.actualEndDate,
         })),
     }));
 
