@@ -949,7 +949,7 @@
     "statusAutoCalculated": "Trạng thái được tính tự động nhưng có thể ghi đè thủ công.",
     "notFound": "Không tìm thấy giai đoạn",
     "backToProject": "Quay lại {{project}}",
-    "screensCompleted": "màn hình hoàn thành",
+    "tasksCompleted": "task hoàn thành",
     "variance": "độ lệch",
     "schedule": "Lịch trình",
     "start": "Bắt đầu",

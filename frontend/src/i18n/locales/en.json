@@ -949,7 +949,7 @@
     "statusAutoCalculated": "Status is automatically calculated but can be manually overridden.",
     "notFound": "Stage not found",
     "backToProject": "Back to {{project}}",
-    "screensCompleted": "screens completed",
+    "tasksCompleted": "tasks completed",
     "variance": "variance",
     "schedule": "Schedule",
     "start": "Start",

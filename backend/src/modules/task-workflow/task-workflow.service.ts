@@ -615,25 +615,12 @@ export class TaskWorkflowService {
       ],
     });
 
-    // Calculate progress based on linked screen functions
-    // Progress = screens that completed ALL steps where they are linked / Total screens
-    // A screen is "completed" when it has status "Completed" in ALL steps it's linked to
-    const screenFunctionIds = [...new Set(stepScreenFunctions.map(ssf => ssf.screenFunctionId))];
-    let completedScreens = 0;
-
-    for (const sfId of screenFunctionIds) {
-      const sfStepLinks = stepScreenFunctions.filter(ssf => ssf.screenFunctionId === sfId);
-      // Check if ALL links for this screen have status "Completed"
-      const allCompleted = sfStepLinks.length > 0 &&
-        sfStepLinks.every(ssf => ssf.status === 'Completed');
-      if (allCompleted) {
-        completedScreens++;
-      }
-    }
-
-    const totalScreens = screenFunctionIds.length;
-    const progressPercentage = totalScreens > 0
-      ? Math.round((completedScreens / totalScreens) * 100)
+    // Calculate progress based on total tasks (step-screen-functions)
+    // Progress = completed tasks / total tasks
+    const totalTasks = stepScreenFunctions.length;
+    const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
+    const progressPercentage = totalTasks > 0
+      ? Math.round((completedTasks / totalTasks) * 100)
       : 0;
 
     // Calculate effort from step-screen-functions
@@ -645,6 +632,14 @@ export class TaskWorkflowService {
 
     // Calculate status based on effort and schedule
     const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+
+    // Update Stage progress in database so overview shows latest value
+    await stage.update({
+      progress: progressPercentage,
+      estimatedEffort,
+      actualEffort,
+      status,
+    });
 
     // Build steps with their linked screen functions
     const stepsWithLinks = steps.map(step => ({
@@ -672,8 +667,8 @@ export class TaskWorkflowService {
       stage: stage.toJSON(),
       steps: stepsWithLinks,
       progress: {
-        total: totalScreens,
-        completed: completedScreens,
+        total: totalTasks,
+        completed: completedTasks,
         percentage: progressPercentage,
       },
       effort: {
@@ -756,28 +751,19 @@ export class TaskWorkflowService {
       });
       const stepIds = steps.map(s => s.id);
 
-      // Get linked screen functions
+      // Get linked screen functions (tasks)
       const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
         where: { stepId: { [Op.in]: stepIds } },
       });
 
-      // Calculate unique linked screens
+      // Calculate unique linked screens for display
       const uniqueScreenIds = [...new Set(stepScreenFunctions.map(ssf => ssf.screenFunctionId))];
 
-      // Calculate progress
-      let completedScreens = 0;
-      for (const sfId of uniqueScreenIds) {
-        const sfStepLinks = stepScreenFunctions.filter(ssf => ssf.screenFunctionId === sfId);
-        const allCompleted = sfStepLinks.length === stepIds.length &&
-          sfStepLinks.every(ssf => ssf.status === 'Completed');
-        if (allCompleted) {
-          completedScreens++;
-        }
-      }
-
-      const totalScreens = uniqueScreenIds.length;
-      const progressPercentage = totalScreens > 0
-        ? Math.round((completedScreens / totalScreens) * 100)
+      // Calculate progress based on total tasks
+      const totalTasks = stepScreenFunctions.length;
+      const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
+      const progressPercentage = totalTasks > 0
+        ? Math.round((completedTasks / totalTasks) * 100)
         : 0;
 
       // Calculate effort
@@ -801,7 +787,7 @@ export class TaskWorkflowService {
         actualEndDate: stage.actualEndDate,
         estimatedEffort: stage.estimatedEffort || estimatedEffort,
         actualEffort: stage.actualEffort || actualEffort,
-        progress: stage.progress || progressPercentage,
+        progress: stage.progress ?? progressPercentage,
         status: (stage.status as StageStatus) || status,
         stepsCount: steps.length,
         linkedScreensCount: uniqueScreenIds.length,

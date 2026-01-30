@@ -403,7 +403,7 @@ function StageDetail() {
               {progress.percentage}%
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              {progress.completed} / {progress.total} {t('stages.screensCompleted')}
+              {progress.completed} / {progress.total} {t('stages.tasksCompleted')}
             </p>
             <ProgressBar progress={progress.percentage} />
           </Card>
