@@ -555,7 +555,7 @@ export class TaskWorkflowService {
     return ssf;
   }
 
-  // Helper method to recalculate and save Stage effort values
+  // Helper method to recalculate and save Stage effort values (only actualEffort and progress)
   private async recalculateStageEffort(stepId: number): Promise<void> {
     // Get the step to find the stage
     const step = await this.stepRepository.findByPk(stepId);
@@ -575,23 +575,24 @@ export class TaskWorkflowService {
       where: { stepId: { [Op.in]: stepIds } },
     });
 
-    // Calculate totals
+    // Calculate totals - only actualEffort and progress, NOT estimatedEffort
     const totalTasks = stepScreenFunctions.length;
     const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
     const progressPercentage = totalTasks > 0
       ? Math.round((completedTasks / totalTasks) * 100)
       : 0;
-    const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
     const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+
+    // Use existing estimatedEffort for status calculation (don't override it)
+    const estimatedEffort = stage.estimatedEffort || 0;
     const effortVariance = estimatedEffort > 0
       ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
       : 0;
     const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
 
-    // Update Stage
+    // Update Stage - only actualEffort and progress, NOT estimatedEffort
     await stage.update({
       progress: progressPercentage,
-      estimatedEffort,
       actualEffort,
       status,
     });
@@ -687,9 +688,11 @@ export class TaskWorkflowService {
       ? Math.round((completedTasks / totalTasks) * 100)
       : 0;
 
-    // Calculate effort from step-screen-functions
-    const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+    // Calculate actualEffort from tasks (NOT estimatedEffort - that's set manually via Edit Stage)
     const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+
+    // Use the stored estimatedEffort (manually set via Edit Stage)
+    const estimatedEffort = stage.estimatedEffort || 0;
     const effortVariance = estimatedEffort > 0
       ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
       : 0;
@@ -697,10 +700,9 @@ export class TaskWorkflowService {
     // Calculate status based on effort and schedule
     const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
 
-    // Update Stage progress in database so overview shows latest value
+    // Update Stage only actualEffort and progress (NOT estimatedEffort - that's manual)
     await stage.update({
       progress: progressPercentage,
-      estimatedEffort,
       actualEffort,
       status,
     });
@@ -847,9 +849,11 @@ export class TaskWorkflowService {
         ? Math.round((completedTasks / totalTasks) * 100)
         : 0;
 
-      // Calculate effort
-      const estimatedEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+      // Calculate actualEffort from tasks (NOT estimatedEffort - that's set manually)
       const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+
+      // Use the stored estimatedEffort (manually set via Edit Stage)
+      const estimatedEffort = stage.estimatedEffort || 0;
       const effortVariance = estimatedEffort > 0
         ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
         : 0;
@@ -857,12 +861,10 @@ export class TaskWorkflowService {
       // Evaluate status
       const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
 
-      // Update Stage if values have changed (in case of legacy data)
-      if (stage.estimatedEffort !== estimatedEffort || stage.actualEffort !== actualEffort ||
-          stage.progress !== progressPercentage) {
+      // Update Stage only actualEffort and progress (NOT estimatedEffort - that's manual)
+      if (stage.actualEffort !== actualEffort || stage.progress !== progressPercentage) {
         await stage.update({
           progress: progressPercentage,
-          estimatedEffort,
           actualEffort,
           status,
         });
