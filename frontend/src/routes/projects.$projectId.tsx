@@ -351,22 +351,6 @@ function ProjectDetail() {
     reorderMutation.mutate(phaseOrders);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">{t('project.noProjects')}</p>
-      </div>
-    );
-  }
-
   const tabs: Array<{ id: ProjectTab; name: string }> = [
     { id: 'overview' as const, name: t('dashboard.overview') },
     { id: 'timeline' as const, name: t('phase.timeline.title') },
@@ -391,6 +375,22 @@ function ProjectDetail() {
     },
     [activeTab, navigate, projectId],
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">{t('project.noProjects')}</p>
+      </div>
+    );
+  }
 
   // Filter screen functions
   const filteredScreenFunctions = screenFunctions?.filter((sf) => {
