@@ -342,6 +342,22 @@ export class UpdateStepScreenFunctionDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
 }
 
 export class BulkCreateStepScreenFunctionDto {
