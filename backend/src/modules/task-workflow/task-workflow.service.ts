@@ -775,12 +775,15 @@ export class TaskWorkflowService {
   ): StageStatus {
     const now = new Date();
 
+    // If 100% complete, always return Good (task is done!)
+    if (progressPercentage >= 100) {
+      return StageStatus.GOOD;
+    }
+
     // Only check effort variance if estimatedEffort was set (meaningful comparison)
-    if (hasEstimatedEffort) {
-      // Check effort variance (more than 20% over = At Risk, 10-20% = Warning)
-      if (effortVariance > 20) {
-        return StageStatus.AT_RISK;
-      }
+    // Only positive variance (over budget) is concerning
+    if (hasEstimatedEffort && effortVariance > 20) {
+      return StageStatus.AT_RISK;
     }
 
     // Check schedule if dates are set
@@ -789,10 +792,13 @@ export class TaskWorkflowService {
       const startDate = stage.startDate ? new Date(stage.startDate) : now;
       const totalDuration = endDate.getTime() - startDate.getTime();
       const elapsed = now.getTime() - startDate.getTime();
-      const expectedProgress = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
+      // Cap expectedProgress at 100%
+      const expectedProgress = totalDuration > 0
+        ? Math.min((elapsed / totalDuration) * 100, 100)
+        : 0;
 
-      // If we're behind schedule by more than 20%, At Risk
-      if (now > endDate && progressPercentage < 100) {
+      // If we're past end date and not complete, At Risk
+      if (now > endDate) {
         return StageStatus.AT_RISK;
       }
 
@@ -803,6 +809,7 @@ export class TaskWorkflowService {
     }
 
     // Only check effort variance for Warning level if estimatedEffort was set
+    // Only positive variance (over budget) is concerning
     if (hasEstimatedEffort && effortVariance > 10) {
       return StageStatus.WARNING;
     }
