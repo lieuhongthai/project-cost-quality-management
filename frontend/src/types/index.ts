@@ -434,6 +434,10 @@ export interface StepScreenFunction {
   progress: number;
   status: StepScreenFunctionStatus;
   note?: string;
+  estimatedStartDate?: string;
+  estimatedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
   screenFunction?: ScreenFunction;
   assignee?: Member;
   createdAt?: string;
@@ -454,6 +458,10 @@ export interface StageDetailData {
       progress: number;
       status: StepScreenFunctionStatus;
       note?: string;
+      estimatedStartDate?: string;
+      estimatedEndDate?: string;
+      actualStartDate?: string;
+      actualEndDate?: string;
     }>;
   })[];
   progress: {

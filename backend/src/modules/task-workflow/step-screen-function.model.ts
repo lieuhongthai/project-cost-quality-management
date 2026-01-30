@@ -88,6 +88,30 @@ export class StepScreenFunction extends Model {
   })
   note: string;
 
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  estimatedStartDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  estimatedEndDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  actualStartDate: string;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+  })
+  actualEndDate: string;
+
   @BelongsTo(() => WorkflowStep, { onDelete: 'CASCADE' })
   step: WorkflowStep;
 

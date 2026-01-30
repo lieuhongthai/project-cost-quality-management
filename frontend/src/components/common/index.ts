@@ -14,4 +14,5 @@ export {
   Checkbox,
   Radio,
   IconButton,
+  Tooltip,
 } from './UIComponents';

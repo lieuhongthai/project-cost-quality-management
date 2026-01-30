@@ -291,6 +291,10 @@ export const taskWorkflowApi = {
     progress?: number;
     status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
     note?: string;
+    estimatedStartDate?: string;
+    estimatedEndDate?: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
   }) =>
     api.put<StepScreenFunction>(`/task-workflow/step-screen-functions/${id}`, data),
   deleteStepScreenFunction: (id: number) =>
