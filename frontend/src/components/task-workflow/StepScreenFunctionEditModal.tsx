@@ -166,7 +166,7 @@ export function StepScreenFunctionEditModal({
             <Input
               type="number"
               min={0}
-              step={0.5}
+              step="any"
               value={formData.estimatedEffort}
               onChange={(e) => handleChange('estimatedEffort', Number(e.target.value))}
             />
@@ -178,7 +178,7 @@ export function StepScreenFunctionEditModal({
             <Input
               type="number"
               min={0}
-              step={0.5}
+              step="any"
               value={formData.actualEffort}
               onChange={(e) => handleChange('actualEffort', Number(e.target.value))}
             />

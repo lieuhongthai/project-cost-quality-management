@@ -127,12 +127,18 @@ function StageDetail() {
     enabled: !!activeStepId && showLinkScreenFunction,
   });
 
+  // Helper to invalidate related queries
+  const invalidateStageQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+    queryClient.invalidateQueries({ queryKey: ['stagesOverview', parseInt(projectId)] });
+  };
+
   // Link screen functions mutation
   const linkMutation = useMutation({
     mutationFn: (data: { stepId: number; items: Array<{ screenFunctionId: number }> }) =>
       taskWorkflowApi.bulkCreateStepScreenFunctions(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+      invalidateStageQueries();
       queryClient.invalidateQueries({ queryKey: ['availableScreenFunctions', activeStepId] });
       setShowLinkScreenFunction(false);
       setSelectedSFIds([]);
@@ -143,7 +149,7 @@ function StageDetail() {
   const unlinkMutation = useMutation({
     mutationFn: (id: number) => taskWorkflowApi.deleteStepScreenFunction(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+      invalidateStageQueries();
     },
   });
 
@@ -152,7 +158,7 @@ function StageDetail() {
     mutationFn: (data: { id: number; payload: Partial<StepScreenFunction> }) =>
       taskWorkflowApi.updateStepScreenFunction(data.id, data.payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+      invalidateStageQueries();
       setQuickEditId(null);
       setQuickEditDraft(null);
     },
@@ -163,7 +169,7 @@ function StageDetail() {
     mutationFn: (data: { actualStartDate?: string; actualEndDate?: string }) =>
       taskWorkflowApi.updateStage(parseInt(stageId), data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+      invalidateStageQueries();
       setShowUpdateActualDateConfirm(false);
     },
   });
@@ -661,7 +667,7 @@ function StageDetail() {
                                 <input
                                   type="number"
                                   min={0}
-                                  step={0.5}
+                                  step="any"
                                   value={estimatedValue}
                                   onChange={(e) => setQuickEditDraft((prev) => prev ? ({
                                     ...prev,
@@ -678,7 +684,7 @@ function StageDetail() {
                                 <input
                                   type="number"
                                   min={0}
-                                  step={0.5}
+                                  step="any"
                                   value={actualValue}
                                   onChange={(e) => setQuickEditDraft((prev) => prev ? ({
                                     ...prev,
@@ -877,7 +883,7 @@ function StageDetail() {
           onClose={(saved) => {
             setEditingSSF(null);
             if (saved) {
-              queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
+              invalidateStageQueries();
             }
           }}
         />

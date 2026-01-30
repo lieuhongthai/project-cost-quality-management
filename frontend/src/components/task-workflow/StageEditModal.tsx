@@ -316,7 +316,7 @@ export function StageEditModal({
               <Input
                 type="number"
                 min={0}
-                step={effortUnit === 'man-hour' ? 0.5 : 0.01}
+                step="any"
                 value={formData.estimatedEffort}
                 onChange={(e) => handleChange('estimatedEffort', parseFloat(e.target.value) || 0)}
               />
@@ -328,7 +328,7 @@ export function StageEditModal({
               <Input
                 type="number"
                 min={0}
-                step={effortUnit === 'man-hour' ? 0.5 : 0.01}
+                step="any"
                 value={formData.actualEffort}
                 onChange={(e) => handleChange('actualEffort', parseFloat(e.target.value) || 0)}
               />
