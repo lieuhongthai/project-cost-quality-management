@@ -585,10 +585,11 @@ export class TaskWorkflowService {
 
     // Use existing estimatedEffort for status calculation (don't override it)
     const estimatedEffort = stage.estimatedEffort || 0;
-    const effortVariance = estimatedEffort > 0
+    const hasEstimatedEffort = estimatedEffort > 0;
+    const effortVariance = hasEstimatedEffort
       ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
       : 0;
-    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance, hasEstimatedEffort);
 
     // Update Stage - only actualEffort and progress, NOT estimatedEffort
     await stage.update({
@@ -693,12 +694,13 @@ export class TaskWorkflowService {
 
     // Use the stored estimatedEffort (manually set via Edit Stage)
     const estimatedEffort = stage.estimatedEffort || 0;
-    const effortVariance = estimatedEffort > 0
+    const hasEstimatedEffort = estimatedEffort > 0;
+    const effortVariance = hasEstimatedEffort
       ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
       : 0;
 
     // Calculate status based on effort and schedule
-    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+    const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance, hasEstimatedEffort);
 
     // Update Stage only actualEffort and progress (NOT estimatedEffort - that's manual)
     await stage.update({
@@ -764,16 +766,21 @@ export class TaskWorkflowService {
   }
 
   // Evaluate stage status based on effort variance and schedule
+  // effortVariance is only meaningful when estimatedEffort > 0
   private evaluateStageStatus(
     stage: WorkflowStage,
     progressPercentage: number,
     effortVariance: number,
+    hasEstimatedEffort: boolean = true,
   ): StageStatus {
     const now = new Date();
 
-    // Check effort variance (more than 20% over = At Risk, 10-20% = Warning)
-    if (effortVariance > 20) {
-      return StageStatus.AT_RISK;
+    // Only check effort variance if estimatedEffort was set (meaningful comparison)
+    if (hasEstimatedEffort) {
+      // Check effort variance (more than 20% over = At Risk, 10-20% = Warning)
+      if (effortVariance > 20) {
+        return StageStatus.AT_RISK;
+      }
     }
 
     // Check schedule if dates are set
@@ -795,8 +802,8 @@ export class TaskWorkflowService {
       }
     }
 
-    // Check effort variance for Warning level
-    if (effortVariance > 10) {
+    // Only check effort variance for Warning level if estimatedEffort was set
+    if (hasEstimatedEffort && effortVariance > 10) {
       return StageStatus.WARNING;
     }
 
@@ -854,12 +861,13 @@ export class TaskWorkflowService {
 
       // Use the stored estimatedEffort (manually set via Edit Stage)
       const estimatedEffort = stage.estimatedEffort || 0;
-      const effortVariance = estimatedEffort > 0
+      const hasEstimatedEffort = estimatedEffort > 0;
+      const effortVariance = hasEstimatedEffort
         ? Math.round(((actualEffort - estimatedEffort) / estimatedEffort) * 100)
         : 0;
 
       // Evaluate status
-      const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance);
+      const status = this.evaluateStageStatus(stage, progressPercentage, effortVariance, hasEstimatedEffort);
 
       // Update Stage only actualEffort and progress (NOT estimatedEffort - that's manual)
       if (stage.actualEffort !== actualEffort || stage.progress !== progressPercentage) {
