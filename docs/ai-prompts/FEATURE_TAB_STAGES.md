@@ -45,6 +45,11 @@ Thêm tab "Stages" trong Project Detail để quản lý các giai đoạn (Stag
 
 **Route**: `/projects/:projectId/stages/:stageId`
 
+**File naming**: `projects_.$projectId.stages.$stageId.tsx`
+- Sử dụng `_` sau `projects` để tạo **pathless layout route**
+- Route này **không nested** trong `projects.$projectId.tsx`
+- Render như một full page độc lập
+
 **Layout**:
 - Header: Stage name, status badge, back button
 - Overview section: Progress, Effort stats, Status indicator
@@ -467,6 +472,32 @@ interface StageEditModalProps {
 
 ## Notes
 
+### TanStack Router File Naming Convention
+
+Khi tạo route mới, cần hiểu convention của TanStack Router:
+
+```
+projects.$projectId.tsx              → Nested under /projects (cần Outlet trong parent)
+projects_.$projectId.stages.tsx      → Độc lập, URL: /projects/$projectId/stages
+```
+
+**Quy tắc:**
+- `parent.child.tsx` = Child nested trong Parent (cần `<Outlet />` trong parent)
+- `parent_.child.tsx` = Child **không nested**, render như full page độc lập
+- Dấu `_` tạo "pathless layout" - URL path vẫn giữ nguyên, nhưng không nested
+
+**Ví dụ trong project:**
+```
+projects.$projectId.tsx                      → Project Detail page
+projects_.$projectId.stages.$stageId.tsx     → Stage Detail (full page, không nested)
+phases.$phaseId.tsx                          → Phase Detail (full page)
+```
+
+**Khi nào dùng `_`:**
+- Khi muốn tạo route có URL giống nested nhưng render độc lập
+- Khi parent component không có `<Outlet />`
+- Khi muốn full-page navigation thay vì render trong tab/section
+
 ### Relationship với Phases
 
 - **Stages** và **Phases** hoạt động **song song, độc lập**
@@ -498,7 +529,7 @@ Cần chạy migration để:
 ### Frontend
 - `frontend/src/components/task-workflow/StagesOverviewPanel.tsx`
 - `frontend/src/components/task-workflow/StageEditModal.tsx`
-- `frontend/src/routes/projects.$projectId.stages.$stageId.tsx`
+- `frontend/src/routes/projects_.$projectId.stages.$stageId.tsx` (Note: `_` for pathless route)
 - `frontend/src/routes/projects.$projectId.tsx` (add Stages tab)
 - `frontend/src/services/api.ts`
 - `frontend/src/types/index.ts`

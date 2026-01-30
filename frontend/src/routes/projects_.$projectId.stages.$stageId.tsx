@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { taskWorkflowApi, projectApi, memberApi } from "@/services/api";
@@ -13,16 +13,13 @@ import {
 import { useTranslation } from "react-i18next";
 import type { StepScreenFunctionStatus, StepScreenFunction } from "@/types";
 
-// @ts-expect-error - Route will be registered after build
-export const Route = createFileRoute("/projects/$projectId/stages/$stageId")({
+export const Route = createFileRoute("/projects_/$projectId/stages/$stageId")({
   component: StageDetail,
 });
 
 function StageDetail() {
   const { t } = useTranslation();
-  // Use direct params access for unregistered route
-  const params = useParams({ strict: false }) as { projectId: string; stageId: string };
-  const { projectId, stageId } = params;
+  const { projectId, stageId } = Route.useParams();
   const queryClient = useQueryClient();
 
   // State
