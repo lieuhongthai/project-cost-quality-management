@@ -790,17 +790,27 @@ export class TaskWorkflowService {
     if (stage.endDate) {
       const endDate = new Date(stage.endDate);
       const startDate = stage.startDate ? new Date(stage.startDate) : now;
+
+      // If actualEndDate is set and is later than planned endDate, At Risk
+      if (stage.actualEndDate) {
+        const actualEndDate = new Date(stage.actualEndDate);
+        if (actualEndDate > endDate) {
+          return StageStatus.AT_RISK;
+        }
+      } else {
+        // No actualEndDate yet - check if we're past endDate and not complete
+        if (now > endDate) {
+          return StageStatus.AT_RISK;
+        }
+      }
+
+      // Check expected progress (only if not yet completed)
       const totalDuration = endDate.getTime() - startDate.getTime();
       const elapsed = now.getTime() - startDate.getTime();
       // Cap expectedProgress at 100%
       const expectedProgress = totalDuration > 0
         ? Math.min((elapsed / totalDuration) * 100, 100)
         : 0;
-
-      // If we're past end date and not complete, At Risk
-      if (now > endDate) {
-        return StageStatus.AT_RISK;
-      }
 
       // If we're behind expected progress by more than 20%, Warning
       if (expectedProgress > 0 && progressPercentage < expectedProgress - 20) {
