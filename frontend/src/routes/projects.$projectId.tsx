@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
 import {
@@ -28,18 +28,37 @@ import {
   DEFAULT_WORK_SETTINGS,
 } from '@/utils/effortUtils';
 
+const PROJECT_TABS = [
+  'overview',
+  'timeline',
+  'timeline-svar',
+  'phases',
+  'stages',
+  'screen-functions',
+  'members',
+  'task-workflow',
+  'settings',
+] as const;
+
+type ProjectTab = typeof PROJECT_TABS[number];
+
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetail,
+  validateSearch: (search: Record<string, unknown>) => {
+    const tab =
+      typeof search.tab === 'string' && PROJECT_TABS.includes(search.tab as ProjectTab)
+        ? (search.tab as ProjectTab)
+        : 'overview';
+    return { tab };
+  },
 });
 
 function ProjectDetail() {
   const { t } = useTranslation();
   const { projectId } = Route.useParams();
+  const { tab: activeTab } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'timeline' | 'timeline-svar' | 'phases' | 'stages' | 'screen-functions' | 'members' | 'task-workflow' | 'settings'
-  >('overview');
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddPhase, setShowAddPhase] = useState(false);
@@ -332,6 +351,31 @@ function ProjectDetail() {
     reorderMutation.mutate(phaseOrders);
   };
 
+  const tabs: Array<{ id: ProjectTab; name: string }> = [
+    { id: 'overview' as const, name: t('dashboard.overview') },
+    { id: 'timeline' as const, name: t('phase.timeline.title') },
+    { id: 'timeline-svar' as const, name: t('phase.timelineSvar.title') },
+    { id: 'phases' as const, name: t('nav.phases') },
+    { id: 'stages' as const, name: t('stages.title') },
+    { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
+    { id: 'members' as const, name: t('nav.members') },
+    { id: 'task-workflow' as const, name: t('taskWorkflow.title') },
+    { id: 'settings' as const, name: t('nav.settings') },
+  ];
+
+  const handleTabChange = useCallback(
+    (tabId: ProjectTab) => {
+      if (tabId === activeTab) return;
+      navigate({
+        to: '/projects/$projectId',
+        params: { projectId },
+        search: (prev) => ({ ...prev, tab: tabId }),
+        replace: true,
+      });
+    },
+    [activeTab, navigate, projectId],
+  );
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -347,18 +391,6 @@ function ProjectDetail() {
       </div>
     );
   }
-
-  const tabs = [
-    { id: 'overview' as const, name: t('dashboard.overview') },
-    { id: 'timeline' as const, name: t('phase.timeline.title') },
-    { id: 'timeline-svar' as const, name: t('phase.timelineSvar.title') },
-    { id: 'phases' as const, name: t('nav.phases') },
-    { id: 'stages' as const, name: t('stages.title') },
-    { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
-    { id: 'members' as const, name: t('nav.members') },
-    { id: 'task-workflow' as const, name: t('taskWorkflow.title') },
-    { id: 'settings' as const, name: t('nav.settings') },
-  ];
 
   // Filter screen functions
   const filteredScreenFunctions = screenFunctions?.filter((sf) => {
@@ -608,7 +640,7 @@ function ProjectDetail() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`${
                 activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
