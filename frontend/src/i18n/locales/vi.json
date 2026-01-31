@@ -919,7 +919,8 @@
     "addStep": "Thêm bước",
     "stepName": "Tên bước",
     "editStep": "Sửa bước",
-    "confirmDeleteStep": "Bạn có chắc muốn xóa bước này? Tất cả dữ liệu workflow của bước sẽ bị mất."
+    "confirmDeleteStep": "Bạn có chắc muốn xóa bước này? Tất cả dữ liệu workflow của bước sẽ bị mất.",
+    "notLinked": "Chưa liên kết với task trong giai đoạn"
   },
   "stages": {
     "title": "Giai đoạn",

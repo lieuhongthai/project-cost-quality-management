@@ -3,11 +3,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, Input, EmptyState, ProgressBar } from '@/components/common';
-import type { Member } from '@/types';
+import type { Member, StepScreenFunctionStatus } from '@/types';
 
 interface TaskWorkflowTableProps {
   projectId: number;
   members?: Member[];
+}
+
+// Type for step screen function from API
+interface StepScreenFunctionItem {
+  id: number;
+  stepId: number;
+  screenFunctionId: number;
+  status: StepScreenFunctionStatus;
 }
 
 export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
@@ -40,15 +48,6 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
     },
   });
 
-  // Toggle task workflow mutation
-  const toggleMutation = useMutation({
-    mutationFn: (data: { screenFunctionId: number; stepId: number; isCompleted: boolean }) =>
-      taskWorkflowApi.toggleTaskWorkflow(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskWorkflow', projectId] });
-    },
-  });
-
   // Export to Excel
   const handleExport = async () => {
     try {
@@ -69,35 +68,35 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
     }
   };
 
-  // Handle checkbox toggle
-  const handleToggle = (screenFunctionId: number, stepId: number, currentState: boolean) => {
-    toggleMutation.mutate({
-      screenFunctionId,
-      stepId,
-      isCompleted: !currentState,
-    });
-  };
-
-  // Check if a step is completed for a screen function
-  const isStepCompleted = (screenFunctionId: number, stepId: number): boolean => {
-    if (!workflowData?.taskWorkflows) return false;
-    const tw = workflowData.taskWorkflows.find(
-      (t) => t.screenFunctionId === screenFunctionId && t.stepId === stepId
+  // Get StepScreenFunction status for a screen function and step
+  // Returns: 'Completed' | 'In Progress' | 'Not Started' | 'Skipped' | null (not linked)
+  const getStepScreenFunctionStatus = (
+    screenFunctionId: number,
+    stepId: number
+  ): StepScreenFunctionStatus | null => {
+    if (!workflowData?.stepScreenFunctions) return null;
+    const ssf = workflowData.stepScreenFunctions.find(
+      (s: StepScreenFunctionItem) =>
+        s.screenFunctionId === screenFunctionId && s.stepId === stepId
     );
-    return tw?.isCompleted || false;
+    return ssf ? ssf.status : null;
   };
 
-  // Calculate release percentage for a screen function
+  // Calculate release percentage for a screen function based on StepScreenFunction status
   const calculateReleasePercentage = (screenFunctionId: number): number => {
-    if (!workflowData) return 0;
-    const allSteps = workflowData.stages.flatMap((s) => s.steps || []);
-    if (allSteps.length === 0) return 0;
+    if (!workflowData?.stepScreenFunctions) return 0;
 
-    const completedCount = allSteps.filter((step) =>
-      isStepCompleted(screenFunctionId, step.id)
+    // Get steps that have a StepScreenFunction link for this screenFunction
+    const linkedSteps = workflowData.stepScreenFunctions.filter(
+      (s: StepScreenFunctionItem) => s.screenFunctionId === screenFunctionId
+    );
+    if (linkedSteps.length === 0) return 0;
+
+    const completedCount = linkedSteps.filter(
+      (s: StepScreenFunctionItem) => s.status === 'Completed'
     ).length;
 
-    return Math.round((completedCount / allSteps.length) * 100);
+    return Math.round((completedCount / linkedSteps.length) * 100);
   };
 
   // All steps flattened
@@ -288,19 +287,26 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                         {sf.description || '-'}
                       </td>
                       {allSteps.map((step) => {
-                        const completed = isStepCompleted(sf.id, step.id);
+                        const status = getStepScreenFunctionStatus(sf.id, step.id);
                         return (
                           <td
                             key={`${sf.id}-${step.id}`}
                             className="px-1 py-2 text-center"
+                            title={status ? t(`screenFunction.status${status.replace(' ', '')}`) : t('taskWorkflow.notLinked')}
                           >
-                            <input
-                              type="checkbox"
-                              checked={completed}
-                              onChange={() => handleToggle(sf.id, step.id, completed)}
-                              disabled={toggleMutation.isPending}
-                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
-                            />
+                            {status === null ? (
+                              // Not linked - show dash
+                              <span className="text-gray-400">-</span>
+                            ) : status === 'Completed' ? (
+                              // Completed - show checkmark
+                              <span className="text-green-600">✓</span>
+                            ) : status === 'Skipped' ? (
+                              // Skipped - show skip symbol
+                              <span className="text-gray-400">○</span>
+                            ) : (
+                              // Not Started or In Progress - show empty box
+                              <span className="text-gray-400">☐</span>
+                            )}
                           </td>
                         );
                       })}

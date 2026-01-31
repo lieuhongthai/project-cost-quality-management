@@ -160,6 +160,7 @@ export class TaskWorkflowService {
     stages: any[];
     screenFunctions: any[];
     taskWorkflows: any[];
+    stepScreenFunctions: any[];
     progress: {
       total: number;
       completed: number;
@@ -210,6 +211,11 @@ export class TaskWorkflowService {
       include: [
         { model: Member, as: 'completedByMember' },
       ],
+    });
+
+    // Get all StepScreenFunctions for these steps to show read-only status from Stages
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
     });
 
     // Filter by status if specified
@@ -263,6 +269,12 @@ export class TaskWorkflowService {
       stages: stagesWithSteps,
       screenFunctions: filteredScreenFunctions,
       taskWorkflows: taskWorkflows,
+      stepScreenFunctions: stepScreenFunctions.map(ssf => ({
+        id: ssf.id,
+        stepId: ssf.stepId,
+        screenFunctionId: ssf.screenFunctionId,
+        status: ssf.status,
+      })),
       progress: {
         total: totalPossible,
         completed: completedCount,

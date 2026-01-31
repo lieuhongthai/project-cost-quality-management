@@ -919,7 +919,8 @@
     "addStep": "Add Step",
     "stepName": "Step Name",
     "editStep": "Edit Step",
-    "confirmDeleteStep": "Are you sure you want to delete this step? All workflow data for this step will be lost."
+    "confirmDeleteStep": "Are you sure you want to delete this step? All workflow data for this step will be lost.",
+    "notLinked": "Not linked to any stage task"
   },
   "stages": {
     "title": "Stages",
