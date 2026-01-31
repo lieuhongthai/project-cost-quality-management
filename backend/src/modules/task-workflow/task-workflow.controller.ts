@@ -182,7 +182,7 @@ export class TaskWorkflowController {
     @Res() res: Response,
   ) {
     const workflow = await this.taskWorkflowService.getProjectWorkflow(projectId);
-    const { stages, screenFunctions, taskWorkflows } = workflow;
+    const { stages, screenFunctions, stepScreenFunctions } = workflow;
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Task Workflow');
@@ -307,18 +307,42 @@ export class TaskWorkflowController {
       row.getCell(3).value = sf.description || ''; // Note
       row.getCell(4).value = ''; // Assignee (can be enhanced later)
 
-      // Step checkboxes
+      // Step status cells - using StepScreenFunction status
       colIndex = 5;
       let completedCount = 0;
+      let linkedCount = 0;
       for (const stage of stages as any[]) {
         for (const step of stage.steps) {
-          const tw = taskWorkflows.find(
-            (t: any) => t.screenFunctionId === sf.id && t.stepId === step.id
+          const ssf = stepScreenFunctions.find(
+            (s: any) => s.screenFunctionId === sf.id && s.stepId === step.id
           );
-          const isCompleted = tw?.isCompleted || false;
-          if (isCompleted) completedCount++;
+          const status = ssf?.status || null;
 
-          row.getCell(colIndex).value = isCompleted ? '✓' : '';
+          // Count for release percentage (only count linked items)
+          if (status !== null) {
+            linkedCount++;
+            if (status === 'Completed') completedCount++;
+          }
+
+          // Display symbol based on status
+          let displayValue = '-'; // Not linked
+          let bgColor = 'FFFFFFFF'; // White (default)
+
+          if (status === 'Completed') {
+            displayValue = '✓';
+            bgColor = 'FF90EE90'; // Light green
+          } else if (status === 'In Progress') {
+            displayValue = '☐';
+            bgColor = 'FFFFF9C4'; // Light yellow
+          } else if (status === 'Not Started') {
+            displayValue = '☐';
+            bgColor = 'FFFFFFFF'; // White
+          } else if (status === 'Skipped') {
+            displayValue = '○';
+            bgColor = 'FFE0E0E0'; // Light gray
+          }
+
+          row.getCell(colIndex).value = displayValue;
           row.getCell(colIndex).alignment = { horizontal: 'center', vertical: 'middle' };
           row.getCell(colIndex).border = {
             top: { style: 'thin' },
@@ -327,11 +351,11 @@ export class TaskWorkflowController {
             right: { style: 'thin' },
           };
 
-          if (isCompleted) {
+          if (status !== null) {
             row.getCell(colIndex).fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FF90EE90' }, // Light green
+              fgColor: { argb: bgColor },
             };
           }
 
@@ -339,9 +363,9 @@ export class TaskWorkflowController {
         }
       }
 
-      // Release percentage
-      const releasePercentage = allSteps.length > 0
-        ? Math.round((completedCount / allSteps.length) * 100)
+      // Release percentage - based on linked items only
+      const releasePercentage = linkedCount > 0
+        ? Math.round((completedCount / linkedCount) * 100)
         : 0;
       row.getCell(5 + allSteps.length).value = `${releasePercentage}%`;
       row.getCell(5 + allSteps.length).alignment = { horizontal: 'center' };
