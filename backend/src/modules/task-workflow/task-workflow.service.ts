@@ -3,6 +3,7 @@ import { WorkflowStage, StageStatus, DEFAULT_WORKFLOW_STAGES } from './workflow-
 import { WorkflowStep, DEFAULT_WORKFLOW_STEPS } from './workflow-step.model';
 import { TaskWorkflow } from './task-workflow.model';
 import { StepScreenFunction } from './step-screen-function.model';
+import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { Member } from '../member/member.model';
 import {
@@ -23,6 +24,9 @@ import {
   UpdateStepScreenFunctionDto,
   BulkCreateStepScreenFunctionDto,
   BulkUpdateStepScreenFunctionDto,
+  CreateStepScreenFunctionMemberDto,
+  UpdateStepScreenFunctionMemberDto,
+  BulkCreateStepScreenFunctionMemberDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 
@@ -39,6 +43,8 @@ export class TaskWorkflowService {
     private screenFunctionRepository: typeof ScreenFunction,
     @Inject('STEP_SCREEN_FUNCTION_REPOSITORY')
     private stepScreenFunctionRepository: typeof StepScreenFunction,
+    @Inject('STEP_SCREEN_FUNCTION_MEMBER_REPOSITORY')
+    private stepScreenFunctionMemberRepository: typeof StepScreenFunctionMember,
   ) {}
 
   // ===== Workflow Stage Methods =====
@@ -532,7 +538,7 @@ export class TaskWorkflowService {
       where: { stepId },
       include: [
         { model: ScreenFunction, as: 'screenFunction' },
-        { model: Member, as: 'assignee' },
+        { model: StepScreenFunctionMember, as: 'members', include: [{ model: Member, as: 'member' }] },
       ],
     });
   }
@@ -541,7 +547,7 @@ export class TaskWorkflowService {
     const ssf = await this.stepScreenFunctionRepository.findByPk(id, {
       include: [
         { model: ScreenFunction, as: 'screenFunction' },
-        { model: Member, as: 'assignee' },
+        { model: StepScreenFunctionMember, as: 'members', include: [{ model: Member, as: 'member' }] },
       ],
     });
     if (!ssf) {
@@ -689,7 +695,7 @@ export class TaskWorkflowService {
       where: { stepId: { [Op.in]: stepIds } },
       include: [
         { model: ScreenFunction, as: 'screenFunction' },
-        { model: Member, as: 'assignee' },
+        { model: StepScreenFunctionMember, as: 'members', include: [{ model: Member, as: 'member' }] },
       ],
     });
 
@@ -746,7 +752,7 @@ export class TaskWorkflowService {
           id: ssf.id,
           screenFunctionId: ssf.screenFunctionId,
           screenFunction: ssf.screenFunction,
-          assignee: ssf.assignee,
+          members: ssf.members,
           estimatedEffort: ssf.estimatedEffort,
           actualEffort: ssf.actualEffort,
           progress: ssf.progress,
@@ -956,5 +962,93 @@ export class TaskWorkflowService {
       },
       order: [['displayOrder', 'ASC'], ['name', 'ASC']],
     });
+  }
+
+  // ===== Step Screen Function Member Methods =====
+
+  async findAllStepScreenFunctionMembers(stepScreenFunctionId: number): Promise<StepScreenFunctionMember[]> {
+    return this.stepScreenFunctionMemberRepository.findAll({
+      where: { stepScreenFunctionId },
+      include: [{ model: Member, as: 'member' }],
+    });
+  }
+
+  async findStepScreenFunctionMemberById(id: number): Promise<StepScreenFunctionMember> {
+    const member = await this.stepScreenFunctionMemberRepository.findByPk(id, {
+      include: [{ model: Member, as: 'member' }],
+    });
+    if (!member) {
+      throw new NotFoundException(`Step screen function member with ID ${id} not found`);
+    }
+    return member;
+  }
+
+  async createStepScreenFunctionMember(dto: CreateStepScreenFunctionMemberDto): Promise<StepScreenFunctionMember> {
+    const member = await this.stepScreenFunctionMemberRepository.create(dto as any);
+    // Recalculate parent StepScreenFunction's effort and progress
+    await this.recalculateStepScreenFunctionFromMembers(dto.stepScreenFunctionId);
+    return this.findStepScreenFunctionMemberById(member.id);
+  }
+
+  async updateStepScreenFunctionMember(id: number, dto: UpdateStepScreenFunctionMemberDto): Promise<StepScreenFunctionMember> {
+    const member = await this.findStepScreenFunctionMemberById(id);
+    await member.update(dto);
+    // Recalculate parent StepScreenFunction's effort and progress
+    await this.recalculateStepScreenFunctionFromMembers(member.stepScreenFunctionId);
+    return this.findStepScreenFunctionMemberById(id);
+  }
+
+  async deleteStepScreenFunctionMember(id: number): Promise<void> {
+    const member = await this.findStepScreenFunctionMemberById(id);
+    const stepScreenFunctionId = member.stepScreenFunctionId;
+    await member.destroy();
+    // Recalculate parent StepScreenFunction's effort and progress
+    await this.recalculateStepScreenFunctionFromMembers(stepScreenFunctionId);
+  }
+
+  async bulkCreateStepScreenFunctionMembers(dto: BulkCreateStepScreenFunctionMemberDto): Promise<StepScreenFunctionMember[]> {
+    const items = dto.items.map(item => ({
+      stepScreenFunctionId: dto.stepScreenFunctionId,
+      ...item,
+    }));
+    const result = await this.stepScreenFunctionMemberRepository.bulkCreate(items as any[]);
+    // Recalculate parent StepScreenFunction's effort and progress
+    await this.recalculateStepScreenFunctionFromMembers(dto.stepScreenFunctionId);
+    return this.findAllStepScreenFunctionMembers(dto.stepScreenFunctionId);
+  }
+
+  // Helper method to recalculate StepScreenFunction effort and progress from its members
+  private async recalculateStepScreenFunctionFromMembers(stepScreenFunctionId: number): Promise<void> {
+    const ssf = await this.stepScreenFunctionRepository.findByPk(stepScreenFunctionId);
+    if (!ssf) return;
+
+    // Get all members for this step-screen-function
+    const members = await this.stepScreenFunctionMemberRepository.findAll({
+      where: { stepScreenFunctionId },
+    });
+
+    if (members.length === 0) {
+      // No members, reset to 0
+      await ssf.update({
+        estimatedEffort: 0,
+        actualEffort: 0,
+        progress: 0,
+      });
+    } else {
+      // Sum of efforts
+      const totalEstimatedEffort = members.reduce((sum, m) => sum + (m.estimatedEffort || 0), 0);
+      const totalActualEffort = members.reduce((sum, m) => sum + (m.actualEffort || 0), 0);
+      // Average progress (simple average)
+      const avgProgress = members.reduce((sum, m) => sum + (m.progress || 0), 0) / members.length;
+
+      await ssf.update({
+        estimatedEffort: totalEstimatedEffort,
+        actualEffort: totalActualEffort,
+        progress: Math.round(avgProgress),
+      });
+    }
+
+    // Also recalculate parent Stage's effort values
+    await this.recalculateStageEffort(ssf.stepId);
   }
 }

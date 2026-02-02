@@ -998,7 +998,14 @@
     "stepProgress": "Tiến độ Step",
     "stepEstEffort": "Est. Effort Step",
     "stepActEffort": "Act. Effort Step",
-    "stepTasksCount": "Số task trong Step"
+    "stepTasksCount": "Số task trong Step",
+    "assignedMembers": "Thành viên được gán",
+    "noMembersAssigned": "Chưa có thành viên",
+    "addMember": "Thêm thành viên",
+    "addNewMember": "Thêm thành viên mới",
+    "selectMember": "Chọn thành viên",
+    "confirmDeleteMember": "Bạn có chắc muốn xóa thành viên này?",
+    "summary": "Tổng kết"
   },
   "status": {
     "good": "Tốt",

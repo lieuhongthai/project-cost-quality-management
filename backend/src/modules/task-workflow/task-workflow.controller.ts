@@ -29,6 +29,9 @@ import {
   UpdateStepScreenFunctionDto,
   BulkCreateStepScreenFunctionDto,
   BulkUpdateStepScreenFunctionDto,
+  CreateStepScreenFunctionMemberDto,
+  UpdateStepScreenFunctionMemberDto,
+  BulkCreateStepScreenFunctionMemberDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -453,5 +456,42 @@ export class TaskWorkflowController {
   @Get('steps/:stepId/available-screen-functions')
   getAvailableScreenFunctionsForStep(@Param('stepId', ParseIntPipe) stepId: number) {
     return this.taskWorkflowService.getAvailableScreenFunctionsForStep(stepId);
+  }
+
+  // ===== Step Screen Function Member Endpoints =====
+
+  @Get('step-screen-function-members/ssf/:stepScreenFunctionId')
+  getStepScreenFunctionMembers(
+    @Param('stepScreenFunctionId', ParseIntPipe) stepScreenFunctionId: number,
+  ) {
+    return this.taskWorkflowService.findAllStepScreenFunctionMembers(stepScreenFunctionId);
+  }
+
+  @Get('step-screen-function-members/:id')
+  getStepScreenFunctionMember(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.findStepScreenFunctionMemberById(id);
+  }
+
+  @Post('step-screen-function-members')
+  createStepScreenFunctionMember(@Body() dto: CreateStepScreenFunctionMemberDto) {
+    return this.taskWorkflowService.createStepScreenFunctionMember(dto);
+  }
+
+  @Post('step-screen-function-members/bulk')
+  bulkCreateStepScreenFunctionMembers(@Body() dto: BulkCreateStepScreenFunctionMemberDto) {
+    return this.taskWorkflowService.bulkCreateStepScreenFunctionMembers(dto);
+  }
+
+  @Put('step-screen-function-members/:id')
+  updateStepScreenFunctionMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateStepScreenFunctionMemberDto,
+  ) {
+    return this.taskWorkflowService.updateStepScreenFunctionMember(id, dto);
+  }
+
+  @Delete('step-screen-function-members/:id')
+  deleteStepScreenFunctionMember(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteStepScreenFunctionMember(id);
   }
 }

@@ -276,7 +276,6 @@ export const taskWorkflowApi = {
   createStepScreenFunction: (data: {
     stepId: number;
     screenFunctionId: number;
-    assigneeId?: number;
     estimatedEffort?: number;
     actualEffort?: number;
     progress?: number;
@@ -285,7 +284,6 @@ export const taskWorkflowApi = {
   }) =>
     api.post<StepScreenFunction>('/task-workflow/step-screen-functions', data),
   updateStepScreenFunction: (id: number, data: {
-    assigneeId?: number;
     estimatedEffort?: number;
     actualEffort?: number;
     progress?: number;
@@ -313,6 +311,52 @@ export const taskWorkflowApi = {
     note?: string;
   }>) =>
     api.put<StepScreenFunction[]>('/task-workflow/step-screen-functions/bulk', { items }),
+
+  // Step Screen Function Members
+  getStepScreenFunctionMembers: (stepScreenFunctionId: number) =>
+    api.get(`/task-workflow/step-screen-function-members/ssf/${stepScreenFunctionId}`),
+  createStepScreenFunctionMember: (data: {
+    stepScreenFunctionId: number;
+    memberId: number;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    estimatedStartDate?: string;
+    estimatedEndDate?: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
+    note?: string;
+  }) =>
+    api.post('/task-workflow/step-screen-function-members', data),
+  updateStepScreenFunctionMember: (id: number, data: {
+    memberId?: number;
+    estimatedEffort?: number;
+    actualEffort?: number;
+    progress?: number;
+    estimatedStartDate?: string;
+    estimatedEndDate?: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
+    note?: string;
+  }) =>
+    api.put(`/task-workflow/step-screen-function-members/${id}`, data),
+  deleteStepScreenFunctionMember: (id: number) =>
+    api.delete(`/task-workflow/step-screen-function-members/${id}`),
+  bulkCreateStepScreenFunctionMembers: (data: {
+    stepScreenFunctionId: number;
+    items: Array<{
+      memberId: number;
+      estimatedEffort?: number;
+      actualEffort?: number;
+      progress?: number;
+      estimatedStartDate?: string;
+      estimatedEndDate?: string;
+      actualStartDate?: string;
+      actualEndDate?: string;
+      note?: string;
+    }>
+  }) =>
+    api.post('/task-workflow/step-screen-function-members/bulk', data),
 
   // Task Workflow
   getProjectWorkflow: (projectId: number, filter?: { screenName?: string; stageId?: number; status?: string }) => {

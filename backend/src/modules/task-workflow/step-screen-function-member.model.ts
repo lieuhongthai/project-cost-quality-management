@@ -5,30 +5,21 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
-  HasMany,
 } from 'sequelize-typescript';
-import { WorkflowStep } from './workflow-step.model';
-import { ScreenFunction } from '../screen-function/screen-function.model';
-import { StepScreenFunctionMember } from './step-screen-function-member.model';
-
-export enum StepScreenFunctionStatus {
-  NOT_STARTED = 'Not Started',
-  IN_PROGRESS = 'In Progress',
-  COMPLETED = 'Completed',
-  SKIPPED = 'Skipped',
-}
+import { StepScreenFunction } from './step-screen-function.model';
+import { Member } from '../member/member.model';
 
 @Table({
-  tableName: 'step_screen_functions',
+  tableName: 'step_screen_function_members',
   timestamps: true,
   indexes: [
     {
       unique: true,
-      fields: ['stepId', 'screenFunctionId'],
+      fields: ['stepScreenFunctionId', 'memberId'],
     },
   ],
 })
-export class StepScreenFunction extends Model {
+export class StepScreenFunctionMember extends Model {
   @Column({
     type: DataType.INTEGER,
     primaryKey: true,
@@ -36,22 +27,20 @@ export class StepScreenFunction extends Model {
   })
   id: number;
 
-  @ForeignKey(() => WorkflowStep)
+  @ForeignKey(() => StepScreenFunction)
   @Column({
     type: DataType.INTEGER,
     allowNull: false,
     onDelete: 'CASCADE',
   })
-  stepId: number;
+  stepScreenFunctionId: number;
 
-  @ForeignKey(() => ScreenFunction)
+  @ForeignKey(() => Member)
   @Column({
     type: DataType.INTEGER,
     allowNull: false,
-    onDelete: 'CASCADE',
   })
-  screenFunctionId: number;
-
+  memberId: number;
 
   @Column({
     type: DataType.FLOAT,
@@ -70,18 +59,6 @@ export class StepScreenFunction extends Model {
     defaultValue: 0,
   })
   progress: number; // 0-100
-
-  @Column({
-    type: DataType.ENUM('Not Started', 'In Progress', 'Completed', 'Skipped'),
-    defaultValue: 'Not Started',
-  })
-  status: string;
-
-  @Column({
-    type: DataType.TEXT,
-    allowNull: true,
-  })
-  note: string;
 
   @Column({
     type: DataType.DATEONLY,
@@ -107,12 +84,15 @@ export class StepScreenFunction extends Model {
   })
   actualEndDate: string;
 
-  @BelongsTo(() => WorkflowStep, { onDelete: 'CASCADE' })
-  step: WorkflowStep;
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+  })
+  note: string;
 
-  @BelongsTo(() => ScreenFunction, { onDelete: 'CASCADE' })
-  screenFunction: ScreenFunction;
+  @BelongsTo(() => StepScreenFunction, { onDelete: 'CASCADE' })
+  stepScreenFunction: StepScreenFunction;
 
-  @HasMany(() => StepScreenFunctionMember)
-  members: StepScreenFunctionMember[];
+  @BelongsTo(() => Member)
+  member: Member;
 }

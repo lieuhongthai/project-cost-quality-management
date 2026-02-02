@@ -423,12 +423,29 @@ export interface ProjectWorkflowProgress {
   byScreenFunction: WorkflowProgressByScreenFunction[];
 }
 
+// Step Screen Function Member types
+export interface StepScreenFunctionMember {
+  id: number;
+  stepScreenFunctionId: number;
+  memberId: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  estimatedStartDate?: string;
+  estimatedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  note?: string;
+  member?: Member;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // Step Screen Function types
 export interface StepScreenFunction {
   id: number;
   stepId: number;
   screenFunctionId: number;
-  assigneeId?: number;
   estimatedEffort: number;
   actualEffort: number;
   progress: number;
@@ -439,7 +456,7 @@ export interface StepScreenFunction {
   actualStartDate?: string;
   actualEndDate?: string;
   screenFunction?: ScreenFunction;
-  assignee?: Member;
+  members?: StepScreenFunctionMember[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -462,7 +479,7 @@ export interface StageDetailData {
       id: number;
       screenFunctionId: number;
       screenFunction: ScreenFunction;
-      assignee?: Member;
+      members?: StepScreenFunctionMember[];
       estimatedEffort: number;
       actualEffort: number;
       progress: number;

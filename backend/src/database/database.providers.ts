@@ -22,6 +22,7 @@ import { WorkflowStage } from "../modules/task-workflow/workflow-stage.model";
 import { WorkflowStep } from "../modules/task-workflow/workflow-step.model";
 import { TaskWorkflow } from "../modules/task-workflow/task-workflow.model";
 import { StepScreenFunction } from "../modules/task-workflow/step-screen-function.model";
+import { StepScreenFunctionMember } from "../modules/task-workflow/step-screen-function-member.model";
 
 export const databaseProviders = [
   {
@@ -73,6 +74,7 @@ export const databaseProviders = [
         WorkflowStep,
         TaskWorkflow,
         StepScreenFunction,
+        StepScreenFunctionMember,
       ]);
 
       await sequelize.sync({alter: true });

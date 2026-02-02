@@ -2,6 +2,7 @@ import { WorkflowStage } from './workflow-stage.model';
 import { WorkflowStep } from './workflow-step.model';
 import { TaskWorkflow } from './task-workflow.model';
 import { StepScreenFunction } from './step-screen-function.model';
+import { StepScreenFunctionMember } from './step-screen-function-member.model';
 
 export const taskWorkflowProviders = [
   {
@@ -19,5 +20,9 @@ export const taskWorkflowProviders = [
   {
     provide: 'STEP_SCREEN_FUNCTION_REPOSITORY',
     useValue: StepScreenFunction,
+  },
+  {
+    provide: 'STEP_SCREEN_FUNCTION_MEMBER_REPOSITORY',
+    useValue: StepScreenFunctionMember,
   },
 ];

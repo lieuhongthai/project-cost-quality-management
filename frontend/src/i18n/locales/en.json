@@ -998,7 +998,14 @@
     "stepProgress": "Step Progress",
     "stepEstEffort": "Step Est. Effort",
     "stepActEffort": "Step Act. Effort",
-    "stepTasksCount": "Tasks in Step"
+    "stepTasksCount": "Tasks in Step",
+    "assignedMembers": "Assigned Members",
+    "noMembersAssigned": "No members assigned",
+    "addMember": "Add Member",
+    "addNewMember": "Add New Member",
+    "selectMember": "Select a member",
+    "confirmDeleteMember": "Are you sure you want to remove this member?",
+    "summary": "Summary"
   },
   "status": {
     "good": "Good",

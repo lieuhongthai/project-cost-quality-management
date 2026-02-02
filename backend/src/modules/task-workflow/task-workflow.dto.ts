@@ -288,11 +288,6 @@ export class CreateStepScreenFunctionDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  assigneeId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
   estimatedEffort?: number;
 
   @IsOptional()
@@ -315,11 +310,6 @@ export class CreateStepScreenFunctionDto {
 }
 
 export class UpdateStepScreenFunctionDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  assigneeId?: number;
-
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -419,6 +409,151 @@ export class StepScreenFunctionUpdateItemDto {
   @IsOptional()
   @IsEnum(['Not Started', 'In Progress', 'Completed', 'Skipped'])
   status?: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+// ===== Step Screen Function Member DTOs =====
+
+export class CreateStepScreenFunctionMemberDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  memberId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateStepScreenFunctionMemberDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  memberId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkCreateStepScreenFunctionMemberDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StepScreenFunctionMemberItemDto)
+  items: StepScreenFunctionMemberItemDto[];
+}
+
+export class StepScreenFunctionMemberItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  memberId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
 
   @IsOptional()
   @IsString()

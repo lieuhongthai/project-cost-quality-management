@@ -74,7 +74,6 @@ function StageDetail() {
   const [editingSSF, setEditingSSF] = useState<any | null>(null);
   const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [quickEditDraft, setQuickEditDraft] = useState<{
-    assigneeId: number | null;
     status: StepScreenFunctionStatus;
     progress: number;
     estimatedEffort: number;
@@ -196,7 +195,6 @@ function StageDetail() {
   const startQuickEdit = (ssf: any) => {
     setQuickEditId(ssf.id);
     setQuickEditDraft({
-      assigneeId: ssf.assignee?.id ?? null,
       status: ssf.status || 'Not Started',
       progress: ssf.progress || 0,
       estimatedEffort: ssf.estimatedEffort || 0,
@@ -214,11 +212,8 @@ function StageDetail() {
     updateMutation.mutate({
       id: ssfId,
       payload: {
-        assigneeId: quickEditDraft.assigneeId ?? undefined,
         status: quickEditDraft.status,
         progress: quickEditDraft.progress,
-        estimatedEffort: quickEditDraft.estimatedEffort,
-        actualEffort: quickEditDraft.actualEffort,
       },
     });
   };
@@ -541,7 +536,7 @@ function StageDetail() {
                           {t('screenFunction.name')}
                         </th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                          {t('screenFunction.assignee')}
+                          {t('stages.assignedMembers')}
                         </th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           {t('screenFunction.status')}
@@ -593,28 +588,23 @@ function StageDetail() {
                               </div>
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              {isQuickEditing ? (
-                                <select
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                  value={draft?.assigneeId ?? ''}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    assigneeId: e.target.value ? Number(e.target.value) : null,
-                                  }) : prev)}
-                                >
-                                  <option value="">{t('stages.unassigned')}</option>
-                                  {members?.map((member) => (
-                                    <option key={member.id} value={member.id}>
-                                      {member.name}
-                                    </option>
+                              {ssf.members && ssf.members.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {ssf.members.slice(0, 2).map((m: any) => (
+                                    <span key={m.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
+                                      {m.member?.name || t('common.unknown')}
+                                    </span>
                                   ))}
-                                </select>
+                                  {ssf.members.length > 2 && (
+                                    <Tooltip content={ssf.members.slice(2).map((m: any) => m.member?.name).join(', ')}>
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 cursor-help">
+                                        +{ssf.members.length - 2}
+                                      </span>
+                                    </Tooltip>
+                                  )}
+                                </div>
                               ) : (
-                                ssf.assignee ? (
-                                  <span className="text-gray-900">{ssf.assignee.name}</span>
-                                ) : (
-                                  <span className="text-gray-400">{t('stages.unassigned')}</span>
-                                )
+                                <span className="text-gray-400">{t('stages.noMembersAssigned')}</span>
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -663,38 +653,10 @@ function StageDetail() {
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {isQuickEditing ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
-                                  value={estimatedValue}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    estimatedEffort: Number(e.target.value),
-                                  }) : prev)}
-                                  className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                />
-                              ) : (
-                                <>{estimatedValue}h</>
-                              )}
+                              {estimatedValue}h
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {isQuickEditing ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
-                                  value={actualValue}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    actualEffort: Number(e.target.value),
-                                  }) : prev)}
-                                  className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                />
-                              ) : (
-                                <>{actualValue}h</>
-                              )}
+                              {actualValue}h
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex items-center justify-center gap-1">
