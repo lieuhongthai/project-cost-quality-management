@@ -1005,7 +1005,9 @@
     "addNewMember": "Thêm thành viên mới",
     "selectMember": "Chọn thành viên",
     "confirmDeleteMember": "Bạn có chắc muốn xóa thành viên này?",
-    "summary": "Tổng kết"
+    "summary": "Tổng kết",
+    "dates": "Ngày",
+    "memberNotePlaceholder": "Thêm ghi chú cho thành viên này..."
   },
   "status": {
     "good": "Tốt",

@@ -1005,7 +1005,9 @@
     "addNewMember": "Add New Member",
     "selectMember": "Select a member",
     "confirmDeleteMember": "Are you sure you want to remove this member?",
-    "summary": "Summary"
+    "summary": "Summary",
+    "dates": "Dates",
+    "memberNotePlaceholder": "Add notes for this member..."
   },
   "status": {
     "good": "Good",

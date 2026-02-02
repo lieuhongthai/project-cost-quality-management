@@ -331,112 +331,159 @@ export function StepScreenFunctionEditModal({
 
           {/* Members Table */}
           {membersList.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">{t('member.name')}</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">{t('screenFunction.estimatedEffort')} (h)</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">{t('screenFunction.actualEffort')} (h)</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">{t('screenFunction.progress')} (%)</th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {membersList.map((member) => (
-                    <tr key={member.id} className={member.isEditing ? 'bg-blue-50' : ''}>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {getMemberName(member.memberId)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {member.isEditing ? (
+            <div className="space-y-2">
+              {membersList.map((member) => (
+                <div key={member.id} className={`border rounded-lg ${member.isEditing ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+                  {/* Member Header Row */}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-900">{getMemberName(member.memberId)}</span>
+                      <div className="text-xs text-gray-500 mt-1 flex gap-4">
+                        <span>{t('screenFunction.estimatedEffort')}: {member.estimatedEffort}h</span>
+                        <span>{t('screenFunction.actualEffort')}: {member.actualEffort}h</span>
+                        <span>{t('screenFunction.progress')}: {member.progress}%</span>
+                        {member.estimatedStartDate && (
+                          <span>{t('stages.dates')}: {member.estimatedStartDate} → {member.estimatedEndDate || '?'}</span>
+                        )}
+                        {member.note && (
+                          <span className="truncate max-w-[150px]" title={member.note}>📝 {member.note}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {!member.isEditing ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => toggleEditMember(member.id!)}
+                          >
+                            {t('common.edit')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeleteMember(member.id!)}
+                            disabled={deleteMemberMutation.isPending}
+                          >
+                            {t('common.delete')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleUpdateMember(member)}
+                            disabled={updateMemberMutation.isPending}
+                          >
+                            {t('common.save')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => toggleEditMember(member.id!)}
+                          >
+                            {t('common.cancel')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded Edit Form */}
+                  {member.isEditing && (
+                    <div className="px-4 pb-4 border-t border-blue-200 pt-3 space-y-3">
+                      {/* Effort and Progress Row */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
                           <Input
                             type="number"
                             min={0}
                             step="any"
                             value={member.estimatedEffort}
                             onChange={(e) => updateMemberField(member.id!, 'estimatedEffort', Number(e.target.value))}
-                            className="w-20 text-right"
                           />
-                        ) : (
-                          member.estimatedEffort
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {member.isEditing ? (
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
                           <Input
                             type="number"
                             min={0}
                             step="any"
                             value={member.actualEffort}
                             onChange={(e) => updateMemberField(member.id!, 'actualEffort', Number(e.target.value))}
-                            className="w-20 text-right"
                           />
-                        ) : (
-                          member.actualEffort
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {member.isEditing ? (
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
                           <Input
                             type="number"
                             min={0}
                             max={100}
                             value={member.progress}
                             onChange={(e) => updateMemberField(member.id!, 'progress', Number(e.target.value))}
-                            className="w-20 text-right"
                           />
-                        ) : (
-                          member.progress
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {member.isEditing ? (
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleUpdateMember(member)}
-                              disabled={updateMemberMutation.isPending}
-                            >
-                              {t('common.save')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => toggleEditMember(member.id!)}
-                            >
-                              {t('common.cancel')}
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => toggleEditMember(member.id!)}
-                            >
-                              {t('common.edit')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDeleteMember(member.id!)}
-                              disabled={deleteMemberMutation.isPending}
-                            >
-                              {t('common.delete')}
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+
+                      {/* Estimated Dates Row */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <DateInput
+                            label={t('stages.startDate')}
+                            name={`estimatedStartDate-${member.id}`}
+                            value={member.estimatedStartDate}
+                            onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
+                          />
+                          <DateInput
+                            label={t('stages.endDate')}
+                            name={`estimatedEndDate-${member.id}`}
+                            value={member.estimatedEndDate}
+                            onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Actual Dates Row */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <DateInput
+                            label={t('stages.startDate')}
+                            name={`actualStartDate-${member.id}`}
+                            value={member.actualStartDate}
+                            onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
+                          />
+                          <DateInput
+                            label={t('stages.endDate')}
+                            name={`actualEndDate-${member.id}`}
+                            value={member.actualEndDate}
+                            onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Note Row */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
+                        <TextArea
+                          value={member.note}
+                          onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
+                          rows={2}
+                          placeholder={t('stages.memberNotePlaceholder')}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-md">
@@ -448,22 +495,26 @@ export function StepScreenFunctionEditModal({
           {showAddMember && (
             <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
               <h5 className="text-sm font-medium text-blue-800 mb-3">{t('stages.addNewMember')}</h5>
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('member.name')}</label>
-                  <select
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                    value={newMember.memberId}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
-                  >
-                    <option value={0}>{t('stages.selectMember')}</option>
-                    {getAvailableMembers().map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} ({member.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+
+              {/* Member Selection */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('member.name')}</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  value={newMember.memberId}
+                  onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
+                >
+                  <option value={0}>{t('stages.selectMember')}</option>
+                  {getAvailableMembers().map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} ({member.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Effort and Progress */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
                   <Input
@@ -495,6 +546,56 @@ export function StepScreenFunctionEditModal({
                   />
                 </div>
               </div>
+
+              {/* Estimated Dates */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <DateInput
+                    label={t('stages.startDate')}
+                    name="newMemberEstimatedStartDate"
+                    value={newMember.estimatedStartDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedStartDate: e.target.value }))}
+                  />
+                  <DateInput
+                    label={t('stages.endDate')}
+                    name="newMemberEstimatedEndDate"
+                    value={newMember.estimatedEndDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEndDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Actual Dates */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <DateInput
+                    label={t('stages.startDate')}
+                    name="newMemberActualStartDate"
+                    value={newMember.actualStartDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualStartDate: e.target.value }))}
+                  />
+                  <DateInput
+                    label={t('stages.endDate')}
+                    name="newMemberActualEndDate"
+                    value={newMember.actualEndDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualEndDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
+                <TextArea
+                  value={newMember.note}
+                  onChange={(e) => setNewMember((prev) => ({ ...prev, note: e.target.value }))}
+                  rows={2}
+                  placeholder={t('stages.memberNotePlaceholder')}
+                />
+              </div>
+
               <div className="flex justify-end gap-2 mt-3">
                 <Button
                   type="button"
