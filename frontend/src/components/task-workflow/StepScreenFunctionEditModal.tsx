@@ -173,7 +173,24 @@ export function StepScreenFunctionEditModal({
     if (newMember.memberId === 0) return;
 
     try {
-      await createMemberMutation.mutateAsync(newMember);
+      const createdMember = await createMemberMutation.mutateAsync(newMember);
+      // Add new member to local state
+      setMembersList((prev) => [
+        ...prev,
+        {
+          id: createdMember.id,
+          memberId: createdMember.memberId,
+          estimatedEffort: createdMember.estimatedEffort || 0,
+          actualEffort: createdMember.actualEffort || 0,
+          progress: createdMember.progress || 0,
+          estimatedStartDate: createdMember.estimatedStartDate || '',
+          estimatedEndDate: createdMember.estimatedEndDate || '',
+          actualStartDate: createdMember.actualStartDate || '',
+          actualEndDate: createdMember.actualEndDate || '',
+          note: createdMember.note || '',
+          isEditing: false,
+        },
+      ]);
       // Reset form
       setNewMember({
         memberId: 0,
@@ -188,9 +205,8 @@ export function StepScreenFunctionEditModal({
         isNew: true,
       });
       setShowAddMember(false);
-      // Refresh data
+      // Refresh data in background (don't close modal)
       queryClient.invalidateQueries({ queryKey: ['stageDetail'] });
-      onClose(true);
     } catch {
       // Error handled by mutation
     }
