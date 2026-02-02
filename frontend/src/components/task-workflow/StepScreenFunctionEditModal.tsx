@@ -104,6 +104,21 @@ export function StepScreenFunctionEditModal({
     ? Math.round(membersList.reduce((sum, m) => sum + (m.progress || 0), 0) / membersList.length)
     : 0;
 
+  // Calculate actual dates from members (MIN start, MAX end)
+  const calculatedActualStartDate = membersList.length > 0
+    ? membersList
+        .map((m) => m.actualStartDate)
+        .filter((d) => d && d.trim() !== '')
+        .sort()[0] || ''
+    : '';
+  const calculatedActualEndDate = membersList.length > 0
+    ? membersList
+        .map((m) => m.actualEndDate)
+        .filter((d) => d && d.trim() !== '')
+        .sort()
+        .reverse()[0] || ''
+    : '';
+
   // Update SSF mutation
   const updateSSFMutation = useMutation({
     mutationFn: () =>
@@ -112,8 +127,9 @@ export function StepScreenFunctionEditModal({
         note: formData.note || undefined,
         estimatedStartDate: formData.estimatedStartDate || undefined,
         estimatedEndDate: formData.estimatedEndDate || undefined,
-        actualStartDate: formData.actualStartDate || undefined,
-        actualEndDate: formData.actualEndDate || undefined,
+        // Actual dates are calculated from members
+        actualStartDate: calculatedActualStartDate || undefined,
+        actualEndDate: calculatedActualEndDate || undefined,
       }),
   });
 
@@ -656,20 +672,27 @@ export function StepScreenFunctionEditModal({
 
         <div className="border-t pt-4">
           <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.actualSchedule')}</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <DateInput
-              label={t('stages.actualStartDate')}
-              name="actualStartDate"
-              value={formData.actualStartDate}
-              onChange={handleDateChange('actualStartDate')}
-            />
-            <DateInput
-              label={t('stages.actualEndDate')}
-              name="actualEndDate"
-              value={formData.actualEndDate}
-              onChange={handleDateChange('actualEndDate')}
-            />
-          </div>
+          {membersList.length > 0 ? (
+            <>
+              <p className="text-xs text-gray-500 mb-2">{t('stages.actualDatesAutoCalculated')}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualStartDate')}</label>
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                    {calculatedActualStartDate || '-'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualEndDate')}</label>
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                    {calculatedActualEndDate || '-'}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-md px-3 py-2">{t('stages.actualDatesNoMembers')}</p>
+          )}
         </div>
 
         {/* Note */}

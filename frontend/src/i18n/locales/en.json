@@ -1007,7 +1007,9 @@
     "confirmDeleteMember": "Are you sure you want to remove this member?",
     "summary": "Summary",
     "dates": "Dates",
-    "memberNotePlaceholder": "Add notes for this member..."
+    "memberNotePlaceholder": "Add notes for this member...",
+    "actualDatesAutoCalculated": "Actual dates are auto-calculated from members (earliest start date and latest end date)",
+    "actualDatesNoMembers": "Add members to track actual dates"
   },
   "status": {
     "good": "Good",

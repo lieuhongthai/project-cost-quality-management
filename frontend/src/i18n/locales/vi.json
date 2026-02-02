@@ -1007,7 +1007,9 @@
     "confirmDeleteMember": "Bạn có chắc muốn xóa thành viên này?",
     "summary": "Tổng kết",
     "dates": "Ngày",
-    "memberNotePlaceholder": "Thêm ghi chú cho thành viên này..."
+    "memberNotePlaceholder": "Thêm ghi chú cho thành viên này...",
+    "actualDatesAutoCalculated": "Ngày thực tế được tính tự động từ các thành viên (ngày bắt đầu nhỏ nhất và ngày kết thúc lớn nhất)",
+    "actualDatesNoMembers": "Thêm thành viên để theo dõi ngày thực tế"
   },
   "status": {
     "good": "Tốt",
