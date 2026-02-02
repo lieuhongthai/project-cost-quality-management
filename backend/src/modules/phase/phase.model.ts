@@ -13,11 +13,13 @@ import { Testing } from '../testing/testing.model';
 
 // Default phase names (for reference, but not enforced)
 export const DEFAULT_PHASE_NAMES = [
+  'Requirement',
   'Functional Design',
   'Coding',
   'Unit Test',
   'Integration Test',
   'System Test',
+  'User Test',
 ] as const;
 
 @Table({

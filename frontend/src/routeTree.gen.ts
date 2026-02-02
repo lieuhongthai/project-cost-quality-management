@@ -21,6 +21,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as PhasesPhaseIdRouteImport } from './routes/phases.$phaseId'
+import { Route as ProjectsProjectIdStagesStageIdRouteImport } from './routes/projects_.$projectId.stages.$stageId'
 
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
@@ -82,6 +83,12 @@ const PhasesPhaseIdRoute = PhasesPhaseIdRouteImport.update({
   path: '/phases/$phaseId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsProjectIdStagesStageIdRoute =
+  ProjectsProjectIdStagesStageIdRouteImport.update({
+    id: '/projects_/$projectId/stages/$stageId',
+    path: '/projects/$projectId/stages/$stageId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -108,6 +116,7 @@ export interface FileRoutesByTo {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects': typeof ProjectsIndexRoute
   '/reports': typeof ReportsIndexRoute
+  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,6 +132,7 @@ export interface FileRoutesById {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/projects_/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects/'
     | '/reports/'
+    | '/projects/$projectId/stages/$stageId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects'
     | '/reports'
+    | '/projects/$projectId/stages/$stageId'
   id:
     | '__root__'
     | '/'
@@ -165,6 +177,7 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects/'
     | '/reports/'
+    | '/projects_/$projectId/stages/$stageId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,6 +189,7 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
   PhasesPhaseIdRoute: typeof PhasesPhaseIdRoute
+  ProjectsProjectIdStagesStageIdRoute: typeof ProjectsProjectIdStagesStageIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -264,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PhasesPhaseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects_/$projectId/stages/$stageId': {
+      id: '/projects_/$projectId/stages/$stageId'
+      path: '/projects/$projectId/stages/$stageId'
+      fullPath: '/projects/$projectId/stages/$stageId'
+      preLoaderRoute: typeof ProjectsProjectIdStagesStageIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -303,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
   PhasesPhaseIdRoute: PhasesPhaseIdRoute,
+  ProjectsProjectIdStagesStageIdRoute: ProjectsProjectIdStagesStageIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

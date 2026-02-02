@@ -346,3 +346,160 @@ export interface MemberWorkload {
   inProgressTasks: number;
   pendingTasks: number;
 }
+
+// Task Workflow types
+export type StageStatus = 'Good' | 'Warning' | 'At Risk';
+export type StepScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+
+export interface WorkflowStage {
+  id: number;
+  projectId: number;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  color?: string;
+  startDate?: string;
+  endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  estimatedEffort?: number;
+  actualEffort?: number;
+  progress?: number;
+  status?: StageStatus;
+  steps?: WorkflowStep[];
+}
+
+export interface WorkflowStep {
+  id: number;
+  stageId: number;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface TaskWorkflow {
+  id: number;
+  screenFunctionId: number;
+  stepId: number;
+  isCompleted: boolean;
+  completedAt?: string;
+  completedBy?: number;
+  note?: string;
+  completedByMember?: Member;
+}
+
+export interface TaskWorkflowProgress {
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface ProjectWorkflowData {
+  stages: (WorkflowStage & { steps: WorkflowStep[] })[];
+  screenFunctions: ScreenFunction[];
+  taskWorkflows: TaskWorkflow[];
+  progress: TaskWorkflowProgress;
+}
+
+export interface WorkflowProgressByStage {
+  stageId: number;
+  stageName: string;
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface WorkflowProgressByScreenFunction {
+  screenFunctionId: number;
+  screenFunctionName: string;
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
+export interface ProjectWorkflowProgress {
+  overall: TaskWorkflowProgress;
+  byStage: WorkflowProgressByStage[];
+  byScreenFunction: WorkflowProgressByScreenFunction[];
+}
+
+// Step Screen Function types
+export interface StepScreenFunction {
+  id: number;
+  stepId: number;
+  screenFunctionId: number;
+  assigneeId?: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StepScreenFunctionStatus;
+  note?: string;
+  estimatedStartDate?: string;
+  estimatedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  screenFunction?: ScreenFunction;
+  assignee?: Member;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Step-level statistics
+export interface StepStatistics {
+  totalTasks: number;
+  completedTasks: number;
+  progressPercentage: number;
+  estimatedEffort: number;
+  actualEffort: number;
+}
+
+// Stage Detail types
+export interface StageDetailData {
+  stage: WorkflowStage;
+  steps: (WorkflowStep & {
+    statistics?: StepStatistics;
+    screenFunctions: Array<{
+      id: number;
+      screenFunctionId: number;
+      screenFunction: ScreenFunction;
+      assignee?: Member;
+      estimatedEffort: number;
+      actualEffort: number;
+      progress: number;
+      status: StepScreenFunctionStatus;
+      note?: string;
+      estimatedStartDate?: string;
+      estimatedEndDate?: string;
+      actualStartDate?: string;
+      actualEndDate?: string;
+    }>;
+  })[];
+  progress: {
+    total: number;
+    completed: number;
+    percentage: number;
+  };
+  effort: {
+    estimated: number;
+    actual: number;
+    variance: number;
+  };
+  status: StageStatus;
+}
+
+export interface StageOverviewData {
+  id: number;
+  name: string;
+  displayOrder: number;
+  color?: string;
+  startDate?: string;
+  endDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StageStatus;
+  stepsCount: number;
+  linkedScreensCount: number;
+}

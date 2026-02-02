@@ -336,11 +336,11 @@ function PhaseDetail() {
     })) || [];
 
   const testingChartData =
-    testing?.map((t) => ({
-      week: t('phase.detail.weekLabel', { week: t.weekNumber }),
-      passed: t.passedTestCases,
-      failed: t.failedTestCases,
-      passRate: t.passRate,
+    testing?.map((test) => ({
+      week: t('phase.detail.weekLabel', { week: test.weekNumber }),
+      passed: test.passedTestCases,
+      failed: test.failedTestCases,
+      passRate: test.passRate,
     })) || [];
 
   const tabs = [

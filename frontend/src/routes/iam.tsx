@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { iamApi } from '@/services/api'
-import { Button, Card, EmptyState, LoadingSpinner, Checkbox, Radio, IconButton } from '@/components/common'
+import { Button, Card, EmptyState, LoadingSpinner, Radio, IconButton } from '@/components/common'
 import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role, User } from '@/types'
 import {
@@ -404,7 +404,7 @@ function IamPage() {
     deleteUserMutation.mutate(userId)
   }
 
-  const handleResetPassword = (userId: number, username: string) => {
+  const handleResetPassword = (_userId: number, username: string) => {
     const newPassword = window.prompt(t('iam.resetPasswordPrompt', { name: username }))
     if (!newPassword || !newPassword.trim()) return
     // Backend doesn't have reset password endpoint in current implementation
