@@ -8,7 +8,7 @@ import {
   HasMany,
 } from 'sequelize-typescript';
 import { Project } from '../project/project.model';
-import { Testing } from '../testing/testing.model';
+// import { Testing } from '../testing/testing.model';
 
 // Default phase names (for reference, but not enforced)
 export const DEFAULT_PHASE_NAMES = [
@@ -102,6 +102,6 @@ export class Phase extends Model {
   @BelongsTo(() => Project)
   project: Project;
 
-  @HasMany(() => Testing)
-  testings: Testing[];
+  // @HasMany(() => Testing)
+  // testings: Testing[];
 }

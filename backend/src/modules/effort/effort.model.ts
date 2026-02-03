@@ -23,7 +23,7 @@ export class Effort extends Model {
   @ForeignKey(() => WorkflowStage)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
   })
   stageId: number;
 
