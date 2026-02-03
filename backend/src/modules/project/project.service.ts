@@ -4,6 +4,7 @@ import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.mo
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
 import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
 import { PhaseService } from '../phase/phase.service';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
 
 @Injectable()
 export class ProjectService {
@@ -276,24 +277,27 @@ export class ProjectService {
   }
 
   /**
-   * Update project actualEffort and progress based on phase data
-   * Called automatically when phase metrics are updated
+   * Update project actualEffort and progress based on stage data
+   * Called automatically when stage metrics are updated
    *
-   * Progress = simple average of all phase progress (each phase has equal weight)
+   * Progress = simple average of all stage progress (each stage has equal weight)
    */
-  async updateProjectMetricsFromPhases(projectId: number): Promise<void> {
-    const phases = await this.phaseService.findByProject(projectId);
+  async updateProjectMetricsFromStages(projectId: number): Promise<void> {
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
 
-    if (phases.length === 0) {
+    if (stages.length === 0) {
       return;
     }
 
-    // Calculate total actual effort (sum of all phases)
-    const totalActual = phases.reduce((sum, phase) => sum + (phase.actualEffort || 0), 0);
+    // Calculate total actual effort (sum of all stages)
+    const totalActual = stages.reduce((sum, stage) => sum + (stage.actualEffort || 0), 0);
 
-    // Calculate simple average progress (each phase has equal weight)
-    // Example: 5 phases with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
-    const avgProgress = phases.reduce((sum, phase) => sum + (phase.progress || 0), 0) / phases.length;
+    // Calculate simple average progress (each stage has equal weight)
+    // Example: 5 stages with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
+    const avgProgress = stages.reduce((sum, stage) => sum + (stage.progress || 0), 0) / stages.length;
 
     await this.projectRepository.update(
       {

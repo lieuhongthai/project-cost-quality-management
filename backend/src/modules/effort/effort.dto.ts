@@ -5,7 +5,7 @@ export class CreateEffortDto {
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()
-  phaseId: number;
+  stageId: number;
 
   @IsNotEmpty()
   @Type(() => Number)
@@ -64,7 +64,7 @@ export class BulkEffortDto {
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()
-  phaseId: number;
+  stageId: number;
 
   @IsNotEmpty()
   efforts: CreateEffortDto[];

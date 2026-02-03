@@ -7,14 +7,14 @@ import { addDays, startOfWeek } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
 interface TestingFormProps {
-  phaseId: number;
+  stageId: number;
   testing?: Testing;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 export const TestingForm: React.FC<TestingFormProps> = ({
-  phaseId,
+  stageId,
   testing,
   onSuccess,
   onCancel,
@@ -34,9 +34,9 @@ export const TestingForm: React.FC<TestingFormProps> = ({
   const createMutation = useMutation({
     mutationFn: (data: Partial<Testing>) => testingApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['testing', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['testing-summary', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['testing', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['testing-summary', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['stage', stageId] });
       onSuccess();
     },
   });
@@ -44,9 +44,9 @@ export const TestingForm: React.FC<TestingFormProps> = ({
   const updateMutation = useMutation({
     mutationFn: (data: Partial<Testing>) => testingApi.update(testing!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['testing', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['testing-summary', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['testing', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['testing-summary', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['stage', stageId] });
       onSuccess();
     },
   });
@@ -100,7 +100,7 @@ export const TestingForm: React.FC<TestingFormProps> = ({
       const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
 
       const createData = {
-        phaseId,
+        stageId,
         weekNumber,
         year: weekStart.getFullYear(),
         weekStartDate: weekStart.toISOString(),

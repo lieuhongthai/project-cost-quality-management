@@ -47,9 +47,9 @@ export class TestingService {
     return this.testingRepository.findAll();
   }
 
-  async findByPhase(phaseId: number): Promise<Testing[]> {
+  async findByStage(stageId: number): Promise<Testing[]> {
     return this.testingRepository.findAll({
-      where: { phaseId },
+      where: { stageId },
       order: [['year', 'ASC'], ['weekNumber', 'ASC']],
     });
   }
@@ -84,8 +84,8 @@ export class TestingService {
     await testing.destroy();
   }
 
-  async getPhaseTestingSummary(phaseId: number) {
-    const testings = await this.findByPhase(phaseId);
+  async getStageTestingSummary(stageId: number) {
+    const testings = await this.findByStage(stageId);
     
     const totalTestCases = testings.reduce((sum, t) => sum + t.totalTestCases, 0);
     const totalPassed = testings.reduce((sum, t) => sum + t.passedTestCases, 0);

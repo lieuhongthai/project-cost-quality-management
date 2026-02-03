@@ -99,7 +99,7 @@ export type PhaseType =
 
 export interface Effort {
   id: number;
-  phaseId: number;
+  stageId: number;
   weekNumber: number;
   year: number;
   weekStartDate: string;
@@ -111,7 +111,7 @@ export interface Effort {
 
 export interface Testing {
   id: number;
-  phaseId: number;
+  stageId: number;
   weekNumber: number;
   year: number;
   weekStartDate: string;
@@ -129,9 +129,9 @@ export interface Testing {
 export interface Report {
   id: number;
   projectId: number;
-  scope: 'Weekly' | 'Phase' | 'Project';
-  phaseId?: number;
-  phaseName?: string;
+  scope: 'Weekly' | 'Stage' | 'Project';
+  stageId?: number;
+  stageName?: string;
   weekNumber?: number;
   year?: number;
   reportDate: string;

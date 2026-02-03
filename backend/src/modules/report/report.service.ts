@@ -5,8 +5,8 @@ import { Metrics } from '../metrics/metrics.model';
 import { CreateReportDto, UpdateReportDto } from './report.dto';
 import { MetricsService } from '../metrics/metrics.service';
 import { ProjectService } from '../project/project.service';
-import { PhaseService } from '../phase/phase.service';
 import { TestingService } from '../testing/testing.service';
+import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 
 @Injectable()
 export class ReportService {
@@ -17,8 +17,8 @@ export class ReportService {
     private metricsService: MetricsService,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
-    @Inject(forwardRef(() => PhaseService))
-    private phaseService: PhaseService,
+    @Inject(forwardRef(() => TaskWorkflowService))
+    private taskWorkflowService: TaskWorkflowService,
     @Inject(forwardRef(() => TestingService))
     private testingService: TestingService,
   ) {}
@@ -74,7 +74,7 @@ export class ReportService {
     const snapshotData = await this.captureSnapshot(
       createReportDto.projectId,
       createReportDto.scope,
-      createReportDto.phaseId,
+      createReportDto.stageId,
     );
 
     // Create the report with snapshot data
@@ -91,15 +91,15 @@ export class ReportService {
           createReportDto.projectId,
           report.id,
         );
-      } else if (createReportDto.scope === 'Phase' && createReportDto.phaseId) {
-        await this.metricsService.calculatePhaseMetrics(
-          createReportDto.phaseId,
+      } else if (createReportDto.scope === 'Stage' && createReportDto.stageId) {
+        await this.metricsService.calculateStageMetrics(
+          createReportDto.stageId,
           report.id,
         );
-      } else if (createReportDto.scope === 'Weekly' && createReportDto.phaseId) {
-        // For weekly reports, also calculate phase metrics if phaseId is provided
-        await this.metricsService.calculatePhaseMetrics(
-          createReportDto.phaseId,
+      } else if (createReportDto.scope === 'Weekly' && createReportDto.stageId) {
+        // For weekly reports, also calculate stage metrics if stageId is provided
+        await this.metricsService.calculateStageMetrics(
+          createReportDto.stageId,
           report.id,
         );
       }
@@ -119,10 +119,10 @@ export class ReportService {
   private async captureSnapshot(
     projectId: number,
     scope: string,
-    phaseId?: number,
+    stageId?: number,
   ): Promise<Record<string, any>> {
     const project = await this.projectService.findOne(projectId);
-    const phases = await this.phaseService.findByProject(projectId);
+    const stages = await this.taskWorkflowService.findAllStages(projectId);
 
     // Collect testing data
     let totalTestCases = 0;
@@ -131,7 +131,7 @@ export class ReportService {
     let totalDefects = 0;
     let totalTestingTime = 0;
 
-    const phaseSnapshots: Array<{
+    const stageSnapshots: Array<{
       id: number;
       name: string;
       estimatedEffort: number;
@@ -149,23 +149,23 @@ export class ReportService {
       };
     }> = [];
 
-    for (const phase of phases) {
-      const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
+    for (const stage of stages) {
+      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
       totalTestCases += testingSummary.totalTestCases;
       totalPassed += testingSummary.totalPassed;
       totalFailed += testingSummary.totalFailed;
       totalDefects += testingSummary.totalDefects;
       totalTestingTime += testingSummary.totalTestingTime;
 
-      phaseSnapshots.push({
-        id: phase.id,
-        name: phase.name,
-        estimatedEffort: phase.estimatedEffort,
-        actualEffort: phase.actualEffort || 0,
-        progress: phase.progress || 0,
-        status: phase.status,
-        startDate: phase.startDate,
-        endDate: phase.endDate,
+      stageSnapshots.push({
+        id: stage.id,
+        name: stage.name,
+        estimatedEffort: stage.estimatedEffort,
+        actualEffort: stage.actualEffort || 0,
+        progress: stage.progress || 0,
+        status: stage.status,
+        startDate: stage.startDate,
+        endDate: stage.endDate,
         testing: {
           totalTestCases: testingSummary.totalTestCases,
           totalPassed: testingSummary.totalPassed,
@@ -224,7 +224,7 @@ export class ReportService {
         startDate: project.startDate,
         endDate: project.endDate,
       },
-      phases: phaseSnapshots,
+      stages: stageSnapshots,
       schedule: {
         spi: scheduleMetrics.schedulePerformanceIndex,
         cpi: scheduleMetrics.costPerformanceIndex,
@@ -256,35 +256,35 @@ export class ReportService {
       memberCost: memberCostAnalysis,
     };
 
-    // For phase-specific reports, add detailed phase data
-    if (scope === 'Phase' && phaseId) {
-      const phase = phases.find(p => p.id === phaseId);
-      if (phase) {
-        const phaseTestingSummary = await this.testingService.getPhaseTestingSummary(phaseId);
-        const phaseScheduleMetrics = this.metricsService.calculateScheduleMetrics({
-          estimatedEffort: phase.estimatedEffort,
-          actualEffort: phase.actualEffort || 0,
-          progress: phase.progress || 0,
+    // For stage-specific reports, add detailed stage data
+    if (scope === 'Stage' && stageId) {
+      const stage = stages.find(s => s.id === stageId);
+      if (stage) {
+        const stageTestingSummary = await this.testingService.getStageTestingSummary(stageId);
+        const stageScheduleMetrics = this.metricsService.calculateScheduleMetrics({
+          estimatedEffort: stage.estimatedEffort,
+          actualEffort: stage.actualEffort || 0,
+          progress: stage.progress || 0,
         });
 
-        snapshot.phaseDetail = {
-          id: phase.id,
-          name: phase.name,
-          estimatedEffort: phase.estimatedEffort,
-          actualEffort: phase.actualEffort || 0,
-          progress: phase.progress || 0,
-          status: phase.status,
+        snapshot.stageDetail = {
+          id: stage.id,
+          name: stage.name,
+          estimatedEffort: stage.estimatedEffort,
+          actualEffort: stage.actualEffort || 0,
+          progress: stage.progress || 0,
+          status: stage.status,
           schedule: {
-            spi: phaseScheduleMetrics.schedulePerformanceIndex,
-            cpi: phaseScheduleMetrics.costPerformanceIndex,
-            earnedValue: phaseScheduleMetrics.earnedValue,
-            actualCost: phaseScheduleMetrics.actualCost,
+            spi: stageScheduleMetrics.schedulePerformanceIndex,
+            cpi: stageScheduleMetrics.costPerformanceIndex,
+            earnedValue: stageScheduleMetrics.earnedValue,
+            actualCost: stageScheduleMetrics.actualCost,
           },
           testing: {
-            totalTestCases: phaseTestingSummary.totalTestCases,
-            totalPassed: phaseTestingSummary.totalPassed,
-            totalFailed: phaseTestingSummary.totalFailed,
-            totalDefects: phaseTestingSummary.totalDefects,
+            totalTestCases: stageTestingSummary.totalTestCases,
+            totalPassed: stageTestingSummary.totalPassed,
+            totalFailed: stageTestingSummary.totalFailed,
+            totalDefects: stageTestingSummary.totalDefects,
           },
         };
       }

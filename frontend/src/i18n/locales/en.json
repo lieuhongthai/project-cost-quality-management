@@ -556,9 +556,11 @@
     "scope": "Scope",
     "scopeWeekly": "Weekly",
     "scopePhase": "Phase",
+    "scopeStage": "Stage",
     "scopeProject": "Project",
     "scopeProjectReport": "Project Report",
     "scopePhaseReport": "Phase Report",
+    "scopeStageReport": "Stage Report",
     "scopeWeeklyReport": "Weekly Report",
     "weekNumber": "Week Number",
     "year": "Year",
@@ -579,7 +581,8 @@
     "form": {
       "titleProject": "{{project}} - Project Report",
       "titlePhase": "{{project}} - {{phase}} Report",
-      "titleWeekly": "{{project}} - {{phase}} - Week {{week}}, {{year}}",
+      "titleStage": "{{project}} - {{stage}} Report",
+      "titleWeekly": "{{project}} - {{stage}} - Week {{week}}, {{year}}",
       "titleHelper": "Auto-generated based on your selection, but you can customize it",
       "generate": "Generate Report"
     },
@@ -587,6 +590,7 @@
       "projectRequired": "Project is required",
       "titleRequired": "Title is required",
       "phaseRequired": "Phase is required for Phase and Weekly reports",
+      "stageRequired": "Stage is required for Stage and Weekly reports",
       "weekRange": "Week number must be between 1 and 53",
       "yearValid": "Please enter a valid year"
     },
@@ -729,7 +733,9 @@
     "estimatedCost": "Estimated Cost",
     "actualCost": "Actual Cost",
     "costByPhase": "Cost by Phase",
+    "costByStage": "Cost by Stage",
     "phase": "Phase",
+    "stage": "Stage",
     "memberCount": "Member Count",
     "efficiencyRating": "Efficiency Rating",
     "efficiencyExcellent": "Excellent",
@@ -924,6 +930,10 @@
   },
   "stages": {
     "title": "Stages",
+    "overviewTab": "Stage Overview",
+    "timelineTitle": "Stage Timeline (Gantt)",
+    "timelineSvarTitle": "Stage Timeline (Interactive)",
+    "progressOverview": "Stage Progress Overview",
     "noStages": "No stages configured",
     "initializeWorkflowFirst": "Initialize workflow from Task Workflow tab first to create stages.",
     "steps": "Steps",
@@ -1009,7 +1019,42 @@
     "dates": "Dates",
     "memberNotePlaceholder": "Add notes for this member...",
     "actualDatesAutoCalculated": "Actual dates are auto-calculated from members (earliest start date and latest end date)",
-    "actualDatesNoMembers": "Add members to track actual dates"
+    "actualDatesNoMembers": "Add members to track actual dates",
+    "timeline": {
+      "empty": "No stages to display",
+      "planned": "Planned",
+      "actual": "Actual",
+      "today": "Today",
+      "viewLabel": "View",
+      "view": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "year": "Year"
+      },
+      "plannedRange": "Planned: {{start}} → {{end}}",
+      "actualRange": "Actual: End {{end}}",
+      "noEndDate": "No end date",
+      "delayed": "Delayed {{days}} days",
+      "gap": "Gap {{days}} days",
+      "overlap": "Overlap {{days}} days",
+      "tooltip": {
+        "title": "{{name}}",
+        "planned": "Planned: {{start}} → {{end}}",
+        "actual": "Actual end: {{end}}",
+        "progress": "Progress: {{progress}}%"
+      },
+      "mode": "Mode",
+      "estimate": "Estimate",
+      "statusFilter": "Status",
+      "summary": "Total stages: {{total}}",
+      "completed": "Completed: {{count}}",
+      "inProgress": "In progress: {{count}}",
+      "notStarted": "Not started: {{count}}",
+      "avgProgress": "Avg progress: {{progress}}%",
+      "noEstimateDates": "Add stages with start and end dates to see them on the timeline",
+      "noActualDates": "No stages with actual dates found. Switch to Estimate mode or add actual dates to stages"
+    }
   },
   "metrics": {
     "title": "Metric Configuration",

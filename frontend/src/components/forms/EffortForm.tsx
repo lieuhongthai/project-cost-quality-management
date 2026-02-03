@@ -8,7 +8,7 @@ import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
 import { useTranslation } from 'react-i18next';
 
 interface EffortFormProps {
-  phaseId: number;
+  stageId: number;
   effort?: Effort;
   effortUnit?: EffortUnit;
   workSettings?: Partial<ProjectSettings>;
@@ -17,7 +17,7 @@ interface EffortFormProps {
 }
 
 export const EffortForm: React.FC<EffortFormProps> = ({
-  phaseId,
+  stageId,
   effort,
   effortUnit = 'man-month',
   workSettings,
@@ -46,9 +46,9 @@ export const EffortForm: React.FC<EffortFormProps> = ({
   const createMutation = useMutation({
     mutationFn: (data: Partial<Effort>) => effortApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['efforts', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['stage', stageId] });
       onSuccess();
     },
   });
@@ -56,9 +56,9 @@ export const EffortForm: React.FC<EffortFormProps> = ({
   const updateMutation = useMutation({
     mutationFn: (data: Partial<Effort>) => effortApi.update(effort!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['efforts', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['effort-summary', phaseId] });
-      queryClient.invalidateQueries({ queryKey: ['phase', phaseId] });
+      queryClient.invalidateQueries({ queryKey: ['efforts', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['effort-summary', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['stage', stageId] });
       onSuccess();
     },
   });
@@ -120,7 +120,7 @@ export const EffortForm: React.FC<EffortFormProps> = ({
       const weekNumber = Math.ceil((weekStart.getTime() - startOfWeek(new Date(weekStart.getFullYear(), 0, 1)).getTime()) / (7 * 24 * 60 * 60 * 1000));
 
       const createData = {
-        phaseId,
+        stageId,
         weekNumber,
         year: weekStart.getFullYear(),
         weekStartDate: weekStart.toISOString(),

@@ -9,6 +9,7 @@ import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { Member } from '../member/member.model';
+import { ProjectService } from '../project/project.service';
 import {
   CreateWorkflowStageDto,
   UpdateWorkflowStageDto,
@@ -62,6 +63,8 @@ export class TaskWorkflowService {
     private metricCategoryRepository: typeof MetricCategory,
     @Inject('TASK_MEMBER_METRIC_REPOSITORY')
     private taskMemberMetricRepository: typeof TaskMemberMetric,
+    @Inject(forwardRef(() => ProjectService))
+    private projectService: ProjectService,
   ) {}
 
   // ===== Workflow Stage Methods =====
@@ -632,6 +635,10 @@ export class TaskWorkflowService {
       actualEffort,
       status,
     });
+
+    await this.projectService.updateProjectMetricsFromStages(stage.projectId);
+
+    await this.projectService.updateProjectMetricsFromStages(stage.projectId);
   }
 
   async deleteStepScreenFunction(id: number): Promise<void> {
@@ -928,6 +935,7 @@ export class TaskWorkflowService {
           actualEffort,
           status,
         });
+        await this.projectService.updateProjectMetricsFromStages(stage.projectId);
       }
 
       result.push({

@@ -6,7 +6,7 @@ import {
   ForeignKey,
   BelongsTo,
 } from 'sequelize-typescript';
-import { Phase } from '../phase/phase.model';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
 
 @Table({
   tableName: 'efforts',
@@ -20,12 +20,12 @@ export class Effort extends Model {
   })
   id: number;
 
-  @ForeignKey(() => Phase)
+  @ForeignKey(() => WorkflowStage)
   @Column({
     type: DataType.INTEGER,
     allowNull: false,
   })
-  phaseId: number;
+  stageId: number;
 
   @Column({
     type: DataType.INTEGER,
@@ -70,6 +70,6 @@ export class Effort extends Model {
   })
   progress: number; // percentage (0-100)
 
-  @BelongsTo(() => Phase)
-  phase: Phase;
+  @BelongsTo(() => WorkflowStage)
+  stage: WorkflowStage;
 }
