@@ -1032,7 +1032,10 @@
     "logMetrics": "Log Metrics",
     "value": "Value",
     "selectCategory": "Select category",
-    "noMetricsLogged": "No metrics logged yet"
+    "noMetricsLogged": "No metrics logged yet",
+    "detailsTab": "Details",
+    "metricsTab": "Work Metrics",
+    "addMetrics": "Add Work Metrics"
   },
   "status": {
     "good": "Good",

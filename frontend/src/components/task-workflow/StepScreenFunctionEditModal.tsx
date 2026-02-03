@@ -65,6 +65,12 @@ export function StepScreenFunctionEditModal({
   // State for member metrics (keyed by memberId)
   const [memberMetrics, setMemberMetrics] = useState<Record<number, Record<number, number>>>({});
 
+  // State for member edit tabs: 'details' or 'metrics'
+  const [memberActiveTab, setMemberActiveTab] = useState<Record<number, 'details' | 'metrics'>>({});
+
+  // State for tracking which members have metrics enabled (show metrics tab)
+  const [memberMetricsEnabled, setMemberMetricsEnabled] = useState<Record<number, boolean>>({});
+
   // Fetch metrics for a member when they expand
   const fetchMemberMetrics = async (memberId: number) => {
     if (memberMetrics[memberId]) return; // Already fetched
@@ -76,10 +82,24 @@ export function StepScreenFunctionEditModal({
         metricsMap[m.metricCategoryId] = m.value;
       });
       setMemberMetrics((prev) => ({ ...prev, [memberId]: metricsMap }));
+      // Auto-enable metrics tab if there are existing metrics with non-zero values
+      const hasMetrics = Object.values(metricsMap).some((v) => v > 0);
+      if (hasMetrics) {
+        setMemberMetricsEnabled((prev) => ({ ...prev, [memberId]: true }));
+      }
     } catch {
       // Error handled silently
     }
   };
+
+  // Enable metrics for a member
+  const enableMemberMetrics = (memberId: number) => {
+    setMemberMetricsEnabled((prev) => ({ ...prev, [memberId]: true }));
+    setMemberActiveTab((prev) => ({ ...prev, [memberId]: 'metrics' }));
+  };
+
+  // Get active tab for a member
+  const getMemberTab = (memberId: number) => memberActiveTab[memberId] || 'details';
 
   // Update metric value locally
   const updateMetricValue = (memberId: number, categoryId: number, value: number) => {
@@ -498,108 +518,149 @@ export function StepScreenFunctionEditModal({
 
                   {/* Expanded Edit Form */}
                   {member.isEditing && (
-                    <div className="px-4 pb-4 border-t border-blue-200 pt-3 space-y-3">
-                      {/* Effort and Progress Row */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={member.estimatedEffort}
-                            onChange={(e) => updateMemberField(member.id!, 'estimatedEffort', Number(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={member.actualEffort}
-                            onChange={(e) => updateMemberField(member.id!, 'actualEffort', Number(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={member.progress}
-                            onChange={(e) => updateMemberField(member.id!, 'progress', Number(e.target.value))}
-                          />
-                        </div>
+                    <div className="border-t border-blue-200">
+                      {/* Tabs */}
+                      <div className="flex border-b border-blue-200 bg-blue-50/50">
+                        <button
+                          type="button"
+                          onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'details' }))}
+                          className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            getMemberTab(member.id!) === 'details'
+                              ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          {t('metrics.detailsTab')}
+                        </button>
+                        {memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'metrics' }))}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              getMemberTab(member.id!) === 'metrics'
+                                ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            {t('metrics.metricsTab')}
+                          </button>
+                        )}
+                        {!memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => enableMemberMetrics(member.id!)}
+                            className="px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors flex items-center gap-1"
+                          >
+                            <span>+</span> {t('metrics.addMetrics')}
+                          </button>
+                        )}
                       </div>
 
-                      {/* Estimated Dates Row */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <DateInput
-                            label={t('stages.startDate')}
-                            name={`estimatedStartDate-${member.id}`}
-                            value={member.estimatedStartDate}
-                            onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
-                          />
-                          <DateInput
-                            label={t('stages.endDate')}
-                            name={`estimatedEndDate-${member.id}`}
-                            value={member.estimatedEndDate}
-                            onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
-                          />
-                        </div>
-                      </div>
+                      {/* Tab Content */}
+                      <div className="px-4 pb-4 pt-3">
+                        {/* Details Tab */}
+                        {getMemberTab(member.id!) === 'details' && (
+                          <div className="space-y-3">
+                            {/* Effort and Progress Row */}
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={member.estimatedEffort}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedEffort', Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={member.actualEffort}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualEffort', Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={member.progress}
+                                  onChange={(e) => updateMemberField(member.id!, 'progress', Number(e.target.value))}
+                                />
+                              </div>
+                            </div>
 
-                      {/* Actual Dates Row */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <DateInput
-                            label={t('stages.startDate')}
-                            name={`actualStartDate-${member.id}`}
-                            value={member.actualStartDate}
-                            onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
-                          />
-                          <DateInput
-                            label={t('stages.endDate')}
-                            name={`actualEndDate-${member.id}`}
-                            value={member.actualEndDate}
-                            onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
-                          />
-                        </div>
-                      </div>
+                            {/* Estimated Dates Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <DateInput
+                                  label={t('stages.startDate')}
+                                  name={`estimatedStartDate-${member.id}`}
+                                  value={member.estimatedStartDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
+                                />
+                                <DateInput
+                                  label={t('stages.endDate')}
+                                  name={`estimatedEndDate-${member.id}`}
+                                  value={member.estimatedEndDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
+                                />
+                              </div>
+                            </div>
 
-                      {/* Note Row */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
-                        <TextArea
-                          value={member.note}
-                          onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
-                          rows={2}
-                          placeholder={t('stages.memberNotePlaceholder')}
-                        />
-                      </div>
+                            {/* Actual Dates Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <DateInput
+                                  label={t('stages.startDate')}
+                                  name={`actualStartDate-${member.id}`}
+                                  value={member.actualStartDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
+                                />
+                                <DateInput
+                                  label={t('stages.endDate')}
+                                  name={`actualEndDate-${member.id}`}
+                                  value={member.actualEndDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
+                                />
+                              </div>
+                            </div>
 
-                      {/* Metrics Section */}
-                      {metricTypes.length > 0 && (
-                        <div className="border-t border-blue-200 pt-3 mt-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-2">{t('metrics.memberMetrics')}</label>
+                            {/* Note Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
+                              <TextArea
+                                value={member.note}
+                                onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
+                                rows={2}
+                                placeholder={t('stages.memberNotePlaceholder')}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Metrics Tab */}
+                        {getMemberTab(member.id!) === 'metrics' && memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
                           <div className="space-y-3">
                             {metricTypes.map((metricType) => (
-                              <div key={metricType.id} className="bg-gray-50 rounded p-2">
-                                <div className="text-xs font-medium text-gray-600 mb-2">{metricType.name}</div>
-                                <div className="grid grid-cols-3 gap-2">
+                              <div key={metricType.id} className="bg-gray-50 rounded-lg p-3">
+                                <div className="text-sm font-medium text-gray-700 mb-3">{metricType.name}</div>
+                                <div className="grid grid-cols-3 gap-3">
                                   {metricType.categories?.map((category) => (
                                     <div key={category.id}>
-                                      <label className="block text-xs text-gray-500 mb-0.5">{category.name}</label>
+                                      <label className="block text-xs text-gray-500 mb-1">{category.name}</label>
                                       <Input
                                         type="number"
                                         min={0}
                                         value={memberMetrics[member.id!]?.[category.id] || 0}
                                         onChange={(e) => updateMetricValue(member.id!, category.id, Number(e.target.value))}
-                                        className="text-sm"
                                       />
                                     </div>
                                   ))}
@@ -607,8 +668,8 @@ export function StepScreenFunctionEditModal({
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

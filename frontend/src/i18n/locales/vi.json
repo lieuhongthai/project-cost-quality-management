@@ -1032,7 +1032,10 @@
     "logMetrics": "Nhập thông số",
     "value": "Giá trị",
     "selectCategory": "Chọn category",
-    "noMetricsLogged": "Chưa có thông số nào"
+    "noMetricsLogged": "Chưa có thông số nào",
+    "detailsTab": "Chi tiết",
+    "metricsTab": "Work Metrics",
+    "addMetrics": "Thêm Work Metrics"
   },
   "status": {
     "good": "Tốt",
