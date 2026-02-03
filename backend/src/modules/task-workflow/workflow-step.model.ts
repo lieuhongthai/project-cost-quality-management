@@ -34,7 +34,7 @@ export class WorkflowStep extends Model {
   @ForeignKey(() => WorkflowStage)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     onDelete: 'CASCADE',
   })
   stageId: number;
