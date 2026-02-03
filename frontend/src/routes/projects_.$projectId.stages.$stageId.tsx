@@ -82,7 +82,7 @@ function StageDetail() {
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
 
   // Fetch stage detail
   const { data: stageDetail, isLoading } = useQuery({
