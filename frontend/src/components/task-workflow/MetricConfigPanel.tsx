@@ -27,7 +27,10 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
   // Queries
   const { data: metricTypes = [], isLoading } = useQuery({
     queryKey: ['metricTypes', projectId],
-    queryFn: () => taskWorkflowApi.getMetricTypes(projectId),
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getMetricTypes(projectId);
+      return response.data;
+    },
   });
 
   // Mutations

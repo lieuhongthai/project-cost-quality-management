@@ -842,6 +842,7 @@ function StageDetail() {
         <StepScreenFunctionEditModal
           data={editingSSF}
           members={members}
+          projectId={parseInt(projectId)}
           onClose={(saved) => {
             setEditingSSF(null);
             if (saved) {

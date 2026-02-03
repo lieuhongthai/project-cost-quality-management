@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
 import { Modal, Button, Input, DateInput } from '@/components/common';
 import { Select, TextArea } from '@/components/common/FormFields';
-import type { StepScreenFunctionStatus, Member, ScreenFunction, StepScreenFunctionMember } from '@/types';
+import type { StepScreenFunctionStatus, Member, ScreenFunction, StepScreenFunctionMember, TaskMemberMetric } from '@/types';
 
 interface StepScreenFunctionData {
   id: number;
@@ -39,16 +39,72 @@ interface MemberFormData {
 interface StepScreenFunctionEditModalProps {
   data: StepScreenFunctionData;
   members: Member[];
+  projectId: number;
   onClose: (saved?: boolean) => void;
 }
 
 export function StepScreenFunctionEditModal({
   data,
   members,
+  projectId,
   onClose,
 }: StepScreenFunctionEditModalProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+
+  // Fetch metric types for this project
+  const { data: metricTypes = [] } = useQuery({
+    queryKey: ['metricTypes', projectId],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getMetricTypes(projectId);
+      return response.data;
+    },
+    enabled: !!projectId,
+  });
+
+  // State for member metrics (keyed by memberId)
+  const [memberMetrics, setMemberMetrics] = useState<Record<number, Record<number, number>>>({});
+
+  // Fetch metrics for a member when they expand
+  const fetchMemberMetrics = async (memberId: number) => {
+    if (memberMetrics[memberId]) return; // Already fetched
+    try {
+      const response = await taskWorkflowApi.getTaskMemberMetrics(memberId);
+      const metrics = response.data;
+      const metricsMap: Record<number, number> = {};
+      metrics.forEach((m: TaskMemberMetric) => {
+        metricsMap[m.metricCategoryId] = m.value;
+      });
+      setMemberMetrics((prev) => ({ ...prev, [memberId]: metricsMap }));
+    } catch {
+      // Error handled silently
+    }
+  };
+
+  // Update metric value locally
+  const updateMetricValue = (memberId: number, categoryId: number, value: number) => {
+    setMemberMetrics((prev) => ({
+      ...prev,
+      [memberId]: {
+        ...(prev[memberId] || {}),
+        [categoryId]: value,
+      },
+    }));
+  };
+
+  // Save member metrics
+  const saveMetricsMutation = useMutation({
+    mutationFn: async ({ memberId, metrics }: { memberId: number; metrics: Record<number, number> }) => {
+      const metricsArray = Object.entries(metrics).map(([categoryId, value]) => ({
+        metricCategoryId: parseInt(categoryId),
+        value: value || 0,
+      }));
+      return taskWorkflowApi.bulkUpsertTaskMemberMetrics({
+        stepScreenFunctionMemberId: memberId,
+        metrics: metricsArray,
+      });
+    },
+  });
 
   // Form state for SSF level fields
   const [formData, setFormData] = useState({
@@ -189,7 +245,8 @@ export function StepScreenFunctionEditModal({
     if (newMember.memberId === 0) return;
 
     try {
-      const createdMember = await createMemberMutation.mutateAsync(newMember);
+      const response = await createMemberMutation.mutateAsync(newMember);
+      const createdMember = response.data;
       // Add new member to local state
       setMembersList((prev) => [
         ...prev,
@@ -234,6 +291,13 @@ export function StepScreenFunctionEditModal({
 
     try {
       await updateMemberMutation.mutateAsync({ id: memberData.id, ...memberData });
+
+      // Save metrics if any
+      const metrics = memberMetrics[memberData.id];
+      if (metrics && Object.keys(metrics).length > 0) {
+        await saveMetricsMutation.mutateAsync({ memberId: memberData.id, metrics });
+      }
+
       // Update local state
       setMembersList((prev) =>
         prev.map((m) => (m.id === memberData.id ? { ...memberData, isEditing: false } : m))
@@ -259,6 +323,11 @@ export function StepScreenFunctionEditModal({
 
   // Toggle edit mode for a member
   const toggleEditMember = (id: number) => {
+    const member = membersList.find((m) => m.id === id);
+    if (member && !member.isEditing) {
+      // Fetch metrics when expanding
+      fetchMemberMetrics(id);
+    }
     setMembersList((prev) =>
       prev.map((m) => (m.id === id ? { ...m, isEditing: !m.isEditing } : m))
     );
@@ -512,6 +581,34 @@ export function StepScreenFunctionEditModal({
                           placeholder={t('stages.memberNotePlaceholder')}
                         />
                       </div>
+
+                      {/* Metrics Section */}
+                      {metricTypes.length > 0 && (
+                        <div className="border-t border-blue-200 pt-3 mt-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-2">{t('metrics.memberMetrics')}</label>
+                          <div className="space-y-3">
+                            {metricTypes.map((metricType) => (
+                              <div key={metricType.id} className="bg-gray-50 rounded p-2">
+                                <div className="text-xs font-medium text-gray-600 mb-2">{metricType.name}</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {metricType.categories?.map((category) => (
+                                    <div key={category.id}>
+                                      <label className="block text-xs text-gray-500 mb-0.5">{category.name}</label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={memberMetrics[member.id!]?.[category.id] || 0}
+                                        onChange={(e) => updateMetricValue(member.id!, category.id, Number(e.target.value))}
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
