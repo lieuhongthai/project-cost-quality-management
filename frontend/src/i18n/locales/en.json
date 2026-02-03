@@ -1035,7 +1035,9 @@
     "noMetricsLogged": "No metrics logged yet",
     "detailsTab": "Details",
     "metricsTab": "Work Metrics",
-    "addMetrics": "Add Work Metrics"
+    "addMetrics": "Add Work Metrics",
+    "addMetricType": "Add Metric",
+    "noMetricsSelected": "No metrics selected. Click '+ Add Metric' to add."
   },
   "status": {
     "good": "Good",

@@ -1035,7 +1035,9 @@
     "noMetricsLogged": "Chưa có thông số nào",
     "detailsTab": "Chi tiết",
     "metricsTab": "Work Metrics",
-    "addMetrics": "Thêm Work Metrics"
+    "addMetrics": "Thêm Work Metrics",
+    "addMetricType": "Thêm Metric",
+    "noMetricsSelected": "Chưa chọn metric nào. Nhấn '+ Thêm Metric' để thêm."
   },
   "status": {
     "good": "Tốt",

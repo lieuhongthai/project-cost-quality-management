@@ -68,8 +68,11 @@ export function StepScreenFunctionEditModal({
   // State for member edit tabs: 'details' or 'metrics'
   const [memberActiveTab, setMemberActiveTab] = useState<Record<number, 'details' | 'metrics'>>({});
 
-  // State for tracking which members have metrics enabled (show metrics tab)
-  const [memberMetricsEnabled, setMemberMetricsEnabled] = useState<Record<number, boolean>>({});
+  // State for tracking which metric types are enabled per member (by metric type ID)
+  const [memberEnabledMetricTypes, setMemberEnabledMetricTypes] = useState<Record<number, number[]>>({});
+
+  // State for showing add metric type dropdown per member
+  const [showAddMetricDropdown, setShowAddMetricDropdown] = useState<Record<number, boolean>>({});
 
   // Fetch metrics for a member when they expand
   const fetchMemberMetrics = async (memberId: number) => {
@@ -82,20 +85,59 @@ export function StepScreenFunctionEditModal({
         metricsMap[m.metricCategoryId] = m.value;
       });
       setMemberMetrics((prev) => ({ ...prev, [memberId]: metricsMap }));
-      // Auto-enable metrics tab if there are existing metrics with non-zero values
-      const hasMetrics = Object.values(metricsMap).some((v) => v > 0);
-      if (hasMetrics) {
-        setMemberMetricsEnabled((prev) => ({ ...prev, [memberId]: true }));
+
+      // Auto-enable metric types that have values
+      if (metricTypes.length > 0) {
+        const enabledTypeIds: number[] = [];
+        metricTypes.forEach((type) => {
+          const hasValues = type.categories?.some((cat) => metricsMap[cat.id] > 0);
+          if (hasValues) {
+            enabledTypeIds.push(type.id);
+          }
+        });
+        if (enabledTypeIds.length > 0) {
+          setMemberEnabledMetricTypes((prev) => ({ ...prev, [memberId]: enabledTypeIds }));
+        }
       }
     } catch {
       // Error handled silently
     }
   };
 
-  // Enable metrics for a member
-  const enableMemberMetrics = (memberId: number) => {
-    setMemberMetricsEnabled((prev) => ({ ...prev, [memberId]: true }));
+  // Add a specific metric type for a member
+  const addMetricTypeForMember = (memberId: number, metricTypeId: number) => {
+    setMemberEnabledMetricTypes((prev) => ({
+      ...prev,
+      [memberId]: [...(prev[memberId] || []), metricTypeId],
+    }));
+    setShowAddMetricDropdown((prev) => ({ ...prev, [memberId]: false }));
+    // Switch to metrics tab
     setMemberActiveTab((prev) => ({ ...prev, [memberId]: 'metrics' }));
+  };
+
+  // Remove a specific metric type for a member
+  const removeMetricTypeForMember = (memberId: number, metricTypeId: number) => {
+    setMemberEnabledMetricTypes((prev) => ({
+      ...prev,
+      [memberId]: (prev[memberId] || []).filter((id) => id !== metricTypeId),
+    }));
+  };
+
+  // Get enabled metric types for a member
+  const getEnabledMetricTypes = (memberId: number) => {
+    const enabledIds = memberEnabledMetricTypes[memberId] || [];
+    return metricTypes.filter((type) => enabledIds.includes(type.id));
+  };
+
+  // Get available metric types to add for a member (not yet enabled)
+  const getAvailableMetricTypes = (memberId: number) => {
+    const enabledIds = memberEnabledMetricTypes[memberId] || [];
+    return metricTypes.filter((type) => !enabledIds.includes(type.id));
+  };
+
+  // Check if member has any metric types enabled
+  const hasMemberMetrics = (memberId: number) => {
+    return (memberEnabledMetricTypes[memberId] || []).length > 0;
   };
 
   // Get active tab for a member
@@ -532,7 +574,7 @@ export function StepScreenFunctionEditModal({
                         >
                           {t('metrics.detailsTab')}
                         </button>
-                        {memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
+                        {hasMemberMetrics(member.id!) && (
                           <button
                             type="button"
                             onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'metrics' }))}
@@ -542,17 +584,35 @@ export function StepScreenFunctionEditModal({
                                 : 'text-gray-500 hover:text-gray-700'
                             }`}
                           >
-                            {t('metrics.metricsTab')}
+                            {t('metrics.metricsTab')} ({getEnabledMetricTypes(member.id!).length})
                           </button>
                         )}
-                        {!memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => enableMemberMetrics(member.id!)}
-                            className="px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors flex items-center gap-1"
-                          >
-                            <span>+</span> {t('metrics.addMetrics')}
-                          </button>
+                        {/* Add Metric Type Dropdown */}
+                        {metricTypes.length > 0 && getAvailableMetricTypes(member.id!).length > 0 && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowAddMetricDropdown((prev) => ({ ...prev, [member.id!]: !prev[member.id!] }))}
+                              className="px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors flex items-center gap-1"
+                            >
+                              <span>+</span> {t('metrics.addMetricType')}
+                            </button>
+                            {showAddMetricDropdown[member.id!] && (
+                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+                                {getAvailableMetricTypes(member.id!).map((type) => (
+                                  <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => addMetricTypeForMember(member.id!, type.id)}
+                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <span className="text-green-500">+</span>
+                                    {type.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
 
@@ -647,11 +707,20 @@ export function StepScreenFunctionEditModal({
                         )}
 
                         {/* Metrics Tab */}
-                        {getMemberTab(member.id!) === 'metrics' && memberMetricsEnabled[member.id!] && metricTypes.length > 0 && (
+                        {getMemberTab(member.id!) === 'metrics' && hasMemberMetrics(member.id!) && (
                           <div className="space-y-3">
-                            {metricTypes.map((metricType) => (
+                            {getEnabledMetricTypes(member.id!).map((metricType) => (
                               <div key={metricType.id} className="bg-gray-50 rounded-lg p-3">
-                                <div className="text-sm font-medium text-gray-700 mb-3">{metricType.name}</div>
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-sm font-medium text-gray-700">{metricType.name}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeMetricTypeForMember(member.id!, metricType.id)}
+                                    className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                                  >
+                                    {t('common.delete')}
+                                  </button>
+                                </div>
                                 <div className="grid grid-cols-3 gap-3">
                                   {metricType.categories?.map((category) => (
                                     <div key={category.id}>
@@ -667,6 +736,11 @@ export function StepScreenFunctionEditModal({
                                 </div>
                               </div>
                             ))}
+                            {getEnabledMetricTypes(member.id!).length === 0 && (
+                              <div className="text-center py-4 text-gray-500">
+                                {t('metrics.noMetricsSelected')}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
