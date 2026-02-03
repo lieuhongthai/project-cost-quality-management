@@ -17,7 +17,7 @@ import {
 import { MetricsChart, PhaseTimelineGantt, PhaseTimelineSvarGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
-import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel } from '@/components/task-workflow';
+import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
@@ -1415,6 +1415,9 @@ function ProjectDetail() {
         <div className="space-y-6">
           {/* Workflow Configuration Section */}
           <WorkflowConfigPanel projectId={parseInt(projectId)} />
+
+          {/* Metric Configuration Section */}
+          <MetricConfigPanel projectId={parseInt(projectId)} />
 
           <Card title={t('settings.workTimeConfig')}>
             <p className="text-sm text-gray-500 mb-6">
