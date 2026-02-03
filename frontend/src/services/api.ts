@@ -28,6 +28,9 @@ import type {
   WorkflowStep,
   TaskWorkflow,
   ProjectWorkflowData,
+  MetricType,
+  MetricCategory,
+  TaskMemberMetric,
   ProjectWorkflowProgress,
   TaskWorkflowProgress,
   StepScreenFunction,
@@ -391,6 +394,49 @@ export const taskWorkflowApi = {
   // Export
   exportExcel: (projectId: number) =>
     api.get(`/task-workflow/export/${projectId}`, { responseType: 'blob' }),
+
+  // ===== Metric Types =====
+  getMetricTypes: (projectId: number) =>
+    api.get<MetricType[]>(`/task-workflow/metric-types/project/${projectId}`),
+  getMetricType: (id: number) =>
+    api.get<MetricType>(`/task-workflow/metric-types/${id}`),
+  createMetricType: (data: { projectId: number; name: string; description?: string; displayOrder?: number }) =>
+    api.post<MetricType>('/task-workflow/metric-types', data),
+  updateMetricType: (id: number, data: { name?: string; description?: string; displayOrder?: number; isActive?: boolean }) =>
+    api.put<MetricType>(`/task-workflow/metric-types/${id}`, data),
+  deleteMetricType: (id: number) =>
+    api.delete(`/task-workflow/metric-types/${id}`),
+  initializeProjectMetrics: (projectId: number) =>
+    api.post<{ metricTypes: MetricType[] }>('/task-workflow/metric-types/initialize', { projectId }),
+
+  // ===== Metric Categories =====
+  getMetricCategories: (metricTypeId: number) =>
+    api.get<MetricCategory[]>(`/task-workflow/metric-categories/type/${metricTypeId}`),
+  getMetricCategory: (id: number) =>
+    api.get<MetricCategory>(`/task-workflow/metric-categories/${id}`),
+  createMetricCategory: (data: { metricTypeId: number; name: string; description?: string; displayOrder?: number }) =>
+    api.post<MetricCategory>('/task-workflow/metric-categories', data),
+  updateMetricCategory: (id: number, data: { name?: string; description?: string; displayOrder?: number; isActive?: boolean }) =>
+    api.put<MetricCategory>(`/task-workflow/metric-categories/${id}`, data),
+  deleteMetricCategory: (id: number) =>
+    api.delete(`/task-workflow/metric-categories/${id}`),
+
+  // ===== Task Member Metrics =====
+  getTaskMemberMetrics: (stepScreenFunctionMemberId: number) =>
+    api.get<TaskMemberMetric[]>(`/task-workflow/task-member-metrics/member/${stepScreenFunctionMemberId}`),
+  getTaskMemberMetric: (id: number) =>
+    api.get<TaskMemberMetric>(`/task-workflow/task-member-metrics/${id}`),
+  createTaskMemberMetric: (data: { stepScreenFunctionMemberId: number; metricCategoryId: number; value?: number; note?: string }) =>
+    api.post<TaskMemberMetric>('/task-workflow/task-member-metrics', data),
+  updateTaskMemberMetric: (id: number, data: { value?: number; note?: string }) =>
+    api.put<TaskMemberMetric>(`/task-workflow/task-member-metrics/${id}`, data),
+  deleteTaskMemberMetric: (id: number) =>
+    api.delete(`/task-workflow/task-member-metrics/${id}`),
+  bulkUpsertTaskMemberMetrics: (data: {
+    stepScreenFunctionMemberId: number;
+    metrics: Array<{ metricCategoryId: number; value?: number; note?: string }>;
+  }) =>
+    api.post<TaskMemberMetric[]>('/task-workflow/task-member-metrics/bulk-upsert', data),
 };
 
 export const iamApi = {

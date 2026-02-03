@@ -520,3 +520,40 @@ export interface StageOverviewData {
   stepsCount: number;
   linkedScreensCount: number;
 }
+
+// ===== Metric Types =====
+
+export interface MetricType {
+  id: number;
+  projectId: number;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  isActive: boolean;
+  categories?: MetricCategory[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MetricCategory {
+  id: number;
+  metricTypeId: number;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  isActive: boolean;
+  metricType?: MetricType;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TaskMemberMetric {
+  id: number;
+  stepScreenFunctionMemberId: number;
+  metricCategoryId: number;
+  value: number;
+  note?: string;
+  metricCategory?: MetricCategory;
+  createdAt?: string;
+  updatedAt?: string;
+}
