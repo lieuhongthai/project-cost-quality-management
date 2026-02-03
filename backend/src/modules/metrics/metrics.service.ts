@@ -8,6 +8,7 @@ import { WorkflowStep } from '../task-workflow/workflow-step.model';
 import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 import { StepScreenFunctionMember } from '../task-workflow/step-screen-function-member.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
+import { Member } from '../member/member.model';
 import { Op } from 'sequelize';
 
 export interface ScheduleMetricsInput {

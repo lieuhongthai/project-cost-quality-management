@@ -138,8 +138,8 @@ export class ReportService {
       actualEffort: number;
       progress: number;
       status: string;
-      startDate: Date;
-      endDate: Date;
+      startDate: string | null;
+      endDate: string | null;
       testing: {
         totalTestCases: number;
         totalPassed: number;
