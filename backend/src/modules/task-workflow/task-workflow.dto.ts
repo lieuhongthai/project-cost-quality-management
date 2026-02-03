@@ -559,3 +559,164 @@ export class StepScreenFunctionMemberItemDto {
   @IsString()
   note?: string;
 }
+
+// ===== Metric Type DTOs =====
+
+export class CreateMetricTypeDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  projectId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateMetricTypeDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+// ===== Metric Category DTOs =====
+
+export class CreateMetricCategoryDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricTypeId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateMetricCategoryDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+// ===== Task Member Metric DTOs =====
+
+export class CreateTaskMemberMetricDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionMemberId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricCategoryId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateTaskMemberMetricDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkUpsertTaskMemberMetricDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionMemberId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TaskMemberMetricItemDto)
+  metrics: TaskMemberMetricItemDto[];
+}
+
+export class TaskMemberMetricItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricCategoryId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+// ===== Initialize Project Metrics =====
+
+export class InitializeProjectMetricsDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  projectId: number;
+}

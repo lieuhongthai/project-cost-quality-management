@@ -32,6 +32,14 @@ import {
   CreateStepScreenFunctionMemberDto,
   UpdateStepScreenFunctionMemberDto,
   BulkCreateStepScreenFunctionMemberDto,
+  CreateMetricTypeDto,
+  UpdateMetricTypeDto,
+  CreateMetricCategoryDto,
+  UpdateMetricCategoryDto,
+  CreateTaskMemberMetricDto,
+  UpdateTaskMemberMetricDto,
+  BulkUpsertTaskMemberMetricDto,
+  InitializeProjectMetricsDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -493,5 +501,107 @@ export class TaskWorkflowController {
   @Delete('step-screen-function-members/:id')
   deleteStepScreenFunctionMember(@Param('id', ParseIntPipe) id: number) {
     return this.taskWorkflowService.deleteStepScreenFunctionMember(id);
+  }
+
+  // ===== Metric Type Endpoints =====
+
+  @Get('metric-types/project/:projectId')
+  getMetricTypes(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.findAllMetricTypes(projectId);
+  }
+
+  @Get('metric-types/:id')
+  getMetricType(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.findMetricTypeById(id);
+  }
+
+  @Post('metric-types')
+  createMetricType(@Body() dto: CreateMetricTypeDto) {
+    return this.taskWorkflowService.createMetricType(dto);
+  }
+
+  @Put('metric-types/:id')
+  updateMetricType(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMetricTypeDto,
+  ) {
+    return this.taskWorkflowService.updateMetricType(id, dto);
+  }
+
+  @Delete('metric-types/:id')
+  deleteMetricType(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteMetricType(id);
+  }
+
+  @Post('metric-types/initialize')
+  initializeProjectMetrics(@Body() dto: InitializeProjectMetricsDto) {
+    return this.taskWorkflowService.initializeProjectMetrics(dto);
+  }
+
+  // ===== Metric Category Endpoints =====
+
+  @Get('metric-categories/type/:metricTypeId')
+  getMetricCategories(@Param('metricTypeId', ParseIntPipe) metricTypeId: number) {
+    return this.taskWorkflowService.findAllMetricCategories(metricTypeId);
+  }
+
+  @Get('metric-categories/:id')
+  getMetricCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.findMetricCategoryById(id);
+  }
+
+  @Post('metric-categories')
+  createMetricCategory(@Body() dto: CreateMetricCategoryDto) {
+    return this.taskWorkflowService.createMetricCategory(dto);
+  }
+
+  @Put('metric-categories/:id')
+  updateMetricCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMetricCategoryDto,
+  ) {
+    return this.taskWorkflowService.updateMetricCategory(id, dto);
+  }
+
+  @Delete('metric-categories/:id')
+  deleteMetricCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteMetricCategory(id);
+  }
+
+  // ===== Task Member Metric Endpoints =====
+
+  @Get('task-member-metrics/member/:stepScreenFunctionMemberId')
+  getTaskMemberMetrics(
+    @Param('stepScreenFunctionMemberId', ParseIntPipe) stepScreenFunctionMemberId: number,
+  ) {
+    return this.taskWorkflowService.findAllTaskMemberMetrics(stepScreenFunctionMemberId);
+  }
+
+  @Get('task-member-metrics/:id')
+  getTaskMemberMetric(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.findTaskMemberMetricById(id);
+  }
+
+  @Post('task-member-metrics')
+  createTaskMemberMetric(@Body() dto: CreateTaskMemberMetricDto) {
+    return this.taskWorkflowService.createTaskMemberMetric(dto);
+  }
+
+  @Put('task-member-metrics/:id')
+  updateTaskMemberMetric(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTaskMemberMetricDto,
+  ) {
+    return this.taskWorkflowService.updateTaskMemberMetric(id, dto);
+  }
+
+  @Delete('task-member-metrics/:id')
+  deleteTaskMemberMetric(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteTaskMemberMetric(id);
+  }
+
+  @Post('task-member-metrics/bulk-upsert')
+  bulkUpsertTaskMemberMetrics(@Body() dto: BulkUpsertTaskMemberMetricDto) {
+    return this.taskWorkflowService.bulkUpsertTaskMemberMetrics(dto);
   }
 }

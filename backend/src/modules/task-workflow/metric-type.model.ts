@@ -8,6 +8,7 @@ import {
   HasMany,
 } from 'sequelize-typescript';
 import { Project } from '../project/project.model';
+import { MetricCategory } from './metric-category.model';
 
 // Default metric types template
 export const DEFAULT_METRIC_TYPES = [
@@ -85,4 +86,7 @@ export class MetricType extends Model {
 
   @BelongsTo(() => Project)
   project: Project;
+
+  @HasMany(() => MetricCategory)
+  categories: MetricCategory[];
 }

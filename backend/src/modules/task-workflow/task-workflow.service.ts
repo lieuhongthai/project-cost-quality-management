@@ -4,6 +4,9 @@ import { WorkflowStep, DEFAULT_WORKFLOW_STEPS } from './workflow-step.model';
 import { TaskWorkflow } from './task-workflow.model';
 import { StepScreenFunction } from './step-screen-function.model';
 import { StepScreenFunctionMember } from './step-screen-function-member.model';
+import { MetricType, DEFAULT_METRIC_TYPES, DEFAULT_METRIC_CATEGORIES } from './metric-type.model';
+import { MetricCategory } from './metric-category.model';
+import { TaskMemberMetric } from './task-member-metric.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { Member } from '../member/member.model';
 import {
@@ -27,6 +30,14 @@ import {
   CreateStepScreenFunctionMemberDto,
   UpdateStepScreenFunctionMemberDto,
   BulkCreateStepScreenFunctionMemberDto,
+  CreateMetricTypeDto,
+  UpdateMetricTypeDto,
+  CreateMetricCategoryDto,
+  UpdateMetricCategoryDto,
+  CreateTaskMemberMetricDto,
+  UpdateTaskMemberMetricDto,
+  BulkUpsertTaskMemberMetricDto,
+  InitializeProjectMetricsDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 
@@ -45,6 +56,12 @@ export class TaskWorkflowService {
     private stepScreenFunctionRepository: typeof StepScreenFunction,
     @Inject('STEP_SCREEN_FUNCTION_MEMBER_REPOSITORY')
     private stepScreenFunctionMemberRepository: typeof StepScreenFunctionMember,
+    @Inject('METRIC_TYPE_REPOSITORY')
+    private metricTypeRepository: typeof MetricType,
+    @Inject('METRIC_CATEGORY_REPOSITORY')
+    private metricCategoryRepository: typeof MetricCategory,
+    @Inject('TASK_MEMBER_METRIC_REPOSITORY')
+    private taskMemberMetricRepository: typeof TaskMemberMetric,
   ) {}
 
   // ===== Workflow Stage Methods =====
@@ -1050,5 +1067,189 @@ export class TaskWorkflowService {
 
     // Also recalculate parent Stage's effort values
     await this.recalculateStageEffort(ssf.stepId);
+  }
+
+  // ===== Metric Type Methods =====
+
+  async findAllMetricTypes(projectId: number): Promise<MetricType[]> {
+    return this.metricTypeRepository.findAll({
+      where: { projectId },
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
+      include: [{ model: MetricCategory, as: 'categories' }],
+    });
+  }
+
+  async findMetricTypeById(id: number): Promise<MetricType> {
+    const metricType = await this.metricTypeRepository.findByPk(id, {
+      include: [{ model: MetricCategory, as: 'categories' }],
+    });
+    if (!metricType) {
+      throw new NotFoundException(`Metric type with ID ${id} not found`);
+    }
+    return metricType;
+  }
+
+  async createMetricType(dto: CreateMetricTypeDto): Promise<MetricType> {
+    const metricTypes = await this.findAllMetricTypes(dto.projectId);
+    const maxOrder = metricTypes.length > 0
+      ? Math.max(...metricTypes.map(t => t.displayOrder || 0))
+      : 0;
+
+    return this.metricTypeRepository.create({
+      ...dto,
+      displayOrder: dto.displayOrder ?? maxOrder + 1,
+    } as any);
+  }
+
+  async updateMetricType(id: number, dto: UpdateMetricTypeDto): Promise<MetricType> {
+    const metricType = await this.findMetricTypeById(id);
+    await metricType.update(dto);
+    return metricType;
+  }
+
+  async deleteMetricType(id: number): Promise<void> {
+    const metricType = await this.findMetricTypeById(id);
+    await metricType.destroy();
+  }
+
+  // ===== Metric Category Methods =====
+
+  async findAllMetricCategories(metricTypeId: number): Promise<MetricCategory[]> {
+    return this.metricCategoryRepository.findAll({
+      where: { metricTypeId },
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
+    });
+  }
+
+  async findMetricCategoryById(id: number): Promise<MetricCategory> {
+    const category = await this.metricCategoryRepository.findByPk(id);
+    if (!category) {
+      throw new NotFoundException(`Metric category with ID ${id} not found`);
+    }
+    return category;
+  }
+
+  async createMetricCategory(dto: CreateMetricCategoryDto): Promise<MetricCategory> {
+    const categories = await this.findAllMetricCategories(dto.metricTypeId);
+    const maxOrder = categories.length > 0
+      ? Math.max(...categories.map(c => c.displayOrder || 0))
+      : 0;
+
+    return this.metricCategoryRepository.create({
+      ...dto,
+      displayOrder: dto.displayOrder ?? maxOrder + 1,
+    } as any);
+  }
+
+  async updateMetricCategory(id: number, dto: UpdateMetricCategoryDto): Promise<MetricCategory> {
+    const category = await this.findMetricCategoryById(id);
+    await category.update(dto);
+    return category;
+  }
+
+  async deleteMetricCategory(id: number): Promise<void> {
+    const category = await this.findMetricCategoryById(id);
+    await category.destroy();
+  }
+
+  // ===== Task Member Metric Methods =====
+
+  async findAllTaskMemberMetrics(stepScreenFunctionMemberId: number): Promise<TaskMemberMetric[]> {
+    return this.taskMemberMetricRepository.findAll({
+      where: { stepScreenFunctionMemberId },
+      include: [{ model: MetricCategory, as: 'metricCategory' }],
+    });
+  }
+
+  async findTaskMemberMetricById(id: number): Promise<TaskMemberMetric> {
+    const metric = await this.taskMemberMetricRepository.findByPk(id, {
+      include: [{ model: MetricCategory, as: 'metricCategory' }],
+    });
+    if (!metric) {
+      throw new NotFoundException(`Task member metric with ID ${id} not found`);
+    }
+    return metric;
+  }
+
+  async createTaskMemberMetric(dto: CreateTaskMemberMetricDto): Promise<TaskMemberMetric> {
+    return this.taskMemberMetricRepository.create(dto as any);
+  }
+
+  async updateTaskMemberMetric(id: number, dto: UpdateTaskMemberMetricDto): Promise<TaskMemberMetric> {
+    const metric = await this.findTaskMemberMetricById(id);
+    await metric.update(dto);
+    return metric;
+  }
+
+  async deleteTaskMemberMetric(id: number): Promise<void> {
+    const metric = await this.findTaskMemberMetricById(id);
+    await metric.destroy();
+  }
+
+  async bulkUpsertTaskMemberMetrics(dto: BulkUpsertTaskMemberMetricDto): Promise<TaskMemberMetric[]> {
+    for (const metricItem of dto.metrics) {
+      // Check if metric already exists
+      const existing = await this.taskMemberMetricRepository.findOne({
+        where: {
+          stepScreenFunctionMemberId: dto.stepScreenFunctionMemberId,
+          metricCategoryId: metricItem.metricCategoryId,
+        },
+      });
+
+      if (existing) {
+        // Update existing
+        await existing.update({
+          value: metricItem.value ?? 0,
+          note: metricItem.note,
+        });
+      } else {
+        // Create new
+        await this.taskMemberMetricRepository.create({
+          stepScreenFunctionMemberId: dto.stepScreenFunctionMemberId,
+          metricCategoryId: metricItem.metricCategoryId,
+          value: metricItem.value ?? 0,
+          note: metricItem.note,
+        } as any);
+      }
+    }
+
+    return this.findAllTaskMemberMetrics(dto.stepScreenFunctionMemberId);
+  }
+
+  // ===== Initialize Project Metrics =====
+
+  async initializeProjectMetrics(dto: InitializeProjectMetricsDto): Promise<{ metricTypes: MetricType[]; }> {
+    const existingTypes = await this.findAllMetricTypes(dto.projectId);
+    if (existingTypes.length > 0) {
+      return { metricTypes: existingTypes };
+    }
+
+    const metricTypes: MetricType[] = [];
+
+    for (const typeTemplate of DEFAULT_METRIC_TYPES) {
+      const metricType = await this.metricTypeRepository.create({
+        projectId: dto.projectId,
+        name: typeTemplate.name,
+        description: typeTemplate.description,
+        displayOrder: typeTemplate.displayOrder,
+        isActive: true,
+      } as any);
+      metricTypes.push(metricType);
+
+      // Create default categories for this type
+      const typeCategories = DEFAULT_METRIC_CATEGORIES[typeTemplate.name] || [];
+      for (let i = 0; i < typeCategories.length; i++) {
+        await this.metricCategoryRepository.create({
+          metricTypeId: metricType.id,
+          name: typeCategories[i].name,
+          description: typeCategories[i].description,
+          displayOrder: i + 1,
+          isActive: true,
+        } as any);
+      }
+    }
+
+    // Re-fetch with categories included
+    return { metricTypes: await this.findAllMetricTypes(dto.projectId) };
   }
 }
