@@ -23,6 +23,9 @@ import { WorkflowStep } from "../modules/task-workflow/workflow-step.model";
 import { TaskWorkflow } from "../modules/task-workflow/task-workflow.model";
 import { StepScreenFunction } from "../modules/task-workflow/step-screen-function.model";
 import { StepScreenFunctionMember } from "../modules/task-workflow/step-screen-function-member.model";
+import { MetricType } from "../modules/task-workflow/metric-type.model";
+import { MetricCategory } from "../modules/task-workflow/metric-category.model";
+import { TaskMemberMetric } from "../modules/task-workflow/task-member-metric.model";
 
 export const databaseProviders = [
   {
@@ -75,6 +78,9 @@ export const databaseProviders = [
         TaskWorkflow,
         StepScreenFunction,
         StepScreenFunctionMember,
+        MetricType,
+        MetricCategory,
+        TaskMemberMetric,
       ]);
 
       await sequelize.sync({alter: true });
