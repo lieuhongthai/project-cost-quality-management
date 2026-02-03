@@ -82,6 +82,7 @@ function StageDetail() {
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
 
   // Fetch stage detail
   const { data: stageDetail, isLoading } = useQuery({
@@ -130,6 +131,31 @@ function StageDetail() {
   const invalidateStageQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
     queryClient.invalidateQueries({ queryKey: ['stagesOverview', parseInt(projectId)] });
+  };
+
+  // Helper to sort screen functions by name
+  const sortScreenFunctions = (screenFunctions: any[]) => {
+    if (!sortOrder) return screenFunctions;
+    return [...screenFunctions].sort((a, b) => {
+      const nameA = (a.screenFunction?.name || '').toLowerCase();
+      const nameB = (b.screenFunction?.name || '').toLowerCase();
+      if (sortOrder === 'asc') {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+  };
+
+  // Toggle sort order
+  const toggleSort = () => {
+    if (sortOrder === null) {
+      setSortOrder('asc');
+    } else if (sortOrder === 'asc') {
+      setSortOrder('desc');
+    } else {
+      setSortOrder(null);
+    }
   };
 
   // Link screen functions mutation
@@ -533,7 +559,16 @@ function StageDetail() {
                     <thead>
                       <tr>
                         <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                          {t('screenFunction.name')}
+                          <button
+                            type="button"
+                            onClick={toggleSort}
+                            className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                          >
+                            {t('screenFunction.name')}
+                            <span className="text-xs">
+                              {sortOrder === 'asc' ? '↑' : sortOrder === 'desc' ? '↓' : '↕'}
+                            </span>
+                          </button>
                         </th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           {t('stages.assignedMembers')}
@@ -556,7 +591,7 @@ function StageDetail() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {activeStep.screenFunctions.map((ssf: any) => {
+                      {sortScreenFunctions(activeStep.screenFunctions).map((ssf: any) => {
                         const isQuickEditing = quickEditId === ssf.id;
                         const draft = isQuickEditing ? quickEditDraft : null;
                         const statusValue = draft ? draft.status : (ssf.status || 'Not Started');
