@@ -5,15 +5,15 @@ import { reportProviders } from './report.providers';
 import { DatabaseModule } from '../../database/database.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { ProjectModule } from '../project/project.module';
-import { PhaseModule } from '../phase/phase.module';
 import { TestingModule } from '../testing/testing.module';
+import { TaskWorkflowModule } from '../task-workflow/task-workflow.module';
 
 @Module({
   imports: [
     DatabaseModule,
     forwardRef(() => MetricsModule),
     forwardRef(() => ProjectModule),
-    forwardRef(() => PhaseModule),
+    forwardRef(() => TaskWorkflowModule),
     forwardRef(() => TestingModule),
   ],
   controllers: [ReportController],

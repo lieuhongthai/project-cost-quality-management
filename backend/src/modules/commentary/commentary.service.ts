@@ -3,7 +3,7 @@ import { Commentary } from './commentary.model';
 import { CreateCommentaryDto, UpdateCommentaryDto, GenerateCommentaryDto } from './commentary.dto';
 import { ReportService } from '../report/report.service';
 import { MetricsService } from '../metrics/metrics.service';
-import { PhaseService } from '../phase/phase.service';
+import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class CommentaryService {
     private reportService: ReportService,
     @Inject(forwardRef(() => MetricsService))
     private metricsService: MetricsService,
-    private phaseService: PhaseService,
+    private taskWorkflowService: TaskWorkflowService,
   ) {
     // Initialize OpenAI client
     // Note: API key should be in environment variables
@@ -74,25 +74,25 @@ export class CommentaryService {
       if (report.scope === 'Project') {
         // For project-level reports, calculate project metrics
         metrics = await this.metricsService.calculateProjectMetrics(report.projectId, reportId);
-      } else if (report.scope === 'Phase') {
-        // For phase-level reports, calculate phase metrics
-        if (!report.phaseId) {
-          // If phaseId is not set, try to find phase by name
-          if (report.phaseName) {
-            const phases = await this.phaseService.findByProject(report.projectId);
-            const phase = phases.find(p => p.name === report.phaseName);
-            if (!phase) {
-              throw new BadRequestException(`Phase '${report.phaseName}' not found for this project`);
+      } else if (report.scope === 'Stage') {
+        // For stage-level reports, calculate stage metrics
+        if (!report.stageId) {
+          // If stageId is not set, try to find stage by name
+          if (report.stageName) {
+            const stages = await this.taskWorkflowService.findAllStages(report.projectId);
+            const stage = stages.find(s => s.name === report.stageName);
+            if (!stage) {
+              throw new BadRequestException(`Stage '${report.stageName}' not found for this project`);
             }
-            metrics = await this.metricsService.calculatePhaseMetrics(phase.id, reportId);
+            metrics = await this.metricsService.calculateStageMetrics(stage.id, reportId);
           } else {
-            throw new BadRequestException(`Report scope is 'Phase' but no phaseId or phaseName provided`);
+            throw new BadRequestException(`Report scope is 'Stage' but no stageId or stageName provided`);
           }
         } else {
-          metrics = await this.metricsService.calculatePhaseMetrics(report.phaseId, reportId);
+          metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
         }
       } else {
-        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Phase' scopes are supported.`);
+        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Stage' scopes are supported.`);
       }
     }
 
@@ -160,7 +160,7 @@ export class CommentaryService {
     const testingSnapshot = snapshot.testing || {};
     const productivitySnapshot = snapshot.productivity || {};
     const memberCostSnapshot = snapshot.memberCost || {};
-    const phaseDetail = snapshot.phaseDetail || {};
+    const stageDetail = snapshot.stageDetail || {};
 
     const safeNumber = (value: number | null | undefined, fallback = 0) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -214,8 +214,8 @@ export class CommentaryService {
       .sort((a: any, b: any) => (b.totalActualCost || 0) - (a.totalActualCost || 0))
       .slice(0, 3);
 
-    const phaseContext = report.scope === 'Phase' || report.scope === 'Weekly'
-      ? `\nPhase Context:\n- Phase ID: ${report.phaseId ?? phaseDetail.id ?? 'N/A'}\n- Phase Name: ${report.phaseName ?? phaseDetail.name ?? 'N/A'}`
+    const stageContext = report.scope === 'Stage' || report.scope === 'Weekly'
+      ? `\nStage Context:\n- Stage ID: ${report.stageId ?? stageDetail.id ?? 'N/A'}\n- Stage Name: ${report.stageName ?? stageDetail.name ?? 'N/A'}`
       : '';
 
     return `
@@ -225,7 +225,7 @@ Report Details:
 - Scope: ${report.scope}
 - Title: ${report.title}
 - Date: ${report.reportDate}
-- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${phaseContext}
+- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${stageContext}
 
 Project Snapshot:
 - Project Name: ${projectSnapshot.name || 'N/A'}

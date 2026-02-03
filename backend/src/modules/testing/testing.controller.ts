@@ -20,14 +20,14 @@ export class TestingController {
     return this.testingService.findAll();
   }
 
-  @Get('phase/:phaseId')
-  findByPhase(@Param('phaseId', ParseIntPipe) phaseId: number) {
-    return this.testingService.findByPhase(phaseId);
+  @Get('stage/:stageId')
+  findByStage(@Param('stageId', ParseIntPipe) stageId: number) {
+    return this.testingService.findByStage(stageId);
   }
 
-  @Get('phase/:phaseId/summary')
-  getPhaseTestingSummary(@Param('phaseId', ParseIntPipe) phaseId: number) {
-    return this.testingService.getPhaseTestingSummary(phaseId);
+  @Get('stage/:stageId/summary')
+  getStageTestingSummary(@Param('stageId', ParseIntPipe) stageId: number) {
+    return this.testingService.getStageTestingSummary(stageId);
   }
 
   @Get(':id')

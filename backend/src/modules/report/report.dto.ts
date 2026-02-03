@@ -8,17 +8,17 @@ export class CreateReportDto {
   projectId: number;
 
   @IsNotEmpty()
-  @IsEnum(['Weekly', 'Phase', 'Project'])
+  @IsEnum(['Weekly', 'Stage', 'Project'])
   scope: string;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  phaseId?: number;
+  stageId?: number;
 
   @IsOptional()
   @IsString()
-  phaseName?: string;
+  stageName?: string;
 
   @IsOptional()
   @Type(() => Number)

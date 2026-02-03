@@ -43,8 +43,8 @@ function ReportDetail() {
 
       if (report.scope === 'Project') {
         return metricsApi.calculateProject(report.projectId, parseInt(reportId));
-      } else if ((report.scope === 'Phase' || report.scope === 'Weekly') && report.phaseId) {
-        return metricsApi.calculatePhase(report.phaseId, parseInt(reportId));
+      } else if ((report.scope === 'Stage' || report.scope === 'Weekly') && report.stageId) {
+        return metricsApi.calculateStage(report.stageId, parseInt(reportId));
       }
       return null;
     },
@@ -190,7 +190,7 @@ function ReportDetail() {
 
   const scopeReportLabels: Record<string, string> = {
     Project: t('report.scopeProjectReport'),
-    Phase: t('report.scopePhaseReport'),
+    Stage: t('report.scopeStageReport'),
     Weekly: t('report.scopeWeeklyReport'),
   };
 
@@ -206,7 +206,7 @@ function ReportDetail() {
             <h1 className="text-3xl font-bold text-gray-900">{report.title}</h1>
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span className="font-medium">{scopeReportLabels[report.scope]}</span>
-              {report.phaseName && <span>• {report.phaseName}</span>}
+              {report.stageName && <span>• {report.stageName}</span>}
               {report.weekNumber && (
                 <span>• {t('report.detail.weekLabel', { week: report.weekNumber, year: report.year })}</span>
               )}
@@ -951,14 +951,14 @@ function ReportDetail() {
                 </div>
               </Card>
 
-              {/* Phase Cost Breakdown */}
-              {memberCost.byPhase && memberCost.byPhase.length > 0 && (
-                <Card title={t('memberCost.costByPhase')} className="mt-4">
+              {/* Stage Cost Breakdown */}
+              {memberCost.byStage && memberCost.byStage.length > 0 && (
+                <Card title={t('memberCost.costByStage')} className="mt-4">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.phase')}</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.stage')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.memberCount')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.estimatedCost')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.actualCost')}</th>
@@ -966,21 +966,21 @@ function ReportDetail() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {memberCost.byPhase.map((phase: any) => (
-                          <tr key={phase.phaseName} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{phase.phaseName}</td>
-                            <td className="px-4 py-3 text-right text-gray-600">{phase.memberCount}</td>
+                        {memberCost.byStage.map((stage: any) => (
+                          <tr key={stage.stageName} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{stage.stageName}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{stage.memberCount}</td>
                             <td className="px-4 py-3 text-right text-gray-600">
-                              ${phase.estimatedCost.toLocaleString()}
+                              ${stage.estimatedCost.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-gray-900">
-                              ${phase.actualCost.toLocaleString()}
+                              ${stage.actualCost.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <span className={`font-medium ${phase.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {phase.costVariance <= 0 ? '-' : '+'}${Math.abs(phase.costVariance).toLocaleString()}
+                              <span className={`font-medium ${stage.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {stage.costVariance <= 0 ? '-' : '+'}${Math.abs(stage.costVariance).toLocaleString()}
                                 <span className="text-xs text-gray-500 ml-1">
-                                  ({phase.costVariancePercent > 0 ? '+' : ''}{phase.costVariancePercent}%)
+                                  ({stage.costVariancePercent > 0 ? '+' : ''}{stage.costVariancePercent}%)
                                 </span>
                               </span>
                             </td>

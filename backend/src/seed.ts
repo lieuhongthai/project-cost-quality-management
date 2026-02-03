@@ -4,6 +4,7 @@ import { ProjectService } from './modules/project/project.service';
 import { PhaseService } from './modules/phase/phase.service';
 import { EffortService } from './modules/effort/effort.service';
 import { TestingService } from './modules/testing/testing.service';
+import { TaskWorkflowService } from './modules/task-workflow/task-workflow.service';
 
 async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -12,6 +13,7 @@ async function seed() {
   const phaseService = app.get(PhaseService);
   const effortService = app.get(EffortService);
   const testingService = app.get(TestingService);
+  const taskWorkflowService = app.get(TaskWorkflowService);
 
   console.log('Seeding database...');
 
@@ -34,6 +36,10 @@ async function seed() {
   });
 
   console.log('Created project settings');
+
+  // Initialize default workflow stages
+  const workflow = await taskWorkflowService.initializeProjectWorkflow({ projectId: project.id });
+  console.log('Initialized workflow stages');
 
   // Create phases
   const phases = [
@@ -78,7 +84,10 @@ async function seed() {
   }
 
   // Add sample effort data for the first phase
-  const functionalDesignPhase = createdPhases[0];
+  const functionalDesignStage = workflow.stages.find(stage => stage.name === 'Functional Design');
+  if (!functionalDesignStage) {
+    throw new Error('Functional Design stage not found');
+  }
   const effortData = [];
 
   for (let week = 1; week <= 6; week++) {
@@ -89,7 +98,7 @@ async function seed() {
     weekEnd.setDate(weekEnd.getDate() + 6);
 
     effortData.push({
-      phaseId: functionalDesignPhase.id,
+      stageId: functionalDesignStage.id,
       weekNumber: week,
       year: 2024,
       weekStartDate: weekStart,
@@ -101,14 +110,17 @@ async function seed() {
   }
 
   await effortService.bulkCreate({
-    phaseId: functionalDesignPhase.id,
+    stageId: functionalDesignStage.id,
     efforts: effortData,
   });
 
   console.log('Created effort data for Functional Design phase');
 
   // Add sample testing data for Unit Test phase
-  const unitTestPhase = createdPhases[2];
+  const unitTestStage = workflow.stages.find(stage => stage.name === 'Unit Test');
+  if (!unitTestStage) {
+    throw new Error('Unit Test stage not found');
+  }
   const testingData = [];
 
   for (let week = 1; week <= 4; week++) {
@@ -123,7 +135,7 @@ async function seed() {
     const failedTestCases = totalTestCases - passedTestCases;
 
     await testingService.create({
-      phaseId: unitTestPhase.id,
+      stageId: unitTestStage.id,
       weekNumber: week,
       year: 2024,
       weekStartDate: weekStart,

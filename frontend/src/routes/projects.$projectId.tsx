@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi } from '@/services/api';
+import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi, taskWorkflowApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart, PhaseTimelineGantt, PhaseTimelineSvarGantt } from '@/components/charts';
+import { MetricsChart, StageTimelineGantt, StageTimelineSvarGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
@@ -108,6 +108,14 @@ function ProjectDetail() {
     queryKey: ['phases', parseInt(projectId)],
     queryFn: async () => {
       const response = await phaseApi.getByProject(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const { data: stagesOverview } = useQuery({
+    queryKey: ['stagesOverview', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getStagesOverview(parseInt(projectId));
       return response.data;
     },
   });
@@ -352,9 +360,9 @@ function ProjectDetail() {
   };
 
   const tabs: Array<{ id: ProjectTab; name: string }> = [
-    { id: 'overview' as const, name: t('dashboard.overview') },
-    { id: 'timeline' as const, name: t('phase.timeline.title') },
-    { id: 'timeline-svar' as const, name: t('phase.timelineSvar.title') },
+    { id: 'overview' as const, name: t('stages.overviewTab') },
+    { id: 'timeline' as const, name: t('stages.timelineTitle') },
+    { id: 'timeline-svar' as const, name: t('stages.timelineSvarTitle') },
     { id: 'phases' as const, name: t('nav.phases') },
     { id: 'stages' as const, name: t('stages.title') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
@@ -777,37 +785,37 @@ function ProjectDetail() {
             </>
           )}
 
-          <Card title={t('phase.phaseProgress')}>
-            {phases && phases.length > 0 ? (
+          <Card title={t('stages.progressOverview')}>
+            {stagesOverview && stagesOverview.length > 0 ? (
               <div className="space-y-4">
-                {phases.map((phase) => (
+                {stagesOverview.map((stage) => (
                   <div
-                    key={phase.id}
+                    key={stage.id}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={() => window.location.href = `/phases/${phase.id}`}
+                    onClick={() => window.location.href = `/projects/${projectId}/stages/${stage.id}`}
                   >
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{phase.name}</h4>
+                      <h4 className="font-medium text-gray-900">{stage.name}</h4>
                       <div className="mt-2 flex items-center gap-4">
-                        <StatusBadge status={phase.status as any} />
+                        <StatusBadge status={stage.status as any} />
                         <span className="text-sm text-gray-500">
-                          {displayEffort(phase.actualEffort, 'man-month')}/{displayEffort(phase.estimatedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
+                          {displayEffort(stage.actualEffort || 0, 'man-month')}/{displayEffort(stage.estimatedEffort || 0, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </span>
                       </div>
                     </div>
                     <div className="w-48">
-                      <ProgressBar progress={phase.progress} showLabel />
+                      <ProgressBar progress={stage.progress} showLabel />
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <EmptyState
-                title={t('phase.noPhases')}
-                description={t('phase.createFirst')}
+                title={t('stages.noStages')}
+                description={t('stages.initializeWorkflowFirst')}
                 action={
-                  <Button onClick={() => setShowAddPhase(true)}>
-                    {t('phase.create')}
+                  <Button onClick={() => handleTabChange('stages')}>
+                    {t('stages.title')}
                   </Button>
                 }
               />
@@ -818,14 +826,14 @@ function ProjectDetail() {
       )}
 
       {activeTab === 'timeline' && (
-        <Card title={t('phase.timeline.title')}>
-          <PhaseTimelineGantt phases={phases || []} />
+        <Card title={t('stages.timelineTitle')}>
+          <StageTimelineGantt stages={stagesOverview || []} />
         </Card>
       )}
 
       {activeTab === 'timeline-svar' && (
         <div className="mb-6">
-          <PhaseTimelineSvarGantt phases={phases || []} projectId={parseInt(projectId)} />
+          <StageTimelineSvarGantt stages={stagesOverview || []} projectId={parseInt(projectId)} />
         </div>
       )}
 

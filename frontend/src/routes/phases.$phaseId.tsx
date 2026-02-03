@@ -1337,7 +1337,7 @@ function PhaseDetail() {
         title={editingEffort ? t('phase.detail.efforts.editRecord') : t('phase.detail.efforts.addRecord')}
       >
         <EffortForm
-          phaseId={parseInt(phaseId)}
+          stageId={parseInt(phaseId)}
           effort={editingEffort}
           effortUnit={effortUnit}
           workSettings={workSettings}
@@ -1361,7 +1361,7 @@ function PhaseDetail() {
         title={editingTesting ? t('phase.detail.testing.editRecord') : t('phase.detail.testing.addRecord')}
       >
         <TestingForm
-          phaseId={parseInt(phaseId)}
+          stageId={parseInt(phaseId)}
           testing={editingTesting}
           onSuccess={() => {
             setShowAddTesting(false);

@@ -1,11 +1,15 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Metrics } from './metrics.model';
-import { EffortService } from '../effort/effort.service';
 import { TestingService } from '../testing/testing.service';
-import { PhaseService } from '../phase/phase.service';
 import { ProjectService } from '../project/project.service';
-import { PhaseScreenFunctionService } from '../screen-function/phase-screen-function.service';
 import { MemberService } from '../member/member.service';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
+import { WorkflowStep } from '../task-workflow/workflow-step.model';
+import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
+import { StepScreenFunctionMember } from '../task-workflow/step-screen-function-member.model';
+import { ScreenFunction } from '../screen-function/screen-function.model';
+import { Member } from '../member/member.model';
+import { Op } from 'sequelize';
 
 export interface ScheduleMetricsInput {
   estimatedEffort: number;
@@ -26,13 +30,9 @@ export class MetricsService {
   constructor(
     @Inject('METRICS_REPOSITORY')
     private metricsRepository: typeof Metrics,
-    private effortService: EffortService,
     private testingService: TestingService,
-    private phaseService: PhaseService,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
-    @Inject(forwardRef(() => PhaseScreenFunctionService))
-    private phaseScreenFunctionService: PhaseScreenFunctionService,
     @Inject(forwardRef(() => MemberService))
     private memberService: MemberService,
   ) {}
@@ -146,16 +146,19 @@ export class MetricsService {
     };
   }
 
-  async calculatePhaseMetrics(phaseId: number, reportId: number): Promise<Metrics> {
-    const phase = await this.phaseService.findOne(phaseId);
-    const testingSummary = await this.testingService.getPhaseTestingSummary(phaseId);
+  async calculateStageMetrics(stageId: number, reportId: number): Promise<Metrics> {
+    const stage = await WorkflowStage.findByPk(stageId);
+    if (!stage) {
+      throw new Error(`Stage with ID ${stageId} not found`);
+    }
+    const testingSummary = await this.testingService.getStageTestingSummary(stageId);
 
-    // Use phase's actualEffort and progress directly (updated from PhaseScreenFunction)
+    // Use stage's actualEffort and progress directly (updated from StepScreenFunction)
     // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
-      estimatedEffort: phase.estimatedEffort,
-      actualEffort: phase.actualEffort || 0,
-      progress: phase.progress || 0,
+      estimatedEffort: stage.estimatedEffort,
+      actualEffort: stage.actualEffort || 0,
+      progress: stage.progress || 0,
     });
 
     const testingMetrics = this.calculateTestingMetrics({
@@ -164,14 +167,6 @@ export class MetricsService {
       failedTestCases: testingSummary.totalFailed,
       defectsDetected: testingSummary.totalDefects,
       testingTime: testingSummary.totalTestingTime,
-    });
-
-    // Auto-update phase status based on calculated metrics
-    await this.phaseService.updatePhaseStatus(phaseId, {
-      schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
-      costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
-      delayRate: scheduleMetrics.delayRate,
-      passRate: testingMetrics.passRate,
     });
 
     return this.metricsRepository.create({
@@ -183,7 +178,10 @@ export class MetricsService {
 
   async calculateProjectMetrics(projectId: number, reportId: number): Promise<Metrics> {
     const project = await this.projectService.findOne(projectId);
-    const phases = await this.phaseService.findByProject(projectId);
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
 
     let totalTestCases = 0;
     let totalPassed = 0;
@@ -191,8 +189,8 @@ export class MetricsService {
     let totalDefects = 0;
     let totalTestingTime = 0;
 
-    for (const phase of phases) {
-      const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
+    for (const stage of stages) {
+      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
       totalTestCases += testingSummary.totalTestCases;
       totalPassed += testingSummary.totalPassed;
       totalFailed += testingSummary.totalFailed;
@@ -200,7 +198,7 @@ export class MetricsService {
       totalTestingTime += testingSummary.totalTestingTime;
     }
 
-    // Use project's data directly (updated from phases)
+    // Use project's data directly (updated from stages)
     // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
       estimatedEffort: project.estimatedEffort,
@@ -247,17 +245,20 @@ export class MetricsService {
    */
   async getProjectRealTimeMetrics(projectId: number) {
     const project = await this.projectService.findOne(projectId);
-    const phases = await this.phaseService.findByProject(projectId);
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
 
-    // Aggregate testing data from all phases
+    // Aggregate testing data from all stages
     let totalTestCases = 0;
     let totalPassed = 0;
     let totalFailed = 0;
     let totalDefects = 0;
     let totalTestingTime = 0;
 
-    for (const phase of phases) {
-      const testingSummary = await this.testingService.getPhaseTestingSummary(phase.id);
+    for (const stage of stages) {
+      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
       totalTestCases += testingSummary.totalTestCases;
       totalPassed += testingSummary.totalPassed;
       totalFailed += testingSummary.totalFailed;
@@ -328,11 +329,11 @@ export class MetricsService {
         passRate: testingMetrics.passRate,
         defectRate: testingMetrics.defectRate,
       },
-      phases: phases.map(p => ({
-        id: p.id,
-        name: p.name,
-        progress: p.progress,
-        status: p.status,
+      stages: stages.map(stage => ({
+        id: stage.id,
+        name: stage.name,
+        progress: stage.progress,
+        status: stage.status,
       })),
     };
   }
@@ -456,14 +457,37 @@ export class MetricsService {
 
   /**
    * Get productivity metrics for a project
-   * Analyzes effort per member, role, and phase
+   * Analyzes effort per member, role, and stage
    */
   async getProjectProductivityMetrics(projectId: number) {
     const project = await this.projectService.findOne(projectId);
-    const phases = await this.phaseService.findByProject(projectId);
     const members = await this.memberService.findByProject(projectId);
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
 
-    // Collect all phase screen functions across phases
+    const stageIds = stages.map(stage => stage.id);
+    const steps = await WorkflowStep.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+    const stepIds = steps.map(step => step.id);
+    const stepToStageMap = new Map<number, number>();
+    for (const step of steps) {
+      stepToStageMap.set(step.id, step.stageId);
+    }
+
+    const stepScreenFunctions = await StepScreenFunction.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+      include: [
+        { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: StepScreenFunctionMember, as: 'members', include: [{ model: Member, as: 'member' }] },
+      ],
+    });
+
+    // Collect all step screen functions across stages
     const memberStats = new Map<number, {
       memberId: number;
       name: string;
@@ -485,9 +509,9 @@ export class MetricsService {
       efficiency: number;
     }>();
 
-    const phaseStats: Array<{
-      phaseId: number;
-      phaseName: string;
+    const stageStats: Array<{
+      stageId: number;
+      stageName: string;
       totalEstimated: number;
       totalActual: number;
       tasksCompleted: number;
@@ -524,55 +548,67 @@ export class MetricsService {
       roleStats.get(member.role)!.memberCount++;
     }
 
-    // Process each phase
-    for (const phase of phases) {
-      const psfs = await this.phaseScreenFunctionService.findByPhase(phase.id);
+    const stageTotals = new Map<number, {
+      totalEstimated: number;
+      totalActual: number;
+      tasksCompleted: number;
+      tasksTotal: number;
+    }>();
 
-      let phaseTotalEstimated = 0;
-      let phaseTotalActual = 0;
-      let phaseTasksCompleted = 0;
-      let phaseTasksTotal = psfs.filter(p => p.status !== 'Skipped').length;
+    for (const stage of stages) {
+      stageTotals.set(stage.id, {
+        totalEstimated: 0,
+        totalActual: 0,
+        tasksCompleted: 0,
+        tasksTotal: 0,
+      });
+    }
 
-      for (const psf of psfs) {
-        if (psf.status === 'Skipped') continue;
+    for (const ssf of stepScreenFunctions) {
+      if (ssf.status === 'Skipped') continue;
+      const stageId = stepToStageMap.get(ssf.stepId);
+      if (!stageId || !stageTotals.has(stageId)) continue;
 
-        phaseTotalEstimated += psf.estimatedEffort || 0;
-        phaseTotalActual += psf.actualEffort || 0;
-        if (psf.status === 'Completed') phaseTasksCompleted++;
+      const stageTotalsEntry = stageTotals.get(stageId)!;
+      stageTotalsEntry.totalEstimated += ssf.estimatedEffort || 0;
+      stageTotalsEntry.totalActual += ssf.actualEffort || 0;
+      stageTotalsEntry.tasksTotal++;
+      if (ssf.status === 'Completed') stageTotalsEntry.tasksCompleted++;
 
-        // Update member stats if assigned
-        if (psf.assigneeId && memberStats.has(psf.assigneeId)) {
-          const mStats = memberStats.get(psf.assigneeId)!;
-          mStats.totalEstimated += psf.estimatedEffort || 0;
-          mStats.totalActual += psf.actualEffort || 0;
-          mStats.tasksTotal++;
-          if (psf.status === 'Completed') mStats.tasksCompleted++;
+      for (const memberEntry of ssf.members || []) {
+        const memberId = memberEntry.memberId;
+        if (!memberStats.has(memberId)) continue;
+        const mStats = memberStats.get(memberId)!;
+        mStats.totalEstimated += memberEntry.estimatedEffort || 0;
+        mStats.totalActual += memberEntry.actualEffort || 0;
+        mStats.tasksTotal++;
+        if ((memberEntry.progress || 0) >= 100) mStats.tasksCompleted++;
 
-          // Update role stats
-          const member = members.find(m => m.id === psf.assigneeId);
-          if (member && roleStats.has(member.role)) {
-            const rStats = roleStats.get(member.role)!;
-            rStats.totalEstimated += psf.estimatedEffort || 0;
-            rStats.totalActual += psf.actualEffort || 0;
-            rStats.tasksTotal++;
-            if (psf.status === 'Completed') rStats.tasksCompleted++;
-          }
+        const member = members.find(m => m.id === memberId);
+        if (member && roleStats.has(member.role)) {
+          const rStats = roleStats.get(member.role)!;
+          rStats.totalEstimated += memberEntry.estimatedEffort || 0;
+          rStats.totalActual += memberEntry.actualEffort || 0;
+          rStats.tasksTotal++;
+          if ((memberEntry.progress || 0) >= 100) rStats.tasksCompleted++;
         }
       }
+    }
 
-      // Calculate phase efficiency (EV / AC)
-      const phaseEV = phaseTotalEstimated * (phase.progress / 100);
-      const phaseEfficiency = phaseTotalActual > 0 ? phaseEV / phaseTotalActual : 0;
+    for (const stage of stages) {
+      const totals = stageTotals.get(stage.id)!;
+      const stageEV = totals.totalEstimated * (stage.progress / 100);
+      const stageEfficiency = totals.totalActual > 0 ? stageEV / totals.totalActual : 0;
 
-      phaseStats.push({
-        phaseId: phase.id,
-        phaseName: phase.name,
-        totalEstimated: phaseTotalEstimated,
-        totalActual: phaseTotalActual,
-        tasksCompleted: phaseTasksCompleted,
-        tasksTotal: phaseTasksTotal,
-        efficiency: Math.round(phaseEfficiency * 100) / 100,
-        progress: phase.progress,
+      stageStats.push({
+        stageId: stage.id,
+        stageName: stage.name,
+        totalEstimated: totals.totalEstimated,
+        totalActual: totals.totalActual,
+        tasksCompleted: totals.tasksCompleted,
+        tasksTotal: totals.tasksTotal,
+        efficiency: Math.round(stageEfficiency * 100) / 100,
+        progress: stage.progress,
       });
     }
 
@@ -634,10 +670,10 @@ export class MetricsService {
     roleProductivity.sort((a, b) => b.efficiency - a.efficiency);
 
     // Overall project productivity
-    const totalEstimated = phaseStats.reduce((sum, p) => sum + p.totalEstimated, 0);
-    const totalActual = phaseStats.reduce((sum, p) => sum + p.totalActual, 0);
-    const tasksCompleted = phaseStats.reduce((sum, p) => sum + p.tasksCompleted, 0);
-    const tasksTotal = phaseStats.reduce((sum, p) => sum + p.tasksTotal, 0);
+    const totalEstimated = stageStats.reduce((sum, p) => sum + p.totalEstimated, 0);
+    const totalActual = stageStats.reduce((sum, p) => sum + p.totalActual, 0);
+    const tasksCompleted = stageStats.reduce((sum, p) => sum + p.tasksCompleted, 0);
+    const tasksTotal = stageStats.reduce((sum, p) => sum + p.tasksTotal, 0);
     const projectEV = totalEstimated * (project.progress / 100);
     const projectEfficiency = totalActual > 0 ? projectEV / totalActual : 0;
 
@@ -657,7 +693,7 @@ export class MetricsService {
       },
       byMember: memberProductivity.filter(m => m.tasksTotal > 0),
       byRole: roleProductivity.filter(r => r.tasksTotal > 0),
-      byPhase: phaseStats,
+      byStage: stageStats,
     };
   }
 
@@ -668,8 +704,31 @@ export class MetricsService {
    */
   async getProjectMemberCostAnalysis(projectId: number) {
     const project = await this.projectService.findOne(projectId);
-    const phases = await this.phaseService.findByProject(projectId);
     const members = await this.memberService.findByProject(projectId);
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const stageIds = stages.map(stage => stage.id);
+    const steps = await WorkflowStep.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+    const stepIds = steps.map(step => step.id);
+    const stepIdToStageId = new Map<number, number>();
+    for (const step of steps) {
+      stepIdToStageId.set(step.id, step.stageId);
+    }
+
+    const stepScreenFunctions = await StepScreenFunction.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+      include: [
+        { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
+        { model: StepScreenFunctionMember, as: 'members', include: [{ model: Member, as: 'member' }] },
+      ],
+    });
 
     // Filter members with hourly rate
     const membersWithRate = members.filter(m => m.hourlyRate && m.hourlyRate > 0);
@@ -687,7 +746,7 @@ export class MetricsService {
       tasks: Array<{
         taskId: number;
         taskName: string;
-        phaseName: string;
+        stageName: string;
         estimatedHours: number;
         actualHours: number;
         estimatedCost: number;
@@ -719,32 +778,34 @@ export class MetricsService {
       });
     }
 
-    // Process each phase and collect task data
-    for (const phase of phases) {
-      const psfs = await this.phaseScreenFunctionService.findByPhase(phase.id);
+    // Process each step-screen-function and collect task data
+    for (const ssf of stepScreenFunctions) {
+      if (ssf.status === 'Skipped') continue;
+      const stageId = stepIdToStageId.get(ssf.stepId);
+      if (!stageId) continue;
+      const stage = stages.find(s => s.id === stageId);
+      if (!stage) continue;
 
-      for (const psf of psfs) {
-        if (psf.status === 'Skipped') continue;
-        if (!psf.assigneeId || !memberCostMap.has(psf.assigneeId)) continue;
-
-        const memberData = memberCostMap.get(psf.assigneeId)!;
-        const estimatedHours = psf.estimatedEffort || 0;
-        const actualHours = psf.actualEffort || 0;
+      for (const memberEntry of ssf.members || []) {
+        if (!memberCostMap.has(memberEntry.memberId)) continue;
+        const memberData = memberCostMap.get(memberEntry.memberId)!;
+        const estimatedHours = memberEntry.estimatedEffort || 0;
+        const actualHours = memberEntry.actualEffort || 0;
         const estimatedCost = estimatedHours * memberData.hourlyRate;
         const actualCost = actualHours * memberData.hourlyRate;
-
-        // Get screen function name
-        const taskName = psf.screenFunction?.name || `Task #${psf.screenFunctionId}`;
+        const taskName = ssf.screenFunction?.name
+          ? `${ssf.screenFunction.name} - ${ssf.step?.name || 'Step'}`
+          : `Task #${ssf.screenFunctionId}`;
 
         memberData.tasks.push({
-          taskId: psf.id,
+          taskId: ssf.id,
           taskName,
-          phaseName: phase.name,
+          stageName: stage.name,
           estimatedHours,
           actualHours,
           estimatedCost,
           actualCost,
-          status: psf.status,
+          status: ssf.status,
         });
 
         memberData.totalEstimatedHours += estimatedHours;
@@ -763,7 +824,7 @@ export class MetricsService {
       tasks: Array<{
         taskId: number;
         taskName: string;
-        phaseName: string;
+        stageName: string;
         estimatedHours: number;
         actualHours: number;
         estimatedCost: number;
@@ -836,9 +897,9 @@ export class MetricsService {
       ? Math.round((totalCostVariance / totalEstimatedCost) * 100)
       : 0;
 
-    // Group by phase for phase cost summary
-    const phaseCostMap = new Map<string, {
-      phaseName: string;
+    // Group by stage for stage cost summary
+    const stageCostMap = new Map<string, {
+      stageName: string;
       estimatedCost: number;
       actualCost: number;
       memberCount: number;
@@ -846,32 +907,32 @@ export class MetricsService {
 
     for (const member of memberCostAnalysis) {
       for (const task of member.tasks) {
-        if (!phaseCostMap.has(task.phaseName)) {
-          phaseCostMap.set(task.phaseName, {
-            phaseName: task.phaseName,
+        if (!stageCostMap.has(task.stageName)) {
+          stageCostMap.set(task.stageName, {
+            stageName: task.stageName,
             estimatedCost: 0,
             actualCost: 0,
             memberCount: 0,
           });
         }
-        const phaseData = phaseCostMap.get(task.phaseName)!;
-        phaseData.estimatedCost += task.estimatedCost;
-        phaseData.actualCost += task.actualCost;
+        const stageData = stageCostMap.get(task.stageName)!;
+        stageData.estimatedCost += task.estimatedCost;
+        stageData.actualCost += task.actualCost;
       }
     }
 
-    // Count unique members per phase
+    // Count unique members per stage
     for (const member of memberCostAnalysis) {
-      const phasesSeen = new Set<string>();
+      const stagesSeen = new Set<string>();
       for (const task of member.tasks) {
-        if (!phasesSeen.has(task.phaseName)) {
-          phasesSeen.add(task.phaseName);
-          phaseCostMap.get(task.phaseName)!.memberCount++;
+        if (!stagesSeen.has(task.stageName)) {
+          stagesSeen.add(task.stageName);
+          stageCostMap.get(task.stageName)!.memberCount++;
         }
       }
     }
 
-    const phaseCostSummary = Array.from(phaseCostMap.values()).map(p => ({
+    const stageCostSummary = Array.from(stageCostMap.values()).map(p => ({
       ...p,
       costVariance: p.actualCost - p.estimatedCost,
       costVariancePercent: p.estimatedCost > 0
@@ -908,7 +969,7 @@ export class MetricsService {
           : 1,
       },
       byMember: memberCostAnalysis,
-      byPhase: phaseCostSummary,
+      byStage: stageCostSummary,
       insights: {
         topPerformers,
         needSupport,

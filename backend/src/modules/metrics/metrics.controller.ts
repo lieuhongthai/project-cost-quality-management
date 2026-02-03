@@ -40,12 +40,12 @@ export class MetricsController {
     return this.metricsService.findOne(id);
   }
 
-  @Post('phase/:phaseId')
-  calculatePhaseMetrics(
-    @Param('phaseId', ParseIntPipe) phaseId: number,
+  @Post('stage/:stageId')
+  calculateStageMetrics(
+    @Param('stageId', ParseIntPipe) stageId: number,
     @Query('reportId', ParseIntPipe) reportId: number,
   ) {
-    return this.metricsService.calculatePhaseMetrics(phaseId, reportId);
+    return this.metricsService.calculateStageMetrics(stageId, reportId);
   }
 
   @Post('project/:projectId')

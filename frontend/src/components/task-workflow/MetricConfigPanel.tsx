@@ -172,15 +172,15 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
 
   if (isLoading) {
     return (
-      <Card title={t('metrics.title')}>
+      <Card title={t('metrics.configTitle')}>
         <div className="text-center py-8 text-gray-500">{t('common.loading')}</div>
       </Card>
     );
   }
 
   return (
-    <Card title={t('metrics.title')}>
-      <p className="text-sm text-gray-500 mb-4">{t('metrics.description')}</p>
+    <Card title={t('metrics.configTitle')}>
+      <p className="text-sm text-gray-500 mb-4">{t('metrics.configDescription')}</p>
 
       {/* Initialize Button if no types exist */}
       {metricTypes.length === 0 && (

@@ -21,23 +21,23 @@ export class EffortController {
     return this.effortService.findAll();
   }
 
-  @Get('phase/:phaseId')
-  findByPhase(@Param('phaseId', ParseIntPipe) phaseId: number) {
-    return this.effortService.findByPhase(phaseId);
+  @Get('stage/:stageId')
+  findByStage(@Param('stageId', ParseIntPipe) stageId: number) {
+    return this.effortService.findByStage(stageId);
   }
 
-  @Get('phase/:phaseId/week')
+  @Get('stage/:stageId/week')
   findByWeek(
-    @Param('phaseId', ParseIntPipe) phaseId: number,
+    @Param('stageId', ParseIntPipe) stageId: number,
     @Query('year', ParseIntPipe) year: number,
     @Query('weekNumber', ParseIntPipe) weekNumber: number,
   ) {
-    return this.effortService.findByWeek(phaseId, year, weekNumber);
+    return this.effortService.findByWeek(stageId, year, weekNumber);
   }
 
-  @Get('phase/:phaseId/summary')
-  getPhaseEffortSummary(@Param('phaseId', ParseIntPipe) phaseId: number) {
-    return this.effortService.getPhaseEffortSummary(phaseId);
+  @Get('stage/:stageId/summary')
+  getStageEffortSummary(@Param('stageId', ParseIntPipe) stageId: number) {
+    return this.effortService.getStageEffortSummary(stageId);
   }
 
   @Get(':id')
