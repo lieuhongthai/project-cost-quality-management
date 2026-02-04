@@ -73,6 +73,15 @@ function ProjectDetail() {
     status: '',
     search: '',
   });
+  const [metricSummaryFilter, setMetricSummaryFilter] = useState<{
+    search: string;
+    stageId: string;
+    showOnlyWithMetrics: boolean;
+  }>({
+    search: '',
+    stageId: '',
+    showOnlyWithMetrics: true,
+  });
   const [memberFilter, setMemberFilter] = useState<{ role: string; status: string; search: string }>({
     role: '',
     status: '',
@@ -268,6 +277,39 @@ function ProjectDetail() {
 
   const getStageScreenFunctionCount = (stage: { steps: Array<{ screenFunctions: Array<unknown> }> }) =>
     stage.steps.reduce((total, step) => total + step.screenFunctions.length, 0);
+
+  const normalizeSearchValue = (value: string) => value.trim().toLowerCase();
+
+  const hasMetricValues = (
+    metrics: Array<{ metricCategoryId: number; value: number }>,
+    categoryIds: number[],
+  ) => metrics.some((metric) => categoryIds.includes(metric.metricCategoryId) && (metric.value ?? 0) > 0);
+
+  const getFilteredMetricStages = (metricType: { categories: Array<{ id: number }> }) => {
+    if (!projectMetricTypeSummary) return [];
+    const searchValue = normalizeSearchValue(metricSummaryFilter.search);
+    const categoryIds = metricType.categories.map((category) => category.id);
+    return projectMetricTypeSummary.stages
+      .filter((stage) => !metricSummaryFilter.stageId || stage.stageId === Number(metricSummaryFilter.stageId))
+      .map((stage) => {
+        const steps = stage.steps.map((step) => {
+          const screenFunctions = step.screenFunctions.filter((screenFunction) => {
+            const matchesSearch = searchValue
+              ? normalizeSearchValue(screenFunction.screenFunctionName).includes(searchValue) ||
+                normalizeSearchValue(step.stepName).includes(searchValue) ||
+                normalizeSearchValue(stage.stageName).includes(searchValue)
+              : true;
+            const matchesMetric =
+              !metricSummaryFilter.showOnlyWithMetrics ||
+              hasMetricValues(screenFunction.metrics, categoryIds);
+            return matchesSearch && matchesMetric;
+          });
+          return { ...step, screenFunctions };
+        }).filter((step) => step.screenFunctions.length > 0);
+        return { ...stage, steps };
+      })
+      .filter((stage) => stage.steps.length > 0);
+  };
 
   const deleteScreenFunctionMutation = useMutation({
     mutationFn: (id: number) => screenFunctionApi.delete(id),
@@ -1277,56 +1319,98 @@ function ProjectDetail() {
               />
             ) : (
               <div className="space-y-6">
-                {projectMetricTypeSummary.metricTypes.map((metricType) => (
-                  <div key={metricType.id} className="rounded-xl border border-gray-200 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{metricType.name}</h3>
-                        <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {metricType.categories.map((category) => (
-                          <span
-                            key={category.id}
-                            className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
-                          >
-                            {category.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr,1fr,1fr]">
+                  <Input
+                    placeholder={t('metrics.metricSummarySearchPlaceholder')}
+                    value={metricSummaryFilter.search}
+                    onChange={(event) =>
+                      setMetricSummaryFilter((prev) => ({ ...prev, search: event.target.value }))
+                    }
+                  />
+                  <select
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    value={metricSummaryFilter.stageId}
+                    onChange={(event) =>
+                      setMetricSummaryFilter((prev) => ({ ...prev, stageId: event.target.value }))
+                    }
+                  >
+                    <option value="">{t('metrics.allStages')}</option>
+                    {projectMetricTypeSummary.stages.map((stage) => (
+                      <option key={stage.stageId} value={stage.stageId}>
+                        {stage.stageName}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={metricSummaryFilter.showOnlyWithMetrics}
+                      onChange={(event) =>
+                        setMetricSummaryFilter((prev) => ({
+                          ...prev,
+                          showOnlyWithMetrics: event.target.checked,
+                        }))
+                      }
+                    />
+                    {t('metrics.onlyWithMetrics')}
+                  </label>
+                </div>
 
-                    <div className="mt-4 space-y-4">
-                      {projectMetricTypeSummary.stages.map((stage) => (
-                        <div key={stage.stageId} className="rounded-lg bg-gray-50 p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-sm font-semibold text-gray-900">{stage.stageName}</div>
-                            <div className="text-xs text-gray-500">
-                              {t('metrics.screenFunctionCount', {
-                                value: getStageScreenFunctionCount(stage),
-                              })}
-                            </div>
-                          </div>
+                {projectMetricTypeSummary.metricTypes.map((metricType, index) => {
+                  const filteredStages = getFilteredMetricStages(metricType);
+                  return (
+                    <details
+                      key={metricType.id}
+                      className="rounded-xl border border-gray-200 p-4"
+                      open={index === 0}
+                    >
+                      <summary className="flex cursor-pointer flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{metricType.name}</h3>
+                          <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {metricType.categories.map((category) => (
+                            <span
+                              key={category.id}
+                              className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                            >
+                              {category.name}
+                            </span>
+                          ))}
+                        </div>
+                      </summary>
 
-                          <div className="mt-3 space-y-3">
-                            {stage.steps.length === 0 ? (
-                              <p className="text-xs text-gray-500">{t('metrics.noSteps')}</p>
-                            ) : (
-                              stage.steps.map((step) => (
-                                <details key={step.stepId} className="rounded-lg border border-gray-200 bg-white">
-                                  <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-medium text-gray-800">
-                                    <span>{step.stepName}</span>
-                                    <span className="text-xs text-gray-500">
-                                      {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
-                                    </span>
-                                  </summary>
-                                  <div className="divide-y divide-gray-100">
-                                    {step.screenFunctions.length === 0 ? (
-                                      <div className="px-3 py-3 text-xs text-gray-500">
-                                        {t('metrics.noScreenFunctions')}
-                                      </div>
-                                    ) : (
-                                      step.screenFunctions.map((screenFunction) => (
+                      <div className="mt-4 space-y-4">
+                        {filteredStages.length === 0 ? (
+                          <EmptyState
+                            title={t('metrics.noMetricsForFilter')}
+                            description={t('metrics.metricSummaryTryAnother')}
+                          />
+                        ) : (
+                          filteredStages.map((stage) => (
+                            <div key={stage.stageId} className="rounded-lg bg-gray-50 p-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="text-sm font-semibold text-gray-900">{stage.stageName}</div>
+                                <div className="text-xs text-gray-500">
+                                  {t('metrics.screenFunctionCount', {
+                                    value: getStageScreenFunctionCount(stage),
+                                  })}
+                                </div>
+                              </div>
+
+                              <div className="mt-3 space-y-3">
+                                {stage.steps.map((step) => (
+                                  <details key={step.stepId} className="rounded-lg border border-gray-200 bg-white">
+                                    <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-medium text-gray-800">
+                                      <span>{step.stepName}</span>
+                                      <span className="text-xs text-gray-500">
+                                        {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
+                                      </span>
+                                    </summary>
+                                    <div className="divide-y divide-gray-100">
+                                      {step.screenFunctions.map((screenFunction) => (
                                         <div
                                           key={screenFunction.stepScreenFunctionId}
                                           className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
@@ -1346,18 +1430,18 @@ function ProjectDetail() {
                                             ))}
                                           </div>
                                         </div>
-                                      ))
-                                    )}
-                                  </div>
-                                </details>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                                      ))}
+                                    </div>
+                                  </details>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             )}
           </Card>
