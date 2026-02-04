@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { projectApi, phaseApi, screenFunctionApi, memberApi, metricsApi, taskWorkflowApi } from '@/services/api';
+import { projectApi, screenFunctionApi, memberApi, metricsApi, taskWorkflowApi } from '@/services/api';
 import {
   Card,
   LoadingSpinner,
@@ -16,7 +16,7 @@ import {
 } from '@/components/common';
 import { MetricsChart, StageTimelineGantt, StageTimelineSvarGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
-import { ProjectForm, PhaseForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
+import { ProjectForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
@@ -32,7 +32,6 @@ const PROJECT_TABS = [
   'overview',
   'timeline',
   'timeline-svar',
-  'phases',
   'stages',
   'screen-functions',
   'members',
@@ -61,8 +60,6 @@ function ProjectDetail() {
   const queryClient = useQueryClient();
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showAddPhase, setShowAddPhase] = useState(false);
-  const [editingPhase, setEditingPhase] = useState<any>(null);
   const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
   const [editingScreenFunction, setEditingScreenFunction] = useState<ScreenFunction | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -85,7 +82,6 @@ function ProjectDetail() {
     return stored || 'man-hour';
   });
   const [effortUnitReady, setEffortUnitReady] = useState(false);
-  const [deletingPhase, setDeletingPhase] = useState<{ id: number; name: string; linkedCount?: number } | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     workingHoursPerDay: 8,
     workingDaysPerMonth: 20,
@@ -104,13 +100,6 @@ function ProjectDetail() {
     },
   });
 
-  const { data: phases } = useQuery({
-    queryKey: ['phases', parseInt(projectId)],
-    queryFn: async () => {
-      const response = await phaseApi.getByProject(parseInt(projectId));
-      return response.data;
-    },
-  });
 
   const { data: stagesOverview } = useQuery({
     queryKey: ['stagesOverview', parseInt(projectId)],
@@ -282,23 +271,6 @@ function ProjectDetail() {
     },
   });
 
-  const reorderMutation = useMutation({
-    mutationFn: (phaseOrders: Array<{ id: number; displayOrder: number }>) =>
-      phaseApi.reorder(phaseOrders),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['phases', parseInt(projectId)] });
-    },
-  });
-
-  const deletePhaseMutation = useMutation({
-    mutationFn: (id: number) => phaseApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['phases', parseInt(projectId)] });
-      queryClient.invalidateQueries({ queryKey: ['project', parseInt(projectId)] });
-      setDeletingPhase(null);
-    },
-  });
-
   const deleteProjectMutation = useMutation({
     mutationFn: () => projectApi.delete(parseInt(projectId)),
     onSuccess: () => {
@@ -306,26 +278,6 @@ function ProjectDetail() {
       navigate({ to: '/projects' });
     },
   });
-
-  const handleDeletePhaseClick = async (phase: { id: number; name: string }) => {
-    // Fetch phase stats to show warning about linked items
-    try {
-      const response = await phaseApi.getStats(phase.id);
-      setDeletingPhase({
-        id: phase.id,
-        name: phase.name,
-        linkedCount: response.data.linkedScreenFunctions,
-      });
-    } catch {
-      setDeletingPhase({ id: phase.id, name: phase.name, linkedCount: 0 });
-    }
-  };
-
-  const confirmDeletePhase = () => {
-    if (deletingPhase) {
-      deletePhaseMutation.mutate(deletingPhase.id);
-    }
-  };
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: Partial<ProjectSettings>) =>
@@ -339,31 +291,11 @@ function ProjectDetail() {
     updateSettingsMutation.mutate(settingsForm);
   };
 
-  const handleMovePhase = (index: number, direction: 'up' | 'down') => {
-    if (!phases) return;
-
-    const newPhases = [...phases];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-
-    if (targetIndex < 0 || targetIndex >= newPhases.length) return;
-
-    // Swap positions
-    [newPhases[index], newPhases[targetIndex]] = [newPhases[targetIndex], newPhases[index]];
-
-    // Update displayOrder for all phases
-    const phaseOrders = newPhases.map((phase, idx) => ({
-      id: phase.id,
-      displayOrder: idx + 1,
-    }));
-
-    reorderMutation.mutate(phaseOrders);
-  };
 
   const tabs: Array<{ id: ProjectTab; name: string }> = [
     { id: 'overview' as const, name: t('stages.overviewTab') },
     { id: 'timeline' as const, name: t('stages.timelineTitle') },
     { id: 'timeline-svar' as const, name: t('stages.timelineSvarTitle') },
-    { id: 'phases' as const, name: t('nav.phases') },
     { id: 'stages' as const, name: t('stages.title') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
@@ -837,129 +769,6 @@ function ProjectDetail() {
         </div>
       )}
 
-      {activeTab === 'phases' && (
-        <Card
-          title={t('phase.title')}
-          actions={
-            <Button onClick={() => setShowAddPhase(true)}>
-              {t('phase.create')}
-            </Button>
-          }
-        >
-          {phases && phases.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead>
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                      {t('phase.displayOrder')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.name')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.status')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.progress')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.estimatedEffort')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.startDate')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.endDate')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.actions')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {phases.map((phase, index) => (
-                    <tr key={phase.id}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            onClick={() => handleMovePhase(index, 'up')}
-                            disabled={index === 0 || reorderMutation.isPending}
-                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Move up"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleMovePhase(index, 'down')}
-                            disabled={index === phases.length - 1 || reorderMutation.isPending}
-                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Move down"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
-                        {phase.name}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <StatusBadge status={phase.status as any} />
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <div className="w-32">
-                          <ProgressBar progress={phase.progress} showLabel />
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {displayEffort(phase.actualEffort, 'man-month')}/{displayEffort(phase.estimatedEffort, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {format(new Date(phase.startDate), 'MMM dd, yyyy')}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {phase.endDate ? format(new Date(phase.endDate), 'MMM dd, yyyy') : t('common.notAvailable')}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setEditingPhase(phase)}
-                          >
-                            {t('common.edit')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDeletePhaseClick(phase)}
-                          >
-                            {t('common.delete')}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState
-              title={t('phase.noPhases')}
-              description={t('phase.createFirst')}
-              action={
-                <Button onClick={() => setShowAddPhase(true)}>
-                  {t('phase.create')}
-                </Button>
-              }
-            />
-          )}
-        </Card>
-      )}
 
       {activeTab === 'screen-functions' && (
         <div className="space-y-6">
@@ -1691,29 +1500,6 @@ function ProjectDetail() {
         />
       </Modal>
 
-      <Modal
-        isOpen={showAddPhase || !!editingPhase}
-        onClose={() => {
-          setShowAddPhase(false);
-          setEditingPhase(null);
-        }}
-        title={editingPhase ? t('phase.edit') : t('phase.create')}
-      >
-        <PhaseForm
-          projectId={parseInt(projectId)}
-          phase={editingPhase}
-          effortUnit={effortUnit}
-          workSettings={settingsForm}
-          onSuccess={() => {
-            setShowAddPhase(false);
-            setEditingPhase(null);
-          }}
-          onCancel={() => {
-            setShowAddPhase(false);
-            setEditingPhase(null);
-          }}
-        />
-      </Modal>
 
       <Modal
         isOpen={showAddScreenFunction || !!editingScreenFunction}
@@ -1761,55 +1547,6 @@ function ProjectDetail() {
         />
       </Modal>
 
-      {/* Delete Phase Confirmation Modal */}
-      <Modal
-        isOpen={!!deletingPhase}
-        onClose={() => setDeletingPhase(null)}
-        title={t('phase.delete')}
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            {t('phase.deleteConfirm')} <strong>"{deletingPhase?.name}"</strong>?
-          </p>
-
-          {deletingPhase?.linkedCount && deletingPhase.linkedCount > 0 ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="text-yellow-800 font-medium">{t('common.warning')}</p>
-                  <p className="text-yellow-700 text-sm mt-1">
-                    {t('phase.deleteWarning')} <strong>{deletingPhase.linkedCount}</strong> {t('phase.deleteWarningItems')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">
-              {t('phase.deleteIrreversible')}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setDeletingPhase(null)}
-              disabled={deletePhaseMutation.isPending}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="danger"
-              onClick={confirmDeletePhase}
-              loading={deletePhaseMutation.isPending}
-            >
-              {t('phase.delete')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Holiday Import Dialog */}
       <HolidayImportDialog
@@ -2033,7 +1770,6 @@ function ProjectDetail() {
                   {t('project.deleteWarning')}
                 </p>
                 <ul className="text-red-700 text-sm mt-2 ml-4 list-disc">
-                  <li>{t('project.deleteWarningPhases')}</li>
                   <li>{t('project.deleteWarningScreenFunctions')}</li>
                   <li>{t('project.deleteWarningMembers')}</li>
                   <li>{t('project.deleteWarningReports')}</li>
