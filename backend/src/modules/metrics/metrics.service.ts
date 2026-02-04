@@ -1,6 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Metrics } from './metrics.model';
-import { TestingService } from '../testing/testing.service';
 import { ProjectService } from '../project/project.service';
 import { MemberService } from '../member/member.service';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
@@ -19,10 +18,7 @@ export interface ScheduleMetricsInput {
 
 export interface TestingMetricsInput {
   totalTestCases: number;
-  passedTestCases: number;
-  failedTestCases: number;
   defectsDetected: number;
-  testingTime: number;
 }
 
 @Injectable()
@@ -30,7 +26,6 @@ export class MetricsService {
   constructor(
     @Inject('METRICS_REPOSITORY')
     private metricsRepository: typeof Metrics,
-    private testingService: TestingService,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
     @Inject(forwardRef(() => MemberService))
@@ -112,37 +107,16 @@ export class MetricsService {
   calculateTestingMetrics(input: TestingMetricsInput) {
     const {
       totalTestCases,
-      passedTestCases,
-      failedTestCases,
       defectsDetected,
-      testingTime,
     } = input;
-
-    // Pass Rate
-    const passRate = totalTestCases > 0 
-      ? (passedTestCases / totalTestCases) * 100 
-      : 0;
 
     // Defect Rate (defects per test case)
     const defectRate = totalTestCases > 0 
       ? defectsDetected / totalTestCases 
       : 0;
 
-    // Time per Test Case
-    const timePerTestCase = totalTestCases > 0 
-      ? testingTime / totalTestCases 
-      : 0;
-
-    // Test Cases per Hour
-    const testCasesPerHour = testingTime > 0 
-      ? totalTestCases / testingTime 
-      : 0;
-
     return {
-      passRate,
       defectRate,
-      timePerTestCase,
-      testCasesPerHour,
     };
   }
 
@@ -151,8 +125,6 @@ export class MetricsService {
     if (!stage) {
       throw new Error(`Stage with ID ${stageId} not found`);
     }
-    const testingSummary = await this.testingService.getStageTestingSummary(stageId);
-
     // Use stage's actualEffort and progress directly (updated from StepScreenFunction)
     // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
@@ -162,11 +134,8 @@ export class MetricsService {
     });
 
     const testingMetrics = this.calculateTestingMetrics({
-      totalTestCases: testingSummary.totalTestCases,
-      passedTestCases: testingSummary.totalPassed,
-      failedTestCases: testingSummary.totalFailed,
-      defectsDetected: testingSummary.totalDefects,
-      testingTime: testingSummary.totalTestingTime,
+      totalTestCases: 0,
+      defectsDetected: 0,
     });
 
     return this.metricsRepository.create({
@@ -184,18 +153,11 @@ export class MetricsService {
     });
 
     let totalTestCases = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
     let totalDefects = 0;
-    let totalTestingTime = 0;
 
     for (const stage of stages) {
-      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
-      totalTestCases += testingSummary.totalTestCases;
-      totalPassed += testingSummary.totalPassed;
-      totalFailed += testingSummary.totalFailed;
-      totalDefects += testingSummary.totalDefects;
-      totalTestingTime += testingSummary.totalTestingTime;
+      totalTestCases += 0;
+      totalDefects += 0;
     }
 
     // Use project's data directly (updated from stages)
@@ -208,10 +170,7 @@ export class MetricsService {
 
     const testingMetrics = this.calculateTestingMetrics({
       totalTestCases,
-      passedTestCases: totalPassed,
-      failedTestCases: totalFailed,
       defectsDetected: totalDefects,
-      testingTime: totalTestingTime,
     });
 
     // Auto-update project status based on calculated metrics
@@ -219,7 +178,6 @@ export class MetricsService {
       schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
       costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
       delayRate: scheduleMetrics.delayRate,
-      passRate: testingMetrics.passRate,
     });
 
     return this.metricsRepository.create({
@@ -252,18 +210,11 @@ export class MetricsService {
 
     // Aggregate testing data from all stages
     let totalTestCases = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
     let totalDefects = 0;
-    let totalTestingTime = 0;
 
     for (const stage of stages) {
-      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
-      totalTestCases += testingSummary.totalTestCases;
-      totalPassed += testingSummary.totalPassed;
-      totalFailed += testingSummary.totalFailed;
-      totalDefects += testingSummary.totalDefects;
-      totalTestingTime += testingSummary.totalTestingTime;
+      totalTestCases += 0;
+      totalDefects += 0;
     }
 
     // Calculate schedule metrics
@@ -276,10 +227,7 @@ export class MetricsService {
     // Calculate testing metrics
     const testingMetrics = this.calculateTestingMetrics({
       totalTestCases,
-      passedTestCases: totalPassed,
-      failedTestCases: totalFailed,
       defectsDetected: totalDefects,
-      testingTime: totalTestingTime,
     });
 
     // Evaluate status based on metrics
@@ -287,7 +235,6 @@ export class MetricsService {
       schedulePerformanceIndex: scheduleMetrics.schedulePerformanceIndex,
       costPerformanceIndex: scheduleMetrics.costPerformanceIndex,
       delayRate: scheduleMetrics.delayRate,
-      passRate: testingMetrics.passRate,
     });
 
     // Determine status reasons
@@ -295,7 +242,6 @@ export class MetricsService {
       spi: scheduleMetrics.schedulePerformanceIndex,
       cpi: scheduleMetrics.costPerformanceIndex,
       delayRate: scheduleMetrics.delayRate,
-      passRate: testingMetrics.passRate,
     });
 
     return {
@@ -322,11 +268,6 @@ export class MetricsService {
         tcpi: scheduleMetrics.toCompletePerformanceIndex,
       },
       testing: {
-        totalTestCases,
-        passedTestCases: totalPassed,
-        failedTestCases: totalFailed,
-        defectsDetected: totalDefects,
-        passRate: testingMetrics.passRate,
         defectRate: testingMetrics.defectRate,
       },
       stages: stages.map(stage => ({
@@ -340,23 +281,22 @@ export class MetricsService {
 
   /**
    * Get human-readable reasons for the current status
-   * Simplified to focus on Efficiency (CPI) and Quality (Pass Rate)
+   * Simplified to focus on Efficiency (CPI)
    */
   private getStatusReasons(metrics: {
     spi: number;
     cpi: number;
     delayRate: number;
-    passRate: number;
   }): Array<{
     type: 'good' | 'warning' | 'risk';
-    metricKey: 'efficiency' | 'quality';
+    metricKey: 'efficiency';
     messageKey: string;
     value: number;
     data?: Record<string, number>;
   }> {
     const reasons: Array<{
       type: 'good' | 'warning' | 'risk';
-      metricKey: 'efficiency' | 'quality';
+      metricKey: 'efficiency';
       messageKey: string;
       value: number;
       data?: Record<string, number>;
@@ -403,35 +343,6 @@ export class MetricsService {
       });
     }
 
-    // Pass Rate evaluation (only if there are test cases)
-    if (metrics.passRate > 0) {
-      if (metrics.passRate >= 95) {
-        reasons.push({
-          type: 'good',
-          metricKey: 'quality',
-          value: metrics.passRate,
-          messageKey: 'qualityGood',
-          data: { passRate: Number(metrics.passRate.toFixed(1)) }
-        });
-      } else if (metrics.passRate >= 80) {
-        reasons.push({
-          type: 'warning',
-          metricKey: 'quality',
-          value: metrics.passRate,
-          messageKey: 'qualityWarning',
-          data: { passRate: Number(metrics.passRate.toFixed(1)) }
-        });
-      } else {
-        reasons.push({
-          type: 'risk',
-          metricKey: 'quality',
-          value: metrics.passRate,
-          messageKey: 'qualityRisk',
-          data: { passRate: Number(metrics.passRate.toFixed(1)) }
-        });
-      }
-    }
-
     return reasons;
   }
 
@@ -447,7 +358,6 @@ export class MetricsService {
         schedulePerformanceIndex: metrics.schedule.spi,
         costPerformanceIndex: metrics.schedule.cpi,
         delayRate: metrics.schedule.delayRate,
-        passRate: metrics.testing.passRate,
       });
       metrics.currentStatus = metrics.evaluatedStatus;
     }

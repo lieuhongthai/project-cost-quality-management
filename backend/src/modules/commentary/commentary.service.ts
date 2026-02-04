@@ -157,7 +157,6 @@ export class CommentaryService {
     const projectSnapshot = snapshot.project || {};
     const scheduleSnapshot = snapshot.schedule || {};
     const forecastingSnapshot = snapshot.forecasting || {};
-    const testingSnapshot = snapshot.testing || {};
     const productivitySnapshot = snapshot.productivity || {};
     const memberCostSnapshot = snapshot.memberCost || {};
     const stageDetail = snapshot.stageDetail || {};
@@ -181,18 +180,6 @@ export class CommentaryService {
       eac: safeNumber(forecastingSnapshot.eac, metrics?.estimateAtCompletion),
       vac: safeNumber(forecastingSnapshot.vac, metrics?.varianceAtCompletion),
       tcpi: safeNumber(forecastingSnapshot.tcpi, metrics?.toCompletePerformanceIndex),
-    };
-
-    const testingMetrics = {
-      totalTestCases: safeNumber(testingSnapshot.totalTestCases),
-      totalPassed: safeNumber(testingSnapshot.totalPassed),
-      totalFailed: safeNumber(testingSnapshot.totalFailed),
-      totalDefects: safeNumber(testingSnapshot.totalDefects),
-      totalTestingTime: safeNumber(testingSnapshot.totalTestingTime),
-      passRate: safeNumber(testingSnapshot.passRate, metrics?.passRate),
-      defectRate: safeNumber(testingSnapshot.defectRate, metrics?.defectRate),
-      timePerTestCase: safeNumber(testingSnapshot.timePerTestCase, metrics?.timePerTestCase),
-      testCasesPerHour: safeNumber(testingSnapshot.testCasesPerHour, metrics?.testCasesPerHour),
     };
 
     const productivitySummary = productivitySnapshot?.summary || null;
@@ -251,16 +238,6 @@ Forecasting Metrics:
 - Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
 - To-Complete Performance Index (TCPI): ${forecastingMetrics.tcpi.toFixed(2)}
 
-Testing & Quality Metrics:
-- Total Test Cases: ${testingMetrics.totalTestCases}
-- Passed/Failed: ${testingMetrics.totalPassed}/${testingMetrics.totalFailed}
-- Defects Detected: ${testingMetrics.totalDefects}
-- Testing Time: ${testingMetrics.totalTestingTime.toFixed(2)} hours
-- Pass Rate: ${testingMetrics.passRate.toFixed(2)}%
-- Defect Rate: ${testingMetrics.defectRate.toFixed(3)}
-- Time per Test Case: ${testingMetrics.timePerTestCase.toFixed(2)} hours
-- Test Cases per Hour: ${testingMetrics.testCasesPerHour.toFixed(2)}
-
 Productivity Snapshot:
 - Summary: ${productivitySummary ? `Efficiency ${safeNumber(productivitySummary.efficiency).toFixed(2)}, Completion ${safeNumber(productivitySummary.completionRate).toFixed(0)}%, Variance ${safeNumber(productivitySummary.variance).toFixed(2)}` : 'N/A'}
 - Top Members by Efficiency: ${topMembers.length > 0 ? topMembers.map((m: any) => `${m.name} (${safeNumber(m.efficiency).toFixed(2)})`).join(', ') : 'N/A'}
@@ -286,14 +263,12 @@ Keep the response concise and actionable.
     // Overall Assessment
     const spi = metrics.schedulePerformanceIndex;
     const cpi = metrics.costPerformanceIndex;
-    const passRate = metrics.passRate;
-
     const translations = this.getTranslations(language);
 
     let overallStatus: string;
-    if (spi >= 0.95 && cpi >= 0.95 && passRate >= 95) {
+    if (spi >= 0.95 && cpi >= 0.95) {
       overallStatus = translations.overallGood;
-    } else if (spi >= 0.85 && cpi >= 0.85 && passRate >= 80) {
+    } else if (spi >= 0.85 && cpi >= 0.85) {
       overallStatus = translations.overallAcceptable;
     } else {
       overallStatus = translations.overallCritical;
@@ -311,11 +286,6 @@ Keep the response concise and actionable.
       sections.push(`**${translations.costConcern}**\n${translations.costText(cpi.toFixed(2), (metrics.estimatedVsActual * 100).toFixed(0))}`);
     }
 
-    // Quality Analysis
-    if (passRate < 95) {
-      sections.push(`**${translations.qualityConcern}**\n${translations.qualityText(passRate.toFixed(1), metrics.defectRate.toFixed(3))}`);
-    }
-
     // Recommendations
     const recommendations = [];
     if (spi < 0.95) {
@@ -326,11 +296,6 @@ Keep the response concise and actionable.
       recommendations.push(translations.costRec1);
       recommendations.push(translations.costRec2);
     }
-    if (passRate < 95) {
-      recommendations.push(translations.qualityRec1);
-      recommendations.push(translations.qualityRec2);
-    }
-
     if (recommendations.length > 0) {
       sections.push(`**${translations.recommendations}**\n${recommendations.join('\n')}`);
     }
@@ -352,16 +317,11 @@ Keep the response concise and actionable.
           costConcern: 'Vấn đề về chi phí',
           costText: (cpi: string, percent: string) =>
             `Chỉ số hiệu suất chi phí (${cpi}) cho thấy dự án đang vượt ngân sách. Nỗ lực thực tế là ${percent}% so với dự kiến.`,
-          qualityConcern: 'Vấn đề về chất lượng',
-          qualityText: (passRate: string, defectRate: string) =>
-            `Tỷ lệ test case passed (${passRate}%) thấp hơn mục tiêu. Tỷ lệ lỗi là ${defectRate} trên mỗi test case.`,
           recommendations: 'Khuyến nghị',
           scheduleRec1: '- Xem xét và tối ưu hóa lịch trình dự án',
           scheduleRec2: '- Xem xét việc bổ sung nguồn lực cho các hoạt động quan trọng',
           costRec1: '- Phân tích nguyên nhân vượt chi phí',
           costRec2: '- Triển khai các biện pháp kiểm soát chi phí',
-          qualityRec1: '- Tăng phạm vi và chất lượng kiểm thử',
-          qualityRec2: '- Thực hiện phân tích nguyên nhân gốc rễ cho các lỗi',
         };
       case 'Japanese':
         return {
@@ -375,16 +335,11 @@ Keep the response concise and actionable.
           costConcern: 'コストに関する懸念',
           costText: (cpi: string, percent: string) =>
             `コスト効率指数（${cpi}）は、プロジェクトが予算超過していることを示しています。実際の工数は見積もりの${percent}%です。`,
-          qualityConcern: '品質に関する懸念',
-          qualityText: (passRate: string, defectRate: string) =>
-            `テスト合格率（${passRate}%）は目標を下回っています。欠陥率はテストケースあたり${defectRate}です。`,
           recommendations: '推奨事項',
           scheduleRec1: '- プロジェクトスケジュールの見直しと最適化',
           scheduleRec2: '- クリティカルパスの活動にリソースの追加を検討',
           costRec1: '- コスト超過の根本原因を分析',
           costRec2: '- コスト管理措置の実施',
-          qualityRec1: '- テストカバレッジと品質の向上',
-          qualityRec2: '- 欠陥の根本原因分析の実施',
         };
       case 'English':
       default:
@@ -399,16 +354,11 @@ Keep the response concise and actionable.
           costConcern: 'Cost Concern',
           costText: (cpi: string, percent: string) =>
             `The Cost Performance Index (${cpi}) shows the project is over budget. Actual effort is ${percent}% of estimated.`,
-          qualityConcern: 'Quality Concern',
-          qualityText: (passRate: string, defectRate: string) =>
-            `The test pass rate (${passRate}%) is below target. Defect rate is ${defectRate} per test case.`,
           recommendations: 'Recommendations',
           scheduleRec1: '- Review and optimize project schedule',
           scheduleRec2: '- Consider adding resources to critical path activities',
           costRec1: '- Analyze cost overruns and identify root causes',
           costRec2: '- Implement cost control measures',
-          qualityRec1: '- Increase testing coverage and quality',
-          qualityRec2: '- Conduct root cause analysis for defects',
         };
     }
   }

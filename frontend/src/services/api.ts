@@ -2,21 +2,11 @@ import axios from 'axios';
 import type {
   Project,
   ProjectSettings,
-  Phase,
-  Effort,
-  Testing,
   Report,
   Commentary,
   Metrics,
-  EffortSummary,
-  TestingSummary,
-  Review,
-  ReviewSummary,
   ScreenFunction,
-  PhaseScreenFunction,
   ScreenFunctionSummary,
-  PhaseScreenFunctionSummary,
-  ScreenFunctionWithPhases,
   Member,
   MemberSummary,
   MemberWorkload,
@@ -36,6 +26,7 @@ import type {
   StepScreenFunction,
   StageDetailData,
   StageOverviewData,
+  ProjectMetricInsights,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -85,59 +76,6 @@ export const projectApi = {
   }) => api.post<{ endDate: string; workingDays: number; totalDays: number }>('/projects/calculate-end-date', data),
 };
 
-// Phase APIs
-export const phaseApi = {
-  getAll: () => api.get<Phase[]>('/phases'),
-  getByProject: (projectId: number) => api.get<Phase[]>(`/phases/project/${projectId}`),
-  getOne: (id: number) => api.get<Phase>(`/phases/${id}`),
-  create: (data: Partial<Phase>) => api.post<Phase>('/phases', data),
-  update: (id: number, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
-  delete: (id: number) => api.delete<{ deletedLinkedItems: number }>(`/phases/${id}`),
-  reorder: (phaseOrders: Array<{ id: number; displayOrder: number }>) =>
-    api.put('/phases/reorder', { phaseOrders }),
-  getStats: (id: number) => api.get<{ linkedScreenFunctions: number; totalActualEffort: number; hasData: boolean }>(`/phases/${id}/stats`),
-};
-
-// Effort APIs
-export const effortApi = {
-  getAll: () => api.get<Effort[]>('/efforts'),
-  getByPhase: (phaseId: number) => api.get<Effort[]>(`/efforts/stage/${phaseId}`),
-  getByStage: (stageId: number) => api.get<Effort[]>(`/efforts/stage/${stageId}`),
-  getByWeek: (stageId: number, year: number, weekNumber: number) => 
-    api.get<Effort>(`/efforts/stage/${stageId}/week?year=${year}&weekNumber=${weekNumber}`),
-  getOne: (id: number) => api.get<Effort>(`/efforts/${id}`),
-  create: (data: Partial<Effort>) => api.post<Effort>('/efforts', data),
-  bulkCreate: (data: { stageId: number; efforts: Partial<Effort>[] }) => 
-    api.post<Effort[]>('/efforts/bulk', data),
-  update: (id: number, data: Partial<Effort>) => api.put<Effort>(`/efforts/${id}`, data),
-  delete: (id: number) => api.delete(`/efforts/${id}`),
-  getSummary: (stageId: number) => api.get<EffortSummary>(`/efforts/stage/${stageId}/summary`),
-};
-
-// Testing APIs
-export const testingApi = {
-  getAll: () => api.get<Testing[]>('/testing'),
-  getByPhase: (phaseId: number) => api.get<Testing[]>(`/testing/stage/${phaseId}`),
-  getByStage: (stageId: number) => api.get<Testing[]>(`/testing/stage/${stageId}`),
-  getOne: (id: number) => api.get<Testing>(`/testing/${id}`),
-  create: (data: Partial<Testing>) => api.post<Testing>('/testing', data),
-  update: (id: number, data: Partial<Testing>) => api.put<Testing>(`/testing/${id}`, data),
-  delete: (id: number) => api.delete(`/testing/${id}`),
-  getSummary: (stageId: number) => api.get<TestingSummary>(`/testing/stage/${stageId}/summary`),
-};
-
-// Review APIs
-export const reviewApi = {
-  getAll: () => api.get<Review[]>('/reviews'),
-  getByPhase: (phaseId: number) => api.get<Review[]>(`/reviews/phase/${phaseId}`),
-  getByPhaseScreenFunction: (phaseScreenFunctionId: number) =>
-    api.get<Review[]>(`/reviews/phase-screen-function/${phaseScreenFunctionId}`),
-  getOne: (id: number) => api.get<Review>(`/reviews/${id}`),
-  create: (data: Partial<Review>) => api.post<Review>('/reviews', data),
-  update: (id: number, data: Partial<Review>) => api.put<Review>(`/reviews/${id}`, data),
-  delete: (id: number) => api.delete(`/reviews/${id}`),
-  getSummary: (phaseId: number) => api.get<ReviewSummary>(`/reviews/phase/${phaseId}/summary`),
-};
 
 // Report APIs
 export const reportApi = {
@@ -193,25 +131,6 @@ export const screenFunctionApi = {
   getSummary: (projectId: number) => api.get<ScreenFunctionSummary>(`/screen-functions/project/${projectId}/summary`),
 };
 
-// Phase-ScreenFunction APIs
-export const phaseScreenFunctionApi = {
-  getAll: () => api.get<PhaseScreenFunction[]>('/phase-screen-functions'),
-  getByPhase: (phaseId: number) => api.get<PhaseScreenFunction[]>(`/phase-screen-functions/phase/${phaseId}`),
-  getByScreenFunction: (screenFunctionId: number) =>
-    api.get<PhaseScreenFunction[]>(`/phase-screen-functions/screen-function/${screenFunctionId}`),
-  getProjectWithPhases: (projectId: number) =>
-    api.get<ScreenFunctionWithPhases[]>(`/phase-screen-functions/project/${projectId}/with-phases`),
-  getOne: (id: number) => api.get<PhaseScreenFunction>(`/phase-screen-functions/${id}`),
-  create: (data: Partial<PhaseScreenFunction>) => api.post<PhaseScreenFunction>('/phase-screen-functions', data),
-  update: (id: number, data: Partial<PhaseScreenFunction>) =>
-    api.put<PhaseScreenFunction>(`/phase-screen-functions/${id}`, data),
-  delete: (id: number) => api.delete(`/phase-screen-functions/${id}`),
-  bulkCreate: (data: { phaseId: number; items: Array<{ screenFunctionId: number; estimatedEffort?: number; note?: string }> }) =>
-    api.post<PhaseScreenFunction[]>('/phase-screen-functions/bulk', data),
-  bulkUpdate: (data: { items: Array<{ id: number; estimatedEffort?: number; actualEffort?: number; progress?: number; status?: string; note?: string }> }) =>
-    api.put<PhaseScreenFunction[]>('/phase-screen-functions/bulk', data),
-  getSummary: (phaseId: number) => api.get<PhaseScreenFunctionSummary>(`/phase-screen-functions/phase/${phaseId}/summary`),
-};
 
 // Member APIs
 export const memberApi = {
@@ -402,6 +321,8 @@ export const taskWorkflowApi = {
     api.get<MetricType[]>(`/task-workflow/metric-types/project/${projectId}`),
   getMetricType: (id: number) =>
     api.get<MetricType>(`/task-workflow/metric-types/${id}`),
+  getProjectMetricInsights: (projectId: number) =>
+    api.get<ProjectMetricInsights>(`/task-workflow/metrics/project/${projectId}`),
   createMetricType: (data: { projectId: number; name: string; description?: string; displayOrder?: number }) =>
     api.post<MetricType>('/task-workflow/metric-types', data),
   updateMetricType: (id: number, data: { name?: string; description?: string; displayOrder?: number; isActive?: boolean }) =>

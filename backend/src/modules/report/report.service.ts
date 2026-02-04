@@ -5,7 +5,6 @@ import { Metrics } from '../metrics/metrics.model';
 import { CreateReportDto, UpdateReportDto } from './report.dto';
 import { MetricsService } from '../metrics/metrics.service';
 import { ProjectService } from '../project/project.service';
-import { TestingService } from '../testing/testing.service';
 import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 
 @Injectable()
@@ -19,8 +18,6 @@ export class ReportService {
     private projectService: ProjectService,
     @Inject(forwardRef(() => TaskWorkflowService))
     private taskWorkflowService: TaskWorkflowService,
-    @Inject(forwardRef(() => TestingService))
-    private testingService: TestingService,
   ) {}
 
   async findAll(): Promise<Report[]> {
@@ -126,10 +123,7 @@ export class ReportService {
 
     // Collect testing data
     let totalTestCases = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
     let totalDefects = 0;
-    let totalTestingTime = 0;
 
     const stageSnapshots: Array<{
       id: number;
@@ -142,21 +136,11 @@ export class ReportService {
       endDate: string | null;
       testing: {
         totalTestCases: number;
-        totalPassed: number;
-        totalFailed: number;
         totalDefects: number;
-        passRate: number;
       };
     }> = [];
 
     for (const stage of stages) {
-      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
-      totalTestCases += testingSummary.totalTestCases;
-      totalPassed += testingSummary.totalPassed;
-      totalFailed += testingSummary.totalFailed;
-      totalDefects += testingSummary.totalDefects;
-      totalTestingTime += testingSummary.totalTestingTime;
-
       stageSnapshots.push({
         id: stage.id,
         name: stage.name,
@@ -167,13 +151,8 @@ export class ReportService {
         startDate: stage.startDate,
         endDate: stage.endDate,
         testing: {
-          totalTestCases: testingSummary.totalTestCases,
-          totalPassed: testingSummary.totalPassed,
-          totalFailed: testingSummary.totalFailed,
-          totalDefects: testingSummary.totalDefects,
-          passRate: testingSummary.totalTestCases > 0
-            ? (testingSummary.totalPassed / testingSummary.totalTestCases) * 100
-            : 0,
+          totalTestCases: 0,
+          totalDefects: 0,
         },
       });
     }
@@ -188,10 +167,7 @@ export class ReportService {
     // Calculate testing metrics
     const testingMetrics = this.metricsService.calculateTestingMetrics({
       totalTestCases,
-      passedTestCases: totalPassed,
-      failedTestCases: totalFailed,
       defectsDetected: totalDefects,
-      testingTime: totalTestingTime,
     });
 
     // Get productivity metrics
@@ -243,14 +219,8 @@ export class ReportService {
       },
       testing: {
         totalTestCases,
-        totalPassed,
-        totalFailed,
         totalDefects,
-        totalTestingTime,
-        passRate: testingMetrics.passRate,
         defectRate: testingMetrics.defectRate,
-        timePerTestCase: testingMetrics.timePerTestCase,
-        testCasesPerHour: testingMetrics.testCasesPerHour,
       },
       productivity: productivityMetrics,
       memberCost: memberCostAnalysis,
@@ -260,7 +230,6 @@ export class ReportService {
     if (scope === 'Stage' && stageId) {
       const stage = stages.find(s => s.id === stageId);
       if (stage) {
-        const stageTestingSummary = await this.testingService.getStageTestingSummary(stageId);
         const stageScheduleMetrics = this.metricsService.calculateScheduleMetrics({
           estimatedEffort: stage.estimatedEffort,
           actualEffort: stage.actualEffort || 0,
@@ -281,10 +250,8 @@ export class ReportService {
             actualCost: stageScheduleMetrics.actualCost,
           },
           testing: {
-            totalTestCases: stageTestingSummary.totalTestCases,
-            totalPassed: stageTestingSummary.totalPassed,
-            totalFailed: stageTestingSummary.totalFailed,
-            totalDefects: stageTestingSummary.totalDefects,
+            totalTestCases: 0,
+            totalDefects: 0,
           },
         };
       }

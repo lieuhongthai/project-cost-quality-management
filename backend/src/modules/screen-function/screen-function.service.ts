@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { ScreenFunction } from './screen-function.model';
-import { PhaseScreenFunction } from './phase-screen-function.model';
 import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto } from './screen-function.dto';
 
 @Injectable()
@@ -8,8 +7,6 @@ export class ScreenFunctionService {
   constructor(
     @Inject('SCREEN_FUNCTION_REPOSITORY')
     private screenFunctionRepository: typeof ScreenFunction,
-    @Inject('PHASE_SCREEN_FUNCTION_REPOSITORY')
-    private phaseScreenFunctionRepository: typeof PhaseScreenFunction,
   ) {}
 
   async findAll(): Promise<ScreenFunction[]> {
@@ -53,19 +50,11 @@ export class ScreenFunctionService {
     const screenFunction = await this.findOne(id);
     await screenFunction.update(updateDto);
 
-    // Auto-recalculate totals from phase links
-    await this.updateScreenFunctionMetrics(id);
-
     return screenFunction;
   }
 
   async remove(id: number): Promise<void> {
     const screenFunction = await this.findOne(id);
-
-    // Delete all phase links first
-    await this.phaseScreenFunctionRepository.destroy({
-      where: { screenFunctionId: id },
-    });
 
     await screenFunction.destroy();
   }
@@ -77,48 +66,6 @@ export class ScreenFunctionService {
         { where: { id: item.id } },
       );
     }
-  }
-
-  // Auto-calculate metrics from phase links
-  async updateScreenFunctionMetrics(screenFunctionId: number): Promise<void> {
-    const screenFunction = await this.findOne(screenFunctionId);
-    const phaseLinks = await this.phaseScreenFunctionRepository.findAll({
-      where: { screenFunctionId },
-    });
-
-    if (phaseLinks.length === 0) {
-      return;
-    }
-
-    const totalEstimated = phaseLinks.reduce((sum, link) => sum + (link.estimatedEffort || 0), 0);
-    const totalActual = phaseLinks.reduce((sum, link) => sum + (link.actualEffort || 0), 0);
-
-    // Calculate weighted progress
-    let weightedProgress = 0;
-    if (totalEstimated > 0) {
-      weightedProgress = phaseLinks.reduce((sum, link) => {
-        const weight = (link.estimatedEffort || 0) / totalEstimated;
-        return sum + (link.progress || 0) * weight;
-      }, 0);
-    }
-
-    // Determine status
-    let status = 'Not Started';
-    const completedLinks = phaseLinks.filter(l => l.status === 'Completed' || l.status === 'Skipped');
-    const inProgressLinks = phaseLinks.filter(l => l.status === 'In Progress');
-
-    if (completedLinks.length === phaseLinks.length) {
-      status = 'Completed';
-    } else if (inProgressLinks.length > 0 || completedLinks.length > 0) {
-      status = 'In Progress';
-    }
-
-    await screenFunction.update({
-      estimatedEffort: totalEstimated,
-      actualEffort: totalActual,
-      progress: Math.round(weightedProgress * 100) / 100,
-      status,
-    });
   }
 
   // Get summary for a project

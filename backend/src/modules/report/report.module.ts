@@ -5,7 +5,6 @@ import { reportProviders } from './report.providers';
 import { DatabaseModule } from '../../database/database.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { ProjectModule } from '../project/project.module';
-import { TestingModule } from '../testing/testing.module';
 import { TaskWorkflowModule } from '../task-workflow/task-workflow.module';
 
 @Module({
@@ -14,7 +13,6 @@ import { TaskWorkflowModule } from '../task-workflow/task-workflow.module';
     forwardRef(() => MetricsModule),
     forwardRef(() => ProjectModule),
     forwardRef(() => TaskWorkflowModule),
-    forwardRef(() => TestingModule),
   ],
   controllers: [ReportController],
   providers: [ReportService, ...reportProviders],

@@ -3,14 +3,12 @@ import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';
 import { metricsProviders } from './metrics.providers';
 import { DatabaseModule } from '../../database/database.module';
-import { TestingModule } from '../testing/testing.module';
 import { ProjectModule } from '../project/project.module';
 import { MemberModule } from '../member/member.module';
 
 @Module({
   imports: [
     DatabaseModule,
-    TestingModule,
     forwardRef(() => ProjectModule),
     forwardRef(() => MemberModule),
   ],

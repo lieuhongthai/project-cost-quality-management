@@ -1,5 +1,12 @@
 # Changelog - Frontend Extensions
 
+## Version 2.1 - Maintenance Cleanup (March 10, 2025)
+
+### 🧹 Maintenance Updates
+- Removed legacy Phase/Phase Screen Function/Review modules and UI to simplify maintenance.
+- Removed Effort and Testing modules/forms and related API surface.
+- Updated metrics and reports to operate without testing aggregates (defaults to 0 when unavailable).
+
 ## Version 2.0 - Enhanced Frontend (December 31, 2024)
 
 ### 🎉 Major Features Added
@@ -22,22 +29,6 @@
   - Start/end dates
   - Estimated effort
   - Form validation and error handling
-
-- **PhaseForm**: Create/edit phases
-  - Phase type selection (5 types)
-  - Date ranges
-  - Effort estimation
-  - Validation rules
-
-- **EffortForm**: Weekly effort tracking
-  - Week selection
-  - Planned vs actual effort
-  - Progress percentage
-  - Auto-calculation of week numbers
-
-- **TestingForm**: Testing metrics input
-  - Test case counts
-  - Pass/fail tracking
   - Testing time
   - Defect detection
   - Auto-calculation of metrics
@@ -254,17 +245,7 @@ frontend/src/
    - Set realistic effort estimates
    - Add end date for better tracking
 
-2. **Adding Phases**
-   - Follow the 5-phase structure
-   - Allocate effort proportionally
-   - Set realistic dates
-
-3. **Weekly Updates**
-   - Update effort data every Monday
-   - Record testing metrics after test runs
-   - Keep progress percentages current
-
-4. **Monitoring Health**
+2. **Monitoring Health**
    - Check status badges regularly
    - Review charts for trends
    - Address "At Risk" items promptly

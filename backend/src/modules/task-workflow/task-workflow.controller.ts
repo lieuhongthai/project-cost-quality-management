@@ -510,6 +510,11 @@ export class TaskWorkflowController {
     return this.taskWorkflowService.findAllMetricTypes(projectId);
   }
 
+  @Get('metrics/project/:projectId')
+  getProjectMetricInsights(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.getProjectMetricInsights(projectId);
+  }
+
   @Get('metric-types/:id')
   getMetricType(@Param('id', ParseIntPipe) id: number) {
     return this.taskWorkflowService.findMetricTypeById(id);

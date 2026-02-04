@@ -67,6 +67,14 @@ project-cost-quality-management/
 - Node.js 18+ 
 - npm or yarn
 
+### Monorepo Quick Start (Optional)
+If you want to install dependencies and run both services from the repo root, you can use the monorepo scripts:
+
+```bash
+npm run install:all
+npm run start:dev
+```
+
 ### Backend Setup
 
 1. Navigate to backend directory:

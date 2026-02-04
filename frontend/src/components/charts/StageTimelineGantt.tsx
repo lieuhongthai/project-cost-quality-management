@@ -20,11 +20,13 @@ type TimelineView = 'day' | 'week' | 'month';
 interface TimelineStage extends StageOverviewData {
   plannedStart: Date;
   plannedEnd: Date;
+  actualStart: Date;
   actualEnd: Date;
   gapDays?: number;
   overlapDays?: number;
   delayDays?: number;
   hasEndDate: boolean;
+  hasActualStart: boolean;
 }
 
 const toDate = (value: string) => new Date(value);
@@ -58,8 +60,14 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
       const plannedStart = stage.startDate ? toDate(stage.startDate) : today;
       const hasEndDate = Boolean(stage.endDate);
       const plannedEnd = stage.endDate ? toDate(stage.endDate) : plannedStart;
-      const actualEndCandidate = progress >= 100 && stage.endDate ? plannedEnd : today;
-      const actualEnd = actualEndCandidate < plannedStart ? plannedStart : actualEndCandidate;
+      const hasActualStart = Boolean(stage.actualStartDate);
+      const actualStart = stage.actualStartDate ? toDate(stage.actualStartDate) : plannedStart;
+      const actualEndCandidate = stage.actualEndDate
+        ? toDate(stage.actualEndDate)
+        : progress > 0
+          ? today
+          : actualStart;
+      const actualEnd = actualEndCandidate < actualStart ? actualStart : actualEndCandidate;
 
       let gapDays: number | undefined;
       let overlapDays: number | undefined;
@@ -87,16 +95,21 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
         progress,
         plannedStart,
         plannedEnd,
+        actualStart,
         actualEnd,
         gapDays,
         overlapDays,
         delayDays,
         hasEndDate,
+        hasActualStart,
       };
     });
 
     const minDate = mapped.reduce(
-      (minValue, stage) => (stage.plannedStart < minValue ? stage.plannedStart : minValue),
+      (minValue, stage) => {
+        const candidate = stage.actualStart < stage.plannedStart ? stage.actualStart : stage.plannedStart;
+        return candidate < minValue ? candidate : minValue;
+      },
       mapped[0].plannedStart,
     );
     const maxDate = mapped.reduce((maxValue, stage) => {
@@ -112,19 +125,7 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
     };
   }, [stages]);
 
-  if (!timelineData) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
-        {t('stages.timeline.empty')}
-      </div>
-    );
-  }
-
-  const totalDays = getDurationDays(timelineData.minDate, timelineData.maxDate);
-  const todayOffset = differenceInCalendarDays(timelineData.today, timelineData.minDate);
   const dayWidth = view === 'day' ? 24 : view === 'week' ? 8 : 3;
-  const totalWidth = Math.max(600, totalDays * dayWidth);
-  const todayLeftPx = todayOffset * dayWidth;
 
   const tickSpans = useMemo(() => {
     if (!timelineData) return [];
@@ -164,6 +165,19 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
       };
     });
   }, [dayWidth, timelineData, view]);
+
+  if (!timelineData) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
+        {t('stages.timeline.empty')}
+      </div>
+    );
+  }
+
+  const totalDays = getDurationDays(timelineData.minDate, timelineData.maxDate);
+  const todayOffset = differenceInCalendarDays(timelineData.today, timelineData.minDate);
+  const totalWidth = Math.max(600, totalDays * dayWidth);
+  const todayLeftPx = todayOffset * dayWidth;
 
   return (
     <div className="space-y-4">
@@ -208,48 +222,13 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
       </div>
 
       <div className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-[220px_1fr]">
-          <div className="space-y-4">
-            <div className="hidden h-6 md:block" style={{ width: `${labelColumnWidth}px` }} />
-            {timelineData.stages.map((stage) => (
-              <div key={stage.id} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900">{stage.name}</p>
-                  {stage.delayDays ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                      {t('stages.timeline.delayed', { days: stage.delayDays })}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="text-xs text-gray-500">
-                  {t('stages.timeline.plannedRange', {
-                    start: format(stage.plannedStart, 'MMM dd, yyyy'),
-                    end: stage.hasEndDate
-                      ? format(stage.plannedEnd, 'MMM dd, yyyy')
-                      : t('stages.timeline.noEndDate'),
-                  })}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {t('stages.timeline.actualRange', {
-                    end: format(stage.actualEnd, 'MMM dd, yyyy'),
-                  })}
-                </p>
-                {stage.gapDays ? (
-                  <p className="text-xs text-gray-500">
-                    {t('stages.timeline.gap', { days: stage.gapDays })}
-                  </p>
-                ) : null}
-                {stage.overlapDays ? (
-                  <p className="text-xs text-gray-500">
-                    {t('stages.timeline.overlap', { days: stage.overlapDays })}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          <div className="overflow-x-auto pb-4">
-            <div style={{ minWidth: `${totalWidth}px` }}>
+        <div className="overflow-x-auto pb-4">
+          <div style={{ minWidth: `${totalWidth + labelColumnWidth}px` }}>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: `${labelColumnWidth}px ${totalWidth}px` }}
+            >
+              <div className="hidden h-6 md:block" />
               <div className="sticky top-0 z-10 flex items-center bg-white text-xs text-gray-500">
                 {tickSpans.map((tick) => (
                   <div
@@ -261,19 +240,55 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
                   </div>
                 ))}
               </div>
-              <div className="relative">
-                <div
-                  className="absolute bottom-0 top-0 w-px bg-red-500"
-                  style={{ left: `${todayLeftPx}px` }}
-                />
-                <div className="space-y-4">
-                  {timelineData.stages.map((stage) => {
-                    const plannedStartOffset = differenceInCalendarDays(stage.plannedStart, timelineData.minDate);
-                    const plannedDuration = getDurationDays(stage.plannedStart, stage.plannedEnd);
-                    const actualEnd = clampDate(stage.actualEnd, stage.plannedStart, timelineData.maxDate);
-                    const actualDuration = getDurationDays(stage.plannedStart, actualEnd);
-                    return (
-                      <div key={stage.id} className="relative">
+              {timelineData.stages.map((stage) => {
+                const plannedStartOffset = differenceInCalendarDays(stage.plannedStart, timelineData.minDate);
+                const plannedDuration = getDurationDays(stage.plannedStart, stage.plannedEnd);
+                const actualStart = clampDate(stage.actualStart, timelineData.minDate, timelineData.maxDate);
+                const actualEnd = clampDate(stage.actualEnd, actualStart, timelineData.maxDate);
+                const actualStartOffset = differenceInCalendarDays(actualStart, timelineData.minDate);
+                const actualDuration = getDurationDays(actualStart, actualEnd);
+
+                return (
+                  <div key={stage.id} className="contents">
+                    <div className="space-y-1 pr-4">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{stage.name}</p>
+                        {stage.delayDays ? (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                            {t('stages.timeline.delayed', { days: stage.delayDays })}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {t('stages.timeline.plannedRange', {
+                          start: format(stage.plannedStart, 'MMM dd, yyyy'),
+                          end: stage.hasEndDate
+                            ? format(stage.plannedEnd, 'MMM dd, yyyy')
+                            : t('stages.timeline.noEndDate'),
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {t('stages.timeline.actualRange', {
+                          end: format(stage.actualEnd, 'MMM dd, yyyy'),
+                        })}
+                      </p>
+                      {stage.gapDays ? (
+                        <p className="text-xs text-gray-500">
+                          {t('stages.timeline.gap', { days: stage.gapDays })}
+                        </p>
+                      ) : null}
+                      {stage.overlapDays ? (
+                        <p className="text-xs text-gray-500">
+                          {t('stages.timeline.overlap', { days: stage.overlapDays })}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="relative">
+                      <div
+                        className="absolute bottom-0 top-0 w-px bg-red-500"
+                        style={{ left: `${todayLeftPx}px` }}
+                      />
+                      <div className="relative h-7">
                         <div
                           className="absolute top-1 h-5 rounded-full bg-blue-200"
                           style={{
@@ -281,24 +296,24 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
                             width: `${plannedDuration * dayWidth}px`,
                           }}
                         />
-                        <div
-                          className="absolute top-1 h-5 rounded-full bg-blue-600"
-                          style={{
-                            left: `${plannedStartOffset * dayWidth}px`,
-                            width: `${actualDuration * dayWidth}px`,
-                          }}
-                        />
-                        <div className="relative h-7">
+                        {stage.hasActualStart ? (
                           <div
-                            className="absolute top-7 w-full border-b border-gray-100"
-                            style={{ left: 0 }}
+                            className="absolute top-1 h-5 rounded-full bg-blue-600"
+                            style={{
+                              left: `${actualStartOffset * dayWidth}px`,
+                              width: `${actualDuration * dayWidth}px`,
+                            }}
                           />
-                        </div>
+                        ) : null}
+                        <div
+                          className="absolute top-7 w-full border-b border-gray-100"
+                          style={{ left: 0 }}
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
