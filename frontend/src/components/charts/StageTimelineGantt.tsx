@@ -20,11 +20,13 @@ type TimelineView = 'day' | 'week' | 'month';
 interface TimelineStage extends StageOverviewData {
   plannedStart: Date;
   plannedEnd: Date;
+  actualStart: Date;
   actualEnd: Date;
   gapDays?: number;
   overlapDays?: number;
   delayDays?: number;
   hasEndDate: boolean;
+  hasActualStart: boolean;
 }
 
 const toDate = (value: string) => new Date(value);
@@ -58,8 +60,14 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
       const plannedStart = stage.startDate ? toDate(stage.startDate) : today;
       const hasEndDate = Boolean(stage.endDate);
       const plannedEnd = stage.endDate ? toDate(stage.endDate) : plannedStart;
-      const actualEndCandidate = progress >= 100 && stage.endDate ? plannedEnd : today;
-      const actualEnd = actualEndCandidate < plannedStart ? plannedStart : actualEndCandidate;
+      const hasActualStart = Boolean(stage.actualStartDate);
+      const actualStart = stage.actualStartDate ? toDate(stage.actualStartDate) : plannedStart;
+      const actualEndCandidate = stage.actualEndDate
+        ? toDate(stage.actualEndDate)
+        : progress > 0
+          ? today
+          : actualStart;
+      const actualEnd = actualEndCandidate < actualStart ? actualStart : actualEndCandidate;
 
       let gapDays: number | undefined;
       let overlapDays: number | undefined;
@@ -87,16 +95,21 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
         progress,
         plannedStart,
         plannedEnd,
+        actualStart,
         actualEnd,
         gapDays,
         overlapDays,
         delayDays,
         hasEndDate,
+        hasActualStart,
       };
     });
 
     const minDate = mapped.reduce(
-      (minValue, stage) => (stage.plannedStart < minValue ? stage.plannedStart : minValue),
+      (minValue, stage) => {
+        const candidate = stage.actualStart < stage.plannedStart ? stage.actualStart : stage.plannedStart;
+        return candidate < minValue ? candidate : minValue;
+      },
       mapped[0].plannedStart,
     );
     const maxDate = mapped.reduce((maxValue, stage) => {
@@ -270,8 +283,10 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
                   {timelineData.stages.map((stage) => {
                     const plannedStartOffset = differenceInCalendarDays(stage.plannedStart, timelineData.minDate);
                     const plannedDuration = getDurationDays(stage.plannedStart, stage.plannedEnd);
-                    const actualEnd = clampDate(stage.actualEnd, stage.plannedStart, timelineData.maxDate);
-                    const actualDuration = getDurationDays(stage.plannedStart, actualEnd);
+                    const actualStart = clampDate(stage.actualStart, timelineData.minDate, timelineData.maxDate);
+                    const actualEnd = clampDate(stage.actualEnd, actualStart, timelineData.maxDate);
+                    const actualStartOffset = differenceInCalendarDays(actualStart, timelineData.minDate);
+                    const actualDuration = getDurationDays(actualStart, actualEnd);
                     return (
                       <div key={stage.id} className="relative">
                         <div
@@ -281,13 +296,15 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
                             width: `${plannedDuration * dayWidth}px`,
                           }}
                         />
-                        <div
-                          className="absolute top-1 h-5 rounded-full bg-blue-600"
-                          style={{
-                            left: `${plannedStartOffset * dayWidth}px`,
-                            width: `${actualDuration * dayWidth}px`,
-                          }}
-                        />
+                        {stage.hasActualStart ? (
+                          <div
+                            className="absolute top-1 h-5 rounded-full bg-blue-600"
+                            style={{
+                              left: `${actualStartOffset * dayWidth}px`,
+                              width: `${actualDuration * dayWidth}px`,
+                            }}
+                          />
+                        ) : null}
                         <div className="relative h-7">
                           <div
                             className="absolute top-7 w-full border-b border-gray-100"
