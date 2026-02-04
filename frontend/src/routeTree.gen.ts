@@ -20,7 +20,6 @@ import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
-import { Route as PhasesPhaseIdRouteImport } from './routes/phases.$phaseId'
 import { Route as ProjectsProjectIdStagesStageIdRouteImport } from './routes/projects_.$projectId.stages.$stageId'
 
 const ReportsRoute = ReportsRouteImport.update({
@@ -78,11 +77,6 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
 } as any)
-const PhasesPhaseIdRoute = PhasesPhaseIdRouteImport.update({
-  id: '/phases/$phaseId',
-  path: '/phases/$phaseId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectsProjectIdStagesStageIdRoute =
   ProjectsProjectIdStagesStageIdRouteImport.update({
     id: '/projects_/$projectId/stages/$stageId',
@@ -98,7 +92,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
-  '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -111,7 +104,6 @@ export interface FileRoutesByTo {
   '/force-change-password': typeof ForceChangePasswordRoute
   '/iam': typeof IamRoute
   '/login': typeof LoginRoute
-  '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects': typeof ProjectsIndexRoute
@@ -127,7 +119,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
-  '/phases/$phaseId': typeof PhasesPhaseIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -144,7 +135,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/projects'
     | '/reports'
-    | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
     | '/projects/'
@@ -157,7 +147,6 @@ export interface FileRouteTypes {
     | '/force-change-password'
     | '/iam'
     | '/login'
-    | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
     | '/projects'
@@ -172,7 +161,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/projects'
     | '/reports'
-    | '/phases/$phaseId'
     | '/projects/$projectId'
     | '/reports/$reportId'
     | '/projects/'
@@ -188,7 +176,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
-  PhasesPhaseIdRoute: typeof PhasesPhaseIdRoute
   ProjectsProjectIdStagesStageIdRoute: typeof ProjectsProjectIdStagesStageIdRoute
 }
 
@@ -271,13 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
     }
-    '/phases/$phaseId': {
-      id: '/phases/$phaseId'
-      path: '/phases/$phaseId'
-      fullPath: '/phases/$phaseId'
-      preLoaderRoute: typeof PhasesPhaseIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects_/$projectId/stages/$stageId': {
       id: '/projects_/$projectId/stages/$stageId'
       path: '/projects/$projectId/stages/$stageId'
@@ -323,7 +303,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
-  PhasesPhaseIdRoute: PhasesPhaseIdRoute,
   ProjectsProjectIdStagesStageIdRoute: ProjectsProjectIdStagesStageIdRoute,
 }
 export const routeTree = rootRouteImport

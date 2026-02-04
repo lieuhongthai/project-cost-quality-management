@@ -69,69 +69,12 @@ export const DAYS_OF_WEEK = [
 
 export const DEFAULT_NON_WORKING_DAYS = [0, 6]; // Sunday and Saturday
 
-export interface Phase {
-  id: number;
-  projectId: number;
-  name: string; // Changed to string for flexibility - allows custom phase names
-  startDate: string;
-  endDate?: string;
-  actualStartDate?: string;
-  actualEndDate?: string;
-  estimatedEffort: number;
-  actualEffort: number;
-  progress: number;
-  status: 'Good' | 'Warning' | 'At Risk';
-  displayOrder: number;
-}
-
-// Common phase names (for reference/suggestions, not enforced)
-export type PhaseType =
-  | 'Functional Design'
-  | 'Coding'
-  | 'Unit Test'
-  | 'Integration Test'
-  | 'System Test'
-  | 'JA Test'
-  | 'EN Test'
-  | 'UAT'
-  | 'Performance Test'
-  | 'Security Test';
-
-export interface Effort {
-  id: number;
-  phaseId: number;
-  weekNumber: number;
-  year: number;
-  weekStartDate: string;
-  weekEndDate: string;
-  plannedEffort: number;
-  actualEffort: number;
-  progress: number;
-}
-
-export interface Testing {
-  id: number;
-  phaseId: number;
-  weekNumber: number;
-  year: number;
-  weekStartDate: string;
-  weekEndDate: string;
-  totalTestCases: number;
-  passedTestCases: number;
-  failedTestCases: number;
-  testingTime: number;
-  defectsDetected: number;
-  defectRate: number;
-  passRate: number;
-  status: 'Good' | 'Acceptable' | 'Poor';
-}
-
 export interface Report {
   id: number;
   projectId: number;
-  scope: 'Weekly' | 'Phase' | 'Project';
-  phaseId?: number;
-  phaseName?: string;
+  scope: 'Weekly' | 'Stage' | 'Project';
+  stageId?: number;
+  stageName?: string;
   weekNumber?: number;
   year?: number;
   reportDate: string;
@@ -170,55 +113,6 @@ export interface Metrics {
   varianceAtCompletion: number; // VAC = BAC - EAC
   toCompletePerformanceIndex: number; // TCPI = (BAC - EV) / (BAC - AC)
   defectRate: number;
-  passRate: number;
-  timePerTestCase: number;
-  testCasesPerHour: number;
-  defectDensity?: number;
-}
-
-export interface EffortSummary {
-  totalPlanned: number;
-  totalActual: number;
-  avgProgress: number;
-  variance: number;
-  variancePercentage: number;
-}
-
-export interface TestingSummary {
-  totalTestCases: number;
-  totalPassed: number;
-  totalFailed: number;
-  totalDefects: number;
-  totalTestingTime: number;
-  overallPassRate: number;
-  overallDefectRate: number;
-  avgTimePerTestCase: number;
-  testCasesPerHour: number;
-}
-
-export interface Review {
-  id: number;
-  phaseId: number;
-  phaseScreenFunctionId: number;
-  reviewerId?: number;
-  reviewRound: number;
-  reviewEffort: number;
-  defectsFound: number;
-  reviewDate: string;
-  note?: string;
-  phaseScreenFunction?: PhaseScreenFunction;
-  reviewer?: Member;
-}
-
-export interface ReviewSummary {
-  totalReviewEffort: number;
-  totalReviewRounds: number;
-  totalDefects: number;
-  reviewedItems: number;
-  averageReviewRounds: number;
-  firstTimePassRate: number;
-  reviewEffortRatio: number;
-  issueDensity: number;
 }
 
 // Screen/Function types
@@ -226,7 +120,6 @@ export type ScreenFunctionType = 'Screen' | 'Function';
 export type Priority = 'High' | 'Medium' | 'Low';
 export type Complexity = 'Simple' | 'Medium' | 'Complex';
 export type ScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed';
-export type PhaseScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
 
 export interface ScreenFunction {
   id: number;
@@ -245,22 +138,6 @@ export interface ScreenFunction {
   updatedAt: string;
 }
 
-export interface PhaseScreenFunction {
-  id: number;
-  phaseId: number;
-  screenFunctionId: number;
-  assigneeId?: number;
-  estimatedEffort: number;
-  actualEffort: number;
-  progress: number;
-  status: PhaseScreenFunctionStatus;
-  note?: string;
-  createdAt: string;
-  updatedAt: string;
-  phase?: Phase;
-  screenFunction?: ScreenFunction;
-  assignee?: Member;
-}
 
 export interface ScreenFunctionSummary {
   total: number;
@@ -283,28 +160,6 @@ export interface ScreenFunctionSummary {
     Medium: number;
     Low: number;
   };
-}
-
-export interface PhaseScreenFunctionSummary {
-  total: number;
-  totalEstimated: number;
-  totalActual: number;
-  progress: number; // % of completed tasks (completed / total * 100)
-  avgProgress: number; // Mean of all task progress percentages
-  variance: number;
-  variancePercentage: number;
-  byStatus: {
-    'Not Started': number;
-    'In Progress': number;
-    'Completed': number;
-    'Skipped': number;
-  };
-  completedCount: number;
-  activeCount: number;
-}
-
-export interface ScreenFunctionWithPhases extends ScreenFunction {
-  phaseLinks: PhaseScreenFunction[];
 }
 
 // Member types
@@ -556,4 +411,22 @@ export interface TaskMemberMetric {
   metricCategory?: MetricCategory;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface MetricInsightSummary {
+  totalTestCases: number;
+  bugCount: number;
+  bugRate: number;
+  testCasesPerMinute: number;
+  actualMinutes: number;
+}
+
+export interface ProjectMetricInsights {
+  project: MetricInsightSummary;
+  stages: Array<MetricInsightSummary & { stageId: number }>;
+  stepScreenFunctions: Array<MetricInsightSummary & {
+    stepScreenFunctionId: number;
+    stepId: number;
+    screenFunctionId: number;
+  }>;
 }

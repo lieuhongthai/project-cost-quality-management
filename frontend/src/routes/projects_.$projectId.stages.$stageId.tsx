@@ -116,6 +116,14 @@ function StageDetail() {
     },
   });
 
+  const { data: projectMetricInsights } = useQuery({
+    queryKey: ['projectMetricInsights', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricInsights(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   // Fetch available screen functions for linking
   const { data: availableScreenFunctions } = useQuery({
     queryKey: ['availableScreenFunctions', activeStepId],
@@ -331,6 +339,17 @@ function StageDetail() {
     );
   }
 
+  const stageTestInsights = projectMetricInsights?.stages.find(
+    (item) => item.stageId === parseInt(stageId),
+  );
+
+  const formatPercentValue = (value?: number, digits = 1) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return t('common.notAvailable');
+    }
+    return `${value.toFixed(digits)}%`;
+  };
+
   const { stage, steps, progress, effort, status } = stageDetail;
   const activeStep = steps.find(s => s.id === activeStepId);
 
@@ -478,6 +497,50 @@ function StageDetail() {
                     {formatDate(stage.actualEndDate)}
                   </span>
                 </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="mt-6">
+          <Card title={t('metrics.testMetricsStage')}>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.bugRate')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? formatPercentValue(stageTestInsights.bugRate * 100, 1)
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.testCasesPerMinute')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.testCasesPerMinute.toFixed(2)
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.totalTestCases')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.totalTestCases.toLocaleString()
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.bugCount')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.bugCount.toLocaleString()
+                    : t('common.notAvailable')}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {stageTestInsights
+                    ? t('metrics.actualMinutes', { value: stageTestInsights.actualMinutes.toFixed(0) })
+                    : t('common.notAvailable')}
+                </p>
               </div>
             </div>
           </Card>

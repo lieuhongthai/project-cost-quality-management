@@ -6,7 +6,6 @@ import {
   HasMany,
   HasOne,
 } from 'sequelize-typescript';
-import { Phase } from '../phase/phase.model';
 import { Report } from '../report/report.model';
 import { ProjectSettings } from './project-settings.model';
 
@@ -68,9 +67,6 @@ export class Project extends Model {
     defaultValue: 'Good',
   })
   status: string;
-
-  @HasMany(() => Phase)
-  phases: Phase[];
 
   @HasMany(() => Report)
   reports: Report[];

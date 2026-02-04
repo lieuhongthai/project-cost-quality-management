@@ -12,6 +12,8 @@ interface MetricConfigPanelProps {
 export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const protectedTypeName = 'test cases';
+  const protectedCategoryNames = new Set(['total', 'passed', 'failed']);
 
   // State for modals
   const [showAddType, setShowAddType] = useState(false);
@@ -112,6 +114,7 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
   };
 
   const handleDeleteType = (type: MetricType) => {
+    if (type.name.trim().toLowerCase() === protectedTypeName) return;
     if (confirm(t('metrics.confirmDeleteType'))) {
       deleteTypeMutation.mutate(type.id);
     }
@@ -127,7 +130,11 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
     setEditingCategory(category);
   };
 
-  const handleDeleteCategory = (category: MetricCategory) => {
+  const handleDeleteCategory = (category: MetricCategory, metricTypeName: string) => {
+    if (metricTypeName.trim().toLowerCase() === protectedTypeName
+      && protectedCategoryNames.has(category.name.trim().toLowerCase())) {
+      return;
+    }
     if (confirm(t('metrics.confirmDeleteCategory'))) {
       deleteCategoryMutation.mutate(category.id);
     }
@@ -172,15 +179,15 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
 
   if (isLoading) {
     return (
-      <Card title={t('metrics.title')}>
+      <Card title={t('metrics.configTitle')}>
         <div className="text-center py-8 text-gray-500">{t('common.loading')}</div>
       </Card>
     );
   }
 
   return (
-    <Card title={t('metrics.title')}>
-      <p className="text-sm text-gray-500 mb-4">{t('metrics.description')}</p>
+    <Card title={t('metrics.configTitle')}>
+      <p className="text-sm text-gray-500 mb-4">{t('metrics.configDescription')}</p>
 
       {/* Initialize Button if no types exist */}
       {metricTypes.length === 0 && (
@@ -205,93 +212,102 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
       {/* Metric Types List */}
       {metricTypes.length > 0 ? (
         <div className="space-y-3">
-          {metricTypes.map((type) => (
-            <div key={type.id} className="border rounded-lg">
-              {/* Type Header */}
-              <div
-                className="px-4 py-3 bg-gray-50 flex items-center justify-between cursor-pointer"
-                onClick={() => toggleExpand(type.id)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">
-                    {expandedTypes.includes(type.id) ? '▼' : '▶'}
-                  </span>
-                  <span className="font-medium">{type.name}</span>
-                  {type.description && (
-                    <span className="text-sm text-gray-500">- {type.description}</span>
-                  )}
-                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
-                    {type.categories?.length || 0} {t('metrics.categories').toLowerCase()}
-                  </span>
+          {metricTypes.map((type) => {
+            const isProtectedType = type.name.trim().toLowerCase() === protectedTypeName;
+            return (
+              <div key={type.id} className="border rounded-lg">
+                {/* Type Header */}
+                <div
+                  className="px-4 py-3 bg-gray-50 flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleExpand(type.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">
+                      {expandedTypes.includes(type.id) ? '▼' : '▶'}
+                    </span>
+                    <span className="font-medium">{type.name}</span>
+                    {type.description && (
+                      <span className="text-sm text-gray-500">- {type.description}</span>
+                    )}
+                    <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
+                      {type.categories?.length || 0} {t('metrics.categories').toLowerCase()}
+                    </span>
+                  </div>
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="secondary" size="sm" onClick={() => handleEditType(type)}>
+                      {t('common.edit')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleDeleteType(type)}
+                      disabled={deleteTypeMutation.isPending || isProtectedType}
+                      title={isProtectedType ? t('metrics.protectedType') : undefined}
+                    >
+                      {t('common.delete')}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="secondary" size="sm" onClick={() => handleEditType(type)}>
-                    {t('common.edit')}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleDeleteType(type)}
-                    disabled={deleteTypeMutation.isPending}
-                  >
-                    {t('common.delete')}
-                  </Button>
-                </div>
-              </div>
 
-              {/* Categories (Expanded) */}
-              {expandedTypes.includes(type.id) && (
-                <div className="p-4 border-t">
-                  {type.categories && type.categories.length > 0 ? (
-                    <div className="space-y-2">
-                      {type.categories.map((category) => (
-                        <div
-                          key={category.id}
-                          className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
-                        >
-                          <div>
-                            <span className="font-medium">{category.name}</span>
-                            {category.description && (
-                              <span className="text-sm text-gray-500 ml-2">
-                                - {category.description}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleEditCategory(category)}
+                {/* Categories (Expanded) */}
+                {expandedTypes.includes(type.id) && (
+                  <div className="p-4 border-t">
+                    {type.categories && type.categories.length > 0 ? (
+                      <div className="space-y-2">
+                        {type.categories.map((category) => {
+                          const isProtectedCategory = isProtectedType
+                            && protectedCategoryNames.has(category.name.trim().toLowerCase());
+                          return (
+                            <div
+                              key={category.id}
+                              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
                             >
-                              {t('common.edit')}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDeleteCategory(category)}
-                              disabled={deleteCategoryMutation.isPending}
-                            >
-                              {t('common.delete')}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">{t('metrics.noCategories')}</p>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => handleAddCategory(type.id)}
-                  >
-                    + {t('metrics.addCategory')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
+                              <div>
+                                <span className="font-medium">{category.name}</span>
+                                {category.description && (
+                                  <span className="text-sm text-gray-500 ml-2">
+                                    - {category.description}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleEditCategory(category)}
+                                >
+                                  {t('common.edit')}
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleDeleteCategory(category, type.name)}
+                                  disabled={deleteCategoryMutation.isPending || isProtectedCategory}
+                                  title={isProtectedCategory ? t('metrics.protectedCategory') : undefined}
+                                >
+                                  {t('common.delete')}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">{t('metrics.noCategories')}</p>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => handleAddCategory(type.id)}
+                    >
+                      + {t('metrics.addCategory')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         !initializeMutation.isPending && (

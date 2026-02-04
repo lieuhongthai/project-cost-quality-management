@@ -3,7 +3,7 @@ import { Commentary } from './commentary.model';
 import { CreateCommentaryDto, UpdateCommentaryDto, GenerateCommentaryDto } from './commentary.dto';
 import { ReportService } from '../report/report.service';
 import { MetricsService } from '../metrics/metrics.service';
-import { PhaseService } from '../phase/phase.service';
+import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class CommentaryService {
     private reportService: ReportService,
     @Inject(forwardRef(() => MetricsService))
     private metricsService: MetricsService,
-    private phaseService: PhaseService,
+    private taskWorkflowService: TaskWorkflowService,
   ) {
     // Initialize OpenAI client
     // Note: API key should be in environment variables
@@ -74,25 +74,25 @@ export class CommentaryService {
       if (report.scope === 'Project') {
         // For project-level reports, calculate project metrics
         metrics = await this.metricsService.calculateProjectMetrics(report.projectId, reportId);
-      } else if (report.scope === 'Phase') {
-        // For phase-level reports, calculate phase metrics
-        if (!report.phaseId) {
-          // If phaseId is not set, try to find phase by name
-          if (report.phaseName) {
-            const phases = await this.phaseService.findByProject(report.projectId);
-            const phase = phases.find(p => p.name === report.phaseName);
-            if (!phase) {
-              throw new BadRequestException(`Phase '${report.phaseName}' not found for this project`);
+      } else if (report.scope === 'Stage') {
+        // For stage-level reports, calculate stage metrics
+        if (!report.stageId) {
+          // If stageId is not set, try to find stage by name
+          if (report.stageName) {
+            const stages = await this.taskWorkflowService.findAllStages(report.projectId);
+            const stage = stages.find(s => s.name === report.stageName);
+            if (!stage) {
+              throw new BadRequestException(`Stage '${report.stageName}' not found for this project`);
             }
-            metrics = await this.metricsService.calculatePhaseMetrics(phase.id, reportId);
+            metrics = await this.metricsService.calculateStageMetrics(stage.id, reportId);
           } else {
-            throw new BadRequestException(`Report scope is 'Phase' but no phaseId or phaseName provided`);
+            throw new BadRequestException(`Report scope is 'Stage' but no stageId or stageName provided`);
           }
         } else {
-          metrics = await this.metricsService.calculatePhaseMetrics(report.phaseId, reportId);
+          metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
         }
       } else {
-        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Phase' scopes are supported.`);
+        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Stage' scopes are supported.`);
       }
     }
 
@@ -157,10 +157,9 @@ export class CommentaryService {
     const projectSnapshot = snapshot.project || {};
     const scheduleSnapshot = snapshot.schedule || {};
     const forecastingSnapshot = snapshot.forecasting || {};
-    const testingSnapshot = snapshot.testing || {};
     const productivitySnapshot = snapshot.productivity || {};
     const memberCostSnapshot = snapshot.memberCost || {};
-    const phaseDetail = snapshot.phaseDetail || {};
+    const stageDetail = snapshot.stageDetail || {};
 
     const safeNumber = (value: number | null | undefined, fallback = 0) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -183,18 +182,6 @@ export class CommentaryService {
       tcpi: safeNumber(forecastingSnapshot.tcpi, metrics?.toCompletePerformanceIndex),
     };
 
-    const testingMetrics = {
-      totalTestCases: safeNumber(testingSnapshot.totalTestCases),
-      totalPassed: safeNumber(testingSnapshot.totalPassed),
-      totalFailed: safeNumber(testingSnapshot.totalFailed),
-      totalDefects: safeNumber(testingSnapshot.totalDefects),
-      totalTestingTime: safeNumber(testingSnapshot.totalTestingTime),
-      passRate: safeNumber(testingSnapshot.passRate, metrics?.passRate),
-      defectRate: safeNumber(testingSnapshot.defectRate, metrics?.defectRate),
-      timePerTestCase: safeNumber(testingSnapshot.timePerTestCase, metrics?.timePerTestCase),
-      testCasesPerHour: safeNumber(testingSnapshot.testCasesPerHour, metrics?.testCasesPerHour),
-    };
-
     const productivitySummary = productivitySnapshot?.summary || null;
     const topMembers = Array.isArray(productivitySnapshot?.byMember)
       ? productivitySnapshot.byMember.slice(0, 3)
@@ -214,8 +201,8 @@ export class CommentaryService {
       .sort((a: any, b: any) => (b.totalActualCost || 0) - (a.totalActualCost || 0))
       .slice(0, 3);
 
-    const phaseContext = report.scope === 'Phase' || report.scope === 'Weekly'
-      ? `\nPhase Context:\n- Phase ID: ${report.phaseId ?? phaseDetail.id ?? 'N/A'}\n- Phase Name: ${report.phaseName ?? phaseDetail.name ?? 'N/A'}`
+    const stageContext = report.scope === 'Stage' || report.scope === 'Weekly'
+      ? `\nStage Context:\n- Stage ID: ${report.stageId ?? stageDetail.id ?? 'N/A'}\n- Stage Name: ${report.stageName ?? stageDetail.name ?? 'N/A'}`
       : '';
 
     return `
@@ -225,7 +212,7 @@ Report Details:
 - Scope: ${report.scope}
 - Title: ${report.title}
 - Date: ${report.reportDate}
-- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${phaseContext}
+- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${stageContext}
 
 Project Snapshot:
 - Project Name: ${projectSnapshot.name || 'N/A'}
@@ -250,16 +237,6 @@ Forecasting Metrics:
 - Estimate at Completion (EAC): ${forecastingMetrics.eac.toFixed(2)}
 - Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
 - To-Complete Performance Index (TCPI): ${forecastingMetrics.tcpi.toFixed(2)}
-
-Testing & Quality Metrics:
-- Total Test Cases: ${testingMetrics.totalTestCases}
-- Passed/Failed: ${testingMetrics.totalPassed}/${testingMetrics.totalFailed}
-- Defects Detected: ${testingMetrics.totalDefects}
-- Testing Time: ${testingMetrics.totalTestingTime.toFixed(2)} hours
-- Pass Rate: ${testingMetrics.passRate.toFixed(2)}%
-- Defect Rate: ${testingMetrics.defectRate.toFixed(3)}
-- Time per Test Case: ${testingMetrics.timePerTestCase.toFixed(2)} hours
-- Test Cases per Hour: ${testingMetrics.testCasesPerHour.toFixed(2)}
 
 Productivity Snapshot:
 - Summary: ${productivitySummary ? `Efficiency ${safeNumber(productivitySummary.efficiency).toFixed(2)}, Completion ${safeNumber(productivitySummary.completionRate).toFixed(0)}%, Variance ${safeNumber(productivitySummary.variance).toFixed(2)}` : 'N/A'}
@@ -286,14 +263,12 @@ Keep the response concise and actionable.
     // Overall Assessment
     const spi = metrics.schedulePerformanceIndex;
     const cpi = metrics.costPerformanceIndex;
-    const passRate = metrics.passRate;
-
     const translations = this.getTranslations(language);
 
     let overallStatus: string;
-    if (spi >= 0.95 && cpi >= 0.95 && passRate >= 95) {
+    if (spi >= 0.95 && cpi >= 0.95) {
       overallStatus = translations.overallGood;
-    } else if (spi >= 0.85 && cpi >= 0.85 && passRate >= 80) {
+    } else if (spi >= 0.85 && cpi >= 0.85) {
       overallStatus = translations.overallAcceptable;
     } else {
       overallStatus = translations.overallCritical;
@@ -311,11 +286,6 @@ Keep the response concise and actionable.
       sections.push(`**${translations.costConcern}**\n${translations.costText(cpi.toFixed(2), (metrics.estimatedVsActual * 100).toFixed(0))}`);
     }
 
-    // Quality Analysis
-    if (passRate < 95) {
-      sections.push(`**${translations.qualityConcern}**\n${translations.qualityText(passRate.toFixed(1), metrics.defectRate.toFixed(3))}`);
-    }
-
     // Recommendations
     const recommendations = [];
     if (spi < 0.95) {
@@ -326,11 +296,6 @@ Keep the response concise and actionable.
       recommendations.push(translations.costRec1);
       recommendations.push(translations.costRec2);
     }
-    if (passRate < 95) {
-      recommendations.push(translations.qualityRec1);
-      recommendations.push(translations.qualityRec2);
-    }
-
     if (recommendations.length > 0) {
       sections.push(`**${translations.recommendations}**\n${recommendations.join('\n')}`);
     }
@@ -352,16 +317,11 @@ Keep the response concise and actionable.
           costConcern: 'Vấn đề về chi phí',
           costText: (cpi: string, percent: string) =>
             `Chỉ số hiệu suất chi phí (${cpi}) cho thấy dự án đang vượt ngân sách. Nỗ lực thực tế là ${percent}% so với dự kiến.`,
-          qualityConcern: 'Vấn đề về chất lượng',
-          qualityText: (passRate: string, defectRate: string) =>
-            `Tỷ lệ test case passed (${passRate}%) thấp hơn mục tiêu. Tỷ lệ lỗi là ${defectRate} trên mỗi test case.`,
           recommendations: 'Khuyến nghị',
           scheduleRec1: '- Xem xét và tối ưu hóa lịch trình dự án',
           scheduleRec2: '- Xem xét việc bổ sung nguồn lực cho các hoạt động quan trọng',
           costRec1: '- Phân tích nguyên nhân vượt chi phí',
           costRec2: '- Triển khai các biện pháp kiểm soát chi phí',
-          qualityRec1: '- Tăng phạm vi và chất lượng kiểm thử',
-          qualityRec2: '- Thực hiện phân tích nguyên nhân gốc rễ cho các lỗi',
         };
       case 'Japanese':
         return {
@@ -375,16 +335,11 @@ Keep the response concise and actionable.
           costConcern: 'コストに関する懸念',
           costText: (cpi: string, percent: string) =>
             `コスト効率指数（${cpi}）は、プロジェクトが予算超過していることを示しています。実際の工数は見積もりの${percent}%です。`,
-          qualityConcern: '品質に関する懸念',
-          qualityText: (passRate: string, defectRate: string) =>
-            `テスト合格率（${passRate}%）は目標を下回っています。欠陥率はテストケースあたり${defectRate}です。`,
           recommendations: '推奨事項',
           scheduleRec1: '- プロジェクトスケジュールの見直しと最適化',
           scheduleRec2: '- クリティカルパスの活動にリソースの追加を検討',
           costRec1: '- コスト超過の根本原因を分析',
           costRec2: '- コスト管理措置の実施',
-          qualityRec1: '- テストカバレッジと品質の向上',
-          qualityRec2: '- 欠陥の根本原因分析の実施',
         };
       case 'English':
       default:
@@ -399,16 +354,11 @@ Keep the response concise and actionable.
           costConcern: 'Cost Concern',
           costText: (cpi: string, percent: string) =>
             `The Cost Performance Index (${cpi}) shows the project is over budget. Actual effort is ${percent}% of estimated.`,
-          qualityConcern: 'Quality Concern',
-          qualityText: (passRate: string, defectRate: string) =>
-            `The test pass rate (${passRate}%) is below target. Defect rate is ${defectRate} per test case.`,
           recommendations: 'Recommendations',
           scheduleRec1: '- Review and optimize project schedule',
           scheduleRec2: '- Consider adding resources to critical path activities',
           costRec1: '- Analyze cost overruns and identify root causes',
           costRec2: '- Implement cost control measures',
-          qualityRec1: '- Increase testing coverage and quality',
-          qualityRec2: '- Conduct root cause analysis for defects',
         };
     }
   }

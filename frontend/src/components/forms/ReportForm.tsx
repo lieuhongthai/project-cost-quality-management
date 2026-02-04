@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { reportApi, projectApi, phaseApi } from '@/services/api';
+import { reportApi, projectApi, taskWorkflowApi } from '@/services/api';
 import { Button, Input, Select } from '../common';
 import type { Report } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -18,8 +18,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     projectId: 0,
-    scope: 'Project' as 'Weekly' | 'Phase' | 'Project',
-    phaseId: 0,
+    scope: 'Project' as 'Weekly' | 'Stage' | 'Project',
+    stageId: 0,
     weekNumber: 1,
     year: new Date().getFullYear(),
     title: '',
@@ -34,14 +34,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     },
   });
 
-  const { data: phases } = useQuery({
-    queryKey: ['phases', formData.projectId],
+  const { data: stages } = useQuery({
+    queryKey: ['stages', formData.projectId],
     queryFn: async () => {
       if (!formData.projectId) return [];
-      const response = await phaseApi.getByProject(formData.projectId);
+      const response = await taskWorkflowApi.getStages(formData.projectId);
       return response.data;
     },
-    enabled: !!formData.projectId && (formData.scope === 'Phase' || formData.scope === 'Weekly'),
+    enabled: !!formData.projectId && (formData.scope === 'Stage' || formData.scope === 'Weekly'),
   });
 
   // Auto-generate title based on selection
@@ -54,17 +54,17 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     let title = '';
     if (formData.scope === 'Project') {
       title = t('report.form.titleProject', { project: project.name });
-    } else if (formData.scope === 'Phase' && formData.phaseId) {
-      const phase = phases?.find(p => p.id === formData.phaseId);
-      if (phase) {
-        title = t('report.form.titlePhase', { project: project.name, phase: phase.name });
+    } else if (formData.scope === 'Stage' && formData.stageId) {
+      const stage = stages?.find(s => s.id === formData.stageId);
+      if (stage) {
+        title = t('report.form.titleStage', { project: project.name, stage: stage.name });
       }
-    } else if (formData.scope === 'Weekly' && formData.phaseId) {
-      const phase = phases?.find(p => p.id === formData.phaseId);
-      if (phase) {
+    } else if (formData.scope === 'Weekly' && formData.stageId) {
+      const stage = stages?.find(s => s.id === formData.stageId);
+      if (stage) {
         title = t('report.form.titleWeekly', {
           project: project.name,
-          phase: phase.name,
+          stage: stage.name,
           week: formData.weekNumber,
           year: formData.year,
         });
@@ -74,7 +74,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     if (title) {
       setFormData(prev => ({ ...prev, title }));
     }
-  }, [formData.projectId, formData.scope, formData.phaseId, formData.weekNumber, formData.year, projects, phases, t]);
+  }, [formData.projectId, formData.scope, formData.stageId, formData.weekNumber, formData.year, projects, stages, t]);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Report>) => reportApi.create(data),
@@ -95,8 +95,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       newErrors.title = t('report.validation.titleRequired');
     }
 
-    if ((formData.scope === 'Phase' || formData.scope === 'Weekly') && !formData.phaseId) {
-      newErrors.phaseId = t('report.validation.phaseRequired');
+    if ((formData.scope === 'Stage' || formData.scope === 'Weekly') && !formData.stageId) {
+      newErrors.stageId = t('report.validation.stageRequired');
     }
 
     if (formData.scope === 'Weekly') {
@@ -117,7 +117,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
 
     if (!validate()) return;
 
-    const phase = phases?.find(p => p.id === formData.phaseId);
+    const stage = stages?.find(s => s.id === formData.stageId);
 
     const submitData: any = {
       projectId: formData.projectId,
@@ -126,8 +126,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       title: formData.title,
     };
 
-    if (formData.scope === 'Phase' || formData.scope === 'Weekly') {
-      submitData.phaseName = phase?.name;
+    if (formData.scope === 'Stage' || formData.scope === 'Weekly') {
+      submitData.stageId = formData.stageId;
+      submitData.stageName = stage?.name;
     }
 
     if (formData.scope === 'Weekly') {
@@ -142,7 +143,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     const { name, value } = e.target;
     let finalValue: any = value;
 
-    if (name === 'projectId' || name === 'phaseId' || name === 'weekNumber' || name === 'year') {
+    if (name === 'projectId' || name === 'stageId' || name === 'weekNumber' || name === 'year') {
       finalValue = parseInt(value) || 0;
     }
 
@@ -156,7 +157,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
 
   const scopeOptions = [
     { value: 'Project', label: t('report.scopeProjectReport') },
-    { value: 'Phase', label: t('report.scopePhaseReport') },
+    { value: 'Stage', label: t('report.scopeStageReport') },
     { value: 'Weekly', label: t('report.scopeWeeklyReport') },
   ];
 
@@ -184,14 +185,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({
         disabled={isLoading}
       />
 
-      {(formData.scope === 'Phase' || formData.scope === 'Weekly') && formData.projectId > 0 && (
+      {(formData.scope === 'Stage' || formData.scope === 'Weekly') && formData.projectId > 0 && (
         <Select
-          label={t('phase.title')}
-          name="phaseId"
-          value={formData.phaseId}
+          label={t('stages.title')}
+          name="stageId"
+          value={formData.stageId}
           onChange={handleChange}
-          options={phases?.map(p => ({ value: p.id, label: p.name })) || []}
-          error={errors.phaseId}
+          options={stages?.map(s => ({ value: s.id, label: s.name })) || []}
+          error={errors.stageId}
           required
           disabled={isLoading}
         />

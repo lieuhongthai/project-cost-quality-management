@@ -153,41 +153,15 @@ export class MemberService {
   async getMemberWorkload(memberId: number) {
     const member = await this.findOne(memberId);
 
-    // Import PhaseScreenFunction to calculate workload
-    const { PhaseScreenFunction } = await import('../screen-function/phase-screen-function.model');
-
-    const assignments = await PhaseScreenFunction.findAll({
-      where: { assigneeId: memberId },
-    });
-
-    let totalEstimatedEffort = 0;
-    let totalActualEffort = 0;
-    let completedTasks = 0;
-    let inProgressTasks = 0;
-    let pendingTasks = 0;
-
-    for (const assignment of assignments) {
-      totalEstimatedEffort += assignment.estimatedEffort || 0;
-      totalActualEffort += assignment.actualEffort || 0;
-
-      if (assignment.status === 'Completed') {
-        completedTasks++;
-      } else if (assignment.status === 'In Progress') {
-        inProgressTasks++;
-      } else if (assignment.status === 'Not Started') {
-        pendingTasks++;
-      }
-    }
-
     return {
       memberId: member.id,
       memberName: member.name,
-      totalAssigned: assignments.length,
-      totalEstimatedEffort,
-      totalActualEffort,
-      completedTasks,
-      inProgressTasks,
-      pendingTasks,
+      totalAssigned: 0,
+      totalEstimatedEffort: 0,
+      totalActualEffort: 0,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      pendingTasks: 0,
     };
   }
 

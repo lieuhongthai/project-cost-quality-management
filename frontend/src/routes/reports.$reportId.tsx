@@ -43,8 +43,8 @@ function ReportDetail() {
 
       if (report.scope === 'Project') {
         return metricsApi.calculateProject(report.projectId, parseInt(reportId));
-      } else if ((report.scope === 'Phase' || report.scope === 'Weekly') && report.phaseId) {
-        return metricsApi.calculatePhase(report.phaseId, parseInt(reportId));
+      } else if ((report.scope === 'Stage' || report.scope === 'Weekly') && report.stageId) {
+        return metricsApi.calculateStage(report.stageId, parseInt(reportId));
       }
       return null;
     },
@@ -140,12 +140,6 @@ function ReportDetail() {
     return 'text-red-600';
   };
 
-  const getPassRateColor = (rate: number) => {
-    if (rate >= 95) return 'text-green-600';
-    if (rate >= 80) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const getDelayRateColor = (rate: number) => {
     if (rate <= 5) return 'text-green-600';
     if (rate <= 20) return 'text-yellow-600';
@@ -156,33 +150,24 @@ function ReportDetail() {
     if (!metric) return { status: t('common.unknown'), color: 'bg-gray-500' };
 
     const cpi = metric.costPerformanceIndex;
-    const passRate = metric.passRate;
-
-    // Simplified logic matching Project status:
-    // 1. CPI (Efficiency) is the main metric
-    // 2. Pass Rate only considered if there is testing data (passRate > 0)
 
     // Check for "At Risk" conditions
     // CPI < 0.83 means > 20% over budget
-    // Pass Rate < 80% (only if there is testing data)
     const hasBudgetRisk = cpi < 0.83;
-    const hasQualityRisk = passRate > 0 && passRate < 80;
 
-    if (hasBudgetRisk || hasQualityRisk) {
+    if (hasBudgetRisk) {
       return { status: t('metrics.atRisk'), color: 'bg-red-500' };
     }
 
     // Check for "Warning" conditions
     // CPI 0.83-1.0 means slightly over budget
-    // Pass Rate 80-95% (only if there is testing data)
     const hasBudgetWarning = cpi >= 0.83 && cpi < 1.0;
-    const hasQualityWarning = passRate > 0 && passRate >= 80 && passRate < 95;
 
-    if (hasBudgetWarning || hasQualityWarning) {
+    if (hasBudgetWarning) {
       return { status: t('metrics.warning'), color: 'bg-yellow-500' };
     }
 
-    // Good: CPI >= 1.0 (efficient) AND quality is good or no testing data
+    // Good: CPI >= 1.0 (efficient)
     return { status: t('metrics.good'), color: 'bg-green-500' };
   };
 
@@ -190,7 +175,7 @@ function ReportDetail() {
 
   const scopeReportLabels: Record<string, string> = {
     Project: t('report.scopeProjectReport'),
-    Phase: t('report.scopePhaseReport'),
+    Stage: t('report.scopeStageReport'),
     Weekly: t('report.scopeWeeklyReport'),
   };
 
@@ -206,7 +191,7 @@ function ReportDetail() {
             <h1 className="text-3xl font-bold text-gray-900">{report.title}</h1>
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span className="font-medium">{scopeReportLabels[report.scope]}</span>
-              {report.phaseName && <span>• {report.phaseName}</span>}
+              {report.stageName && <span>• {report.stageName}</span>}
               {report.weekNumber && (
                 <span>• {t('report.detail.weekLabel', { week: report.weekNumber, year: report.year })}</span>
               )}
@@ -262,7 +247,7 @@ function ReportDetail() {
         <>
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('metrics.kpi')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* SPI */}
               <Card className="hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
@@ -313,50 +298,6 @@ function ReportDetail() {
                     className={metric.costPerformanceIndex >= 0.95 ? 'bg-green-500' : metric.costPerformanceIndex >= 0.80 ? 'bg-yellow-500' : 'bg-red-500'}
                   />
                 </div>
-              </Card>
-
-              {/* Pass Rate */}
-              <Card className="hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">{t('metrics.testPassRate')}</p>
-                  <span className="text-2xl">✅</span>
-                </div>
-                {metric.passRate > 0 ? (
-                  <>
-                    <p className={`text-4xl font-bold ${getPassRateColor(metric.passRate)}`}>
-                      {metric.passRate.toFixed(1)}%
-                    </p>
-                    <p className="mt-2 text-sm text-gray-500">
-                      {metric.passRate >= 95
-                        ? `✓ ${t('metrics.excellentQuality')}`
-                        : metric.passRate >= 80
-                          ? `⚠ ${t('metrics.acceptableQuality')}`
-                          : `⚠ ${t('metrics.needsAttention')}`}
-                    </p>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>{t('metrics.target')}: 95%+</span>
-                        <span>{metric.passRate >= 95 ? t('metrics.good') : metric.passRate >= 80 ? t('metrics.warning') : t('metrics.atRisk')}</span>
-                      </div>
-                      <ProgressBar
-                        progress={metric.passRate}
-                        className={metric.passRate >= 95 ? 'bg-green-500' : metric.passRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-4xl font-bold text-gray-400">{t('common.notAvailable')}</p>
-                    <p className="mt-2 text-sm text-gray-500">{t('testing.noTestingData')}</p>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>{t('metrics.target')}: 95%+</span>
-                        <span className="text-gray-400">{t('common.notAvailable')}</span>
-                      </div>
-                      <ProgressBar progress={0} className="bg-gray-300" />
-                    </div>
-                  </>
-                )}
               </Card>
 
               {/* Delay Rate */}
@@ -596,18 +537,7 @@ function ReportDetail() {
           {/* Quality Metrics */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('metrics.qualityMetrics')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">✅</span>
-                  <p className="text-sm font-medium text-gray-600">{t('metrics.passRate')}</p>
-                </div>
-                <p className={`text-3xl font-bold ${metric.passRate > 0 ? getPassRateColor(metric.passRate) : 'text-gray-400'}`}>
-                  {metric.passRate > 0 ? `${metric.passRate.toFixed(1)}%` : t('common.notAvailable')}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">{t('metrics.testCasesPassed')}</p>
-              </Card>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Card>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🐛</span>
@@ -951,14 +881,14 @@ function ReportDetail() {
                 </div>
               </Card>
 
-              {/* Phase Cost Breakdown */}
-              {memberCost.byPhase && memberCost.byPhase.length > 0 && (
-                <Card title={t('memberCost.costByPhase')} className="mt-4">
+              {/* Stage Cost Breakdown */}
+              {memberCost.byStage && memberCost.byStage.length > 0 && (
+                <Card title={t('memberCost.costByStage')} className="mt-4">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.phase')}</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-500">{t('memberCost.stage')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.memberCount')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.estimatedCost')}</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500">{t('memberCost.actualCost')}</th>
@@ -966,21 +896,21 @@ function ReportDetail() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {memberCost.byPhase.map((phase: any) => (
-                          <tr key={phase.phaseName} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{phase.phaseName}</td>
-                            <td className="px-4 py-3 text-right text-gray-600">{phase.memberCount}</td>
+                        {memberCost.byStage.map((stage: any) => (
+                          <tr key={stage.stageName} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{stage.stageName}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{stage.memberCount}</td>
                             <td className="px-4 py-3 text-right text-gray-600">
-                              ${phase.estimatedCost.toLocaleString()}
+                              ${stage.estimatedCost.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-gray-900">
-                              ${phase.actualCost.toLocaleString()}
+                              ${stage.actualCost.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <span className={`font-medium ${phase.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {phase.costVariance <= 0 ? '-' : '+'}${Math.abs(phase.costVariance).toLocaleString()}
+                              <span className={`font-medium ${stage.costVariance <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {stage.costVariance <= 0 ? '-' : '+'}${Math.abs(stage.costVariance).toLocaleString()}
                                 <span className="text-xs text-gray-500 ml-1">
-                                  ({phase.costVariancePercent > 0 ? '+' : ''}{phase.costVariancePercent}%)
+                                  ({stage.costVariancePercent > 0 ? '+' : ''}{stage.costVariancePercent}%)
                                 </span>
                               </span>
                             </td>
@@ -1045,18 +975,6 @@ function ReportDetail() {
                     status: metric.costPerformanceIndex >= 1 ? t('insights.underBudget') : t('insights.overBudget'),
                     value: Math.abs((1 - metric.costPerformanceIndex) * 100).toFixed(1),
                   })}
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className={`mt-0.5 ${metric.passRate > 0 ? (metric.passRate >= 95 ? 'text-green-600' : metric.passRate >= 80 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-400'}`}>•</span>
-                <span>
-                  <strong>{t('insights.quality')}:</strong>{' '}
-                  {metric.passRate > 0
-                    ? t('insights.qualitySummary', {
-                      value: metric.passRate.toFixed(1),
-                      status: metric.passRate >= 95 ? t('insights.excellent') : metric.passRate >= 80 ? t('insights.acceptable') : t('insights.needsImprovement'),
-                    })
-                    : t('insights.noTestingData')}
                 </span>
               </li>
               <li className="flex items-start gap-2">

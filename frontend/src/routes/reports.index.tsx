@@ -26,7 +26,7 @@ function ReportsList() {
   const getScopeTranslation = (scope: string) => {
     switch (scope) {
       case 'Weekly': return t('report.scopeWeekly')
-      case 'Phase': return t('report.scopePhase')
+      case 'Stage': return t('report.scopeStage')
       case 'Project': return t('report.scopeProject')
       default: return scope
     }
@@ -71,7 +71,7 @@ function ReportsList() {
                 <h3 className="text-lg font-semibold text-gray-900">{report.title}</h3>
                 <p className="mt-1 text-sm text-gray-500">
                   {getScopeTranslation(report.scope)}
-                  {report.phaseName && ` - ${report.phaseName}`}
+                  {report.stageName && ` - ${report.stageName}`}
                   {report.weekNumber && ` - ${t('report.weekNumber')} ${report.weekNumber}, ${report.year}`}
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
@@ -94,7 +94,7 @@ function ReportsList() {
             </div>
 
             {report.metrics && report.metrics.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs text-gray-500">{t('metrics.spi')}</p>
                   <p className="text-lg font-semibold text-gray-900">
@@ -105,12 +105,6 @@ function ReportsList() {
                   <p className="text-xs text-gray-500">{t('metrics.cpi')}</p>
                   <p className="text-lg font-semibold text-gray-900">
                     {report.metrics[0].costPerformanceIndex.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">{t('metrics.passRate')}</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {report.metrics[0].passRate.toFixed(1)}%
                   </p>
                 </div>
                 <div>
