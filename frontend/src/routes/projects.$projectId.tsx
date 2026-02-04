@@ -166,6 +166,14 @@ function ProjectDetail() {
     },
   });
 
+  const { data: projectMetricInsights } = useQuery({
+    queryKey: ['projectMetricInsights', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricInsights(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   // Mutation to refresh/update project status
   const refreshStatusMutation = useMutation({
     mutationFn: () => metricsApi.refreshProjectStatus(parseInt(projectId)),
@@ -238,6 +246,8 @@ function ProjectDetail() {
     }
     return `${value.toFixed(digits)}%`;
   };
+
+  const projectTestInsights = projectMetricInsights?.project;
 
   const deleteScreenFunctionMutation = useMutation({
     mutationFn: (id: number) => screenFunctionApi.delete(id),
@@ -673,6 +683,48 @@ function ProjectDetail() {
                     <p className="text-xs text-gray-500">{t('metrics.tasksDelayed')}</p>
                     <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.schedule.delayRate, 1)}</p>
                     <p className="text-xs text-gray-400">{t('metrics.delayInManMonths')}</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card title={t('metrics.testMetricsProject')}>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.bugRate')}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {projectTestInsights
+                        ? formatPercentValue(projectTestInsights.bugRate * 100, 1)
+                        : t('common.notAvailable')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.testCasesPerMinute')}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {projectTestInsights
+                        ? formatMetricValue(projectTestInsights.testCasesPerMinute, 2)
+                        : t('common.notAvailable')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.totalTestCases')}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {projectTestInsights
+                        ? projectTestInsights.totalTestCases.toLocaleString()
+                        : t('common.notAvailable')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{t('metrics.bugCount')}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {projectTestInsights
+                        ? projectTestInsights.bugCount.toLocaleString()
+                        : t('common.notAvailable')}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {projectTestInsights
+                        ? t('metrics.actualMinutes', { value: formatMetricValue(projectTestInsights.actualMinutes, 0) })
+                        : t('common.notAvailable')}
+                    </p>
                   </div>
                 </div>
               </Card>
