@@ -1233,7 +1233,7 @@ export class TaskWorkflowService {
       if (this.isTestCaseTotalMetric(metricTypeName, categoryName)) {
         totals.totalTestCases += metric.value || 0;
       }
-      if (this.isBugMetricType(metricTypeName)) {
+      if (this.isTestCaseFailedMetric(metricTypeName, categoryName)) {
         totals.bugCount += metric.value || 0;
       }
     }
@@ -1315,13 +1315,14 @@ export class TaskWorkflowService {
     return name.trim().toLowerCase() === 'test cases';
   }
 
-  private isBugMetricType(name: string): boolean {
-    return name.trim().toLowerCase() === 'bugs';
-  }
-
   private isTestCaseTotalMetric(metricTypeName: string, categoryName: string): boolean {
     return metricTypeName.trim().toLowerCase() === 'test cases'
       && categoryName.trim().toLowerCase() === 'total';
+  }
+
+  private isTestCaseFailedMetric(metricTypeName: string, categoryName: string): boolean {
+    return metricTypeName.trim().toLowerCase() === 'test cases'
+      && categoryName.trim().toLowerCase() === 'failed';
   }
 
   private isProtectedMetricCategory(category: MetricCategory): boolean {
