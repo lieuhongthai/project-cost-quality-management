@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
 import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
-import { PhaseService } from '../phase/phase.service';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
 
 @Injectable()
@@ -13,8 +12,6 @@ export class ProjectService {
     private projectRepository: typeof Project,
     @Inject('PROJECT_SETTINGS_REPOSITORY')
     private projectSettingsRepository: typeof ProjectSettings,
-    @Inject(forwardRef(() => PhaseService))
-    private phaseService: PhaseService,
   ) {}
 
   async findAll(): Promise<Project[]> {
@@ -39,23 +36,9 @@ export class ProjectService {
     return project;
   }
 
-  // Default phases to create for new projects
-  private readonly DEFAULT_PHASES = [
-    { name: 'Requirement', displayOrder: 1 },
-    { name: 'Functional Design', displayOrder: 2 },
-    { name: 'Coding', displayOrder: 3 },
-    { name: 'Unit Test', displayOrder: 4 },
-    { name: 'Integration Test', displayOrder: 5 },
-    { name: 'System Test', displayOrder: 6 },
-    { name: 'User Test', displayOrder: 7 },
-  ];
-
   async create(createProjectDto: CreateProjectDto): Promise<Project> {
     // Create the project
     const project = await this.projectRepository.create(createProjectDto as any);
-
-    // Create default phases for the new project
-    await this.createDefaultPhases(project.id);
 
     // Create default settings
     await this.projectSettingsRepository.create({
@@ -69,20 +52,6 @@ export class ProjectService {
     } as any);
 
     return project;
-  }
-
-  /**
-   * Create default phases for a new project
-   */
-  async createDefaultPhases(projectId: number): Promise<void> {
-    for (const phase of this.DEFAULT_PHASES) {
-      await this.phaseService.create({
-        projectId,
-        name: phase.name,
-        startDate: new Date(),
-        estimatedEffort: 0,
-      });
-    }
   }
 
   async update(id: number, updateProjectDto: UpdateProjectDto): Promise<Project> {

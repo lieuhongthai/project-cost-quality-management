@@ -1,6 +1,5 @@
 import { Sequelize } from "sequelize-typescript";
 import { Project } from "../modules/project/project.model";
-import { Phase } from "../modules/phase/phase.model";
 import { Effort } from "../modules/effort/effort.model";
 import { Testing } from "../modules/testing/testing.model";
 import { Report } from "../modules/report/report.model";
@@ -8,9 +7,7 @@ import { Commentary } from "../modules/commentary/commentary.model";
 import { ProjectSettings } from "../modules/project/project-settings.model";
 import { Metrics } from "../modules/metrics/metrics.model";
 import { ScreenFunction } from "../modules/screen-function/screen-function.model";
-import { PhaseScreenFunction } from "../modules/screen-function/phase-screen-function.model";
 import { Member } from "../modules/member/member.model";
-import { Review } from "../modules/review/review.model";
 import { Permission } from "../modules/iam/permission.model";
 import { Role } from "../modules/iam/role.model";
 import { RolePermission } from "../modules/iam/role-permission.model";
@@ -55,7 +52,6 @@ export const databaseProviders = [
 
       sequelize.addModels([
         Project,
-        Phase,
         Effort,
         Testing,
         Report,
@@ -63,9 +59,7 @@ export const databaseProviders = [
         ProjectSettings,
         Metrics,
         ScreenFunction,
-        PhaseScreenFunction,
         Member,
-        Review,
         Permission,
         Role,
         RolePermission,
