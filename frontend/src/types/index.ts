@@ -430,3 +430,35 @@ export interface ProjectMetricInsights {
     screenFunctionId: number;
   }>;
 }
+
+export interface MetricTypeSummaryCategory {
+  id: number;
+  name: string;
+}
+
+export interface MetricTypeSummary {
+  id: number;
+  name: string;
+  categories: MetricTypeSummaryCategory[];
+}
+
+export interface ProjectMetricTypeSummary {
+  metricTypes: MetricTypeSummary[];
+  stages: Array<{
+    stageId: number;
+    stageName: string;
+    steps: Array<{
+      stepId: number;
+      stepName: string;
+      screenFunctions: Array<{
+        stepScreenFunctionId: number;
+        screenFunctionId: number;
+        screenFunctionName: string;
+        metrics: Array<{
+          metricCategoryId: number;
+          value: number;
+        }>;
+      }>;
+    }>;
+  }>;
+}

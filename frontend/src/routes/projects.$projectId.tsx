@@ -36,6 +36,7 @@ const PROJECT_TABS = [
   'screen-functions',
   'members',
   'task-workflow',
+  'metric-summary',
   'settings',
 ] as const;
 
@@ -174,6 +175,14 @@ function ProjectDetail() {
     },
   });
 
+  const { data: projectMetricTypeSummary } = useQuery({
+    queryKey: ['projectMetricTypeSummary', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricTypeSummary(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   // Mutation to refresh/update project status
   const refreshStatusMutation = useMutation({
     mutationFn: () => metricsApi.refreshProjectStatus(parseInt(projectId)),
@@ -249,6 +258,17 @@ function ProjectDetail() {
 
   const projectTestInsights = projectMetricInsights?.project;
 
+  const getMetricCategoryValue = (
+    metrics: Array<{ metricCategoryId: number; value: number }>,
+    categoryId: number,
+  ) => {
+    const metric = metrics.find((item) => item.metricCategoryId === categoryId);
+    return metric?.value ?? 0;
+  };
+
+  const getStageScreenFunctionCount = (stage: { steps: Array<{ screenFunctions: Array<unknown> }> }) =>
+    stage.steps.reduce((total, step) => total + step.screenFunctions.length, 0);
+
   const deleteScreenFunctionMutation = useMutation({
     mutationFn: (id: number) => screenFunctionApi.delete(id),
     onSuccess: () => {
@@ -310,6 +330,7 @@ function ProjectDetail() {
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
     { id: 'task-workflow' as const, name: t('taskWorkflow.title') },
+    { id: 'metric-summary' as const, name: t('metrics.metricTypesReport') },
     { id: 'settings' as const, name: t('nav.settings') },
   ];
 
@@ -1240,6 +1261,107 @@ function ProjectDetail() {
 
       {activeTab === 'task-workflow' && (
         <TaskWorkflowTable projectId={parseInt(projectId)} members={members} />
+      )}
+
+      {activeTab === 'metric-summary' && (
+        <div className="space-y-6">
+          <Card title={t('metrics.metricTypesReport')}>
+            {!projectMetricTypeSummary ? (
+              <div className="flex justify-center py-10">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : projectMetricTypeSummary.metricTypes.length === 0 ? (
+              <EmptyState
+                title={t('metrics.noMetricTypes')}
+                description={t('metrics.metricTypesReportEmpty')}
+              />
+            ) : (
+              <div className="space-y-6">
+                {projectMetricTypeSummary.metricTypes.map((metricType) => (
+                  <div key={metricType.id} className="rounded-xl border border-gray-200 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{metricType.name}</h3>
+                        <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {metricType.categories.map((category) => (
+                          <span
+                            key={category.id}
+                            className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                          >
+                            {category.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      {projectMetricTypeSummary.stages.map((stage) => (
+                        <div key={stage.stageId} className="rounded-lg bg-gray-50 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-sm font-semibold text-gray-900">{stage.stageName}</div>
+                            <div className="text-xs text-gray-500">
+                              {t('metrics.screenFunctionCount', {
+                                value: getStageScreenFunctionCount(stage),
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="mt-3 space-y-3">
+                            {stage.steps.length === 0 ? (
+                              <p className="text-xs text-gray-500">{t('metrics.noSteps')}</p>
+                            ) : (
+                              stage.steps.map((step) => (
+                                <details key={step.stepId} className="rounded-lg border border-gray-200 bg-white">
+                                  <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-medium text-gray-800">
+                                    <span>{step.stepName}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
+                                    </span>
+                                  </summary>
+                                  <div className="divide-y divide-gray-100">
+                                    {step.screenFunctions.length === 0 ? (
+                                      <div className="px-3 py-3 text-xs text-gray-500">
+                                        {t('metrics.noScreenFunctions')}
+                                      </div>
+                                    ) : (
+                                      step.screenFunctions.map((screenFunction) => (
+                                        <div
+                                          key={screenFunction.stepScreenFunctionId}
+                                          className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
+                                        >
+                                          <div className="text-sm font-medium text-gray-900">
+                                            {screenFunction.screenFunctionName}
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                            {metricType.categories.map((category) => (
+                                              <span
+                                                key={category.id}
+                                                className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200"
+                                              >
+                                                {category.name}:{' '}
+                                                {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </details>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
       )}
 
       {activeTab === 'settings' && (

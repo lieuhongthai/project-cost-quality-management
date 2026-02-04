@@ -1311,6 +1311,118 @@ export class TaskWorkflowService {
     };
   }
 
+  async getProjectMetricTypeSummary(projectId: number) {
+    const metricTypes = await this.metricTypeRepository.findAll({
+      where: { projectId, isActive: true },
+      include: [
+        {
+          model: MetricCategory,
+          as: 'categories',
+          where: { isActive: true },
+          required: false,
+        },
+      ],
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
+    });
+
+    const stages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
+    });
+    const stageIds = stages.map(stage => stage.id);
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+      order: [['displayOrder', 'ASC'], ['id', 'ASC']],
+    });
+    const stepIds = steps.map(step => step.id);
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+    const stepScreenFunctionIds = stepScreenFunctions.map(ssf => ssf.id);
+    const screenFunctionIds = stepScreenFunctions.map(ssf => ssf.screenFunctionId);
+    const screenFunctions = await this.screenFunctionRepository.findAll({
+      where: { id: { [Op.in]: screenFunctionIds } },
+    });
+    const screenFunctionNameMap = new Map(
+      screenFunctions.map(screenFunction => [screenFunction.id, screenFunction.name]),
+    );
+
+    const stepScreenFunctionMembers = await this.stepScreenFunctionMemberRepository.findAll({
+      where: { stepScreenFunctionId: { [Op.in]: stepScreenFunctionIds } },
+    });
+    const stepScreenFunctionMemberIds = stepScreenFunctionMembers.map(member => member.id);
+
+    const metrics = stepScreenFunctionMemberIds.length > 0
+      ? await this.taskMemberMetricRepository.findAll({
+        where: { stepScreenFunctionMemberId: { [Op.in]: stepScreenFunctionMemberIds } },
+      })
+      : [];
+
+    const memberToStepScreenFunction = new Map(
+      stepScreenFunctionMembers.map(member => [member.id, member.stepScreenFunctionId]),
+    );
+
+    const metricTotalsByStepScreenFunction = new Map<number, Map<number, number>>();
+
+    for (const metric of metrics) {
+      const stepScreenFunctionId = memberToStepScreenFunction.get(metric.stepScreenFunctionMemberId);
+      if (!stepScreenFunctionId) continue;
+      const categoryTotals = metricTotalsByStepScreenFunction.get(stepScreenFunctionId) || new Map<number, number>();
+      const currentValue = categoryTotals.get(metric.metricCategoryId) || 0;
+      categoryTotals.set(metric.metricCategoryId, currentValue + (metric.value || 0));
+      metricTotalsByStepScreenFunction.set(stepScreenFunctionId, categoryTotals);
+    }
+
+    const stepsByStage = new Map<number, WorkflowStep[]>();
+    for (const step of steps) {
+      const group = stepsByStage.get(step.stageId) || [];
+      group.push(step);
+      stepsByStage.set(step.stageId, group);
+    }
+
+    const screenFunctionsByStep = new Map<number, StepScreenFunction[]>();
+    for (const screenFunction of stepScreenFunctions) {
+      const group = screenFunctionsByStep.get(screenFunction.stepId) || [];
+      group.push(screenFunction);
+      screenFunctionsByStep.set(screenFunction.stepId, group);
+    }
+
+    return {
+      metricTypes: metricTypes.map(type => ({
+        id: type.id,
+        name: type.name,
+        categories: (type.categories || []).sort((a, b) => {
+          if (a.displayOrder !== b.displayOrder) {
+            return (a.displayOrder || 0) - (b.displayOrder || 0);
+          }
+          return a.id - b.id;
+        }).map(category => ({
+          id: category.id,
+          name: category.name,
+        })),
+      })),
+      stages: stages.map(stage => ({
+        stageId: stage.id,
+        stageName: stage.name,
+        steps: (stepsByStage.get(stage.id) || []).map(step => ({
+          stepId: step.id,
+          stepName: step.name,
+          screenFunctions: (screenFunctionsByStep.get(step.id) || []).map(screenFunction => ({
+            stepScreenFunctionId: screenFunction.id,
+            screenFunctionId: screenFunction.screenFunctionId,
+            screenFunctionName: screenFunctionNameMap.get(screenFunction.screenFunctionId) || '',
+            metrics: Array.from(metricTotalsByStepScreenFunction.get(screenFunction.id)?.entries() || []).map(
+              ([metricCategoryId, value]) => ({
+                metricCategoryId,
+                value,
+              }),
+            ),
+          })),
+        })),
+      })),
+    };
+  }
+
   private isProtectedMetricType(name: string): boolean {
     return name.trim().toLowerCase() === 'test cases';
   }
