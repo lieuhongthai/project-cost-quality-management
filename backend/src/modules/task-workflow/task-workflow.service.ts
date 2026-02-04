@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException } from '@nestjs/common';
 import { WorkflowStage, StageStatus, DEFAULT_WORKFLOW_STAGES } from './workflow-stage.model';
 import { WorkflowStep, DEFAULT_WORKFLOW_STEPS } from './workflow-step.model';
 import { TaskWorkflow } from './task-workflow.model';
@@ -1117,6 +1117,9 @@ export class TaskWorkflowService {
 
   async deleteMetricType(id: number): Promise<void> {
     const metricType = await this.findMetricTypeById(id);
+    if (this.isProtectedMetricType(metricType.name)) {
+      throw new BadRequestException('Cannot delete protected metric type');
+    }
     await metricType.destroy();
   }
 
@@ -1130,7 +1133,9 @@ export class TaskWorkflowService {
   }
 
   async findMetricCategoryById(id: number): Promise<MetricCategory> {
-    const category = await this.metricCategoryRepository.findByPk(id);
+    const category = await this.metricCategoryRepository.findByPk(id, {
+      include: [{ model: MetricType, as: 'metricType' }],
+    });
     if (!category) {
       throw new NotFoundException(`Metric category with ID ${id} not found`);
     }
@@ -1157,7 +1162,175 @@ export class TaskWorkflowService {
 
   async deleteMetricCategory(id: number): Promise<void> {
     const category = await this.findMetricCategoryById(id);
+    if (this.isProtectedMetricCategory(category)) {
+      throw new BadRequestException('Cannot delete protected metric category');
+    }
     await category.destroy();
+  }
+
+  async getProjectMetricInsights(projectId: number) {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+    const stageIds = stages.map(stage => stage.id);
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+    const stepIds = steps.map(step => step.id);
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+    const stepScreenFunctionIds = stepScreenFunctions.map(ssf => ssf.id);
+    const stepScreenFunctionMembers = await this.stepScreenFunctionMemberRepository.findAll({
+      where: { stepScreenFunctionId: { [Op.in]: stepScreenFunctionIds } },
+    });
+    const stepScreenFunctionMemberIds = stepScreenFunctionMembers.map(member => member.id);
+
+    const metrics = stepScreenFunctionMemberIds.length > 0
+      ? await this.taskMemberMetricRepository.findAll({
+        where: { stepScreenFunctionMemberId: { [Op.in]: stepScreenFunctionMemberIds } },
+        include: [
+          {
+            model: MetricCategory,
+            as: 'metricCategory',
+            include: [{ model: MetricType, as: 'metricType' }],
+          },
+        ],
+      })
+      : [];
+
+    const stepIdToStageId = new Map(steps.map(step => [step.id, step.stageId]));
+    const memberToStepScreenFunction = new Map(
+      stepScreenFunctionMembers.map(member => [member.id, member.stepScreenFunctionId]),
+    );
+    const stepEffortByStepScreenFunction = new Map<number, number>();
+    for (const member of stepScreenFunctionMembers) {
+      if (member.actualEffort > 0) {
+        stepEffortByStepScreenFunction.set(
+          member.stepScreenFunctionId,
+          (stepEffortByStepScreenFunction.get(member.stepScreenFunctionId) || 0) + member.actualEffort,
+        );
+      }
+    }
+
+    const stepTotals = new Map<number, { totalTestCases: number; bugCount: number }>();
+    const ensureStepTotals = (stepScreenFunctionId: number) => {
+      if (!stepTotals.has(stepScreenFunctionId)) {
+        stepTotals.set(stepScreenFunctionId, { totalTestCases: 0, bugCount: 0 });
+      }
+      return stepTotals.get(stepScreenFunctionId)!;
+    };
+
+    for (const metric of metrics) {
+      const category = metric.metricCategory;
+      const metricTypeName = category?.metricType?.name || '';
+      const categoryName = category?.name || '';
+      const stepScreenFunctionId = memberToStepScreenFunction.get(metric.stepScreenFunctionMemberId);
+      if (!stepScreenFunctionId) continue;
+      const totals = ensureStepTotals(stepScreenFunctionId);
+      if (this.isTestCaseTotalMetric(metricTypeName, categoryName)) {
+        totals.totalTestCases += metric.value || 0;
+      }
+      if (this.isBugMetricType(metricTypeName)) {
+        totals.bugCount += metric.value || 0;
+      }
+    }
+
+    const stepInsights = stepScreenFunctions.map(ssf => {
+      const totals = stepTotals.get(ssf.id) || { totalTestCases: 0, bugCount: 0 };
+      const actualHours = stepEffortByStepScreenFunction.get(ssf.id) || ssf.actualEffort || 0;
+      const actualMinutes = actualHours * 60;
+      return {
+        stepScreenFunctionId: ssf.id,
+        stepId: ssf.stepId,
+        screenFunctionId: ssf.screenFunctionId,
+        totalTestCases: totals.totalTestCases,
+        bugCount: totals.bugCount,
+        bugRate: totals.totalTestCases > 0 ? totals.bugCount / totals.totalTestCases : 0,
+        testCasesPerMinute: actualMinutes > 0 ? totals.totalTestCases / actualMinutes : 0,
+        actualMinutes,
+      };
+    });
+
+    const stageInsightsMap = new Map<number, {
+      totalTestCases: number;
+      bugCount: number;
+      actualMinutes: number;
+    }>();
+    for (const insight of stepInsights) {
+      const stageId = stepIdToStageId.get(insight.stepId);
+      if (!stageId) continue;
+      const stageTotals = stageInsightsMap.get(stageId) || {
+        totalTestCases: 0,
+        bugCount: 0,
+        actualMinutes: 0,
+      };
+      stageTotals.totalTestCases += insight.totalTestCases;
+      stageTotals.bugCount += insight.bugCount;
+      stageTotals.actualMinutes += insight.actualMinutes;
+      stageInsightsMap.set(stageId, stageTotals);
+    }
+
+    const stageInsights = stages.map(stage => {
+      const totals = stageInsightsMap.get(stage.id) || {
+        totalTestCases: 0,
+        bugCount: 0,
+        actualMinutes: 0,
+      };
+      return {
+        stageId: stage.id,
+        totalTestCases: totals.totalTestCases,
+        bugCount: totals.bugCount,
+        bugRate: totals.totalTestCases > 0 ? totals.bugCount / totals.totalTestCases : 0,
+        testCasesPerMinute: totals.actualMinutes > 0 ? totals.totalTestCases / totals.actualMinutes : 0,
+        actualMinutes: totals.actualMinutes,
+      };
+    });
+
+    const projectTotals = stageInsights.reduce(
+      (acc, item) => ({
+        totalTestCases: acc.totalTestCases + item.totalTestCases,
+        bugCount: acc.bugCount + item.bugCount,
+        actualMinutes: acc.actualMinutes + item.actualMinutes,
+      }),
+      { totalTestCases: 0, bugCount: 0, actualMinutes: 0 },
+    );
+
+    return {
+      project: {
+        totalTestCases: projectTotals.totalTestCases,
+        bugCount: projectTotals.bugCount,
+        bugRate: projectTotals.totalTestCases > 0 ? projectTotals.bugCount / projectTotals.totalTestCases : 0,
+        testCasesPerMinute: projectTotals.actualMinutes > 0 ? projectTotals.totalTestCases / projectTotals.actualMinutes : 0,
+        actualMinutes: projectTotals.actualMinutes,
+      },
+      stages: stageInsights,
+      stepScreenFunctions: stepInsights,
+    };
+  }
+
+  private isProtectedMetricType(name: string): boolean {
+    return name.trim().toLowerCase() === 'test cases';
+  }
+
+  private isBugMetricType(name: string): boolean {
+    return name.trim().toLowerCase() === 'bugs';
+  }
+
+  private isTestCaseTotalMetric(metricTypeName: string, categoryName: string): boolean {
+    return metricTypeName.trim().toLowerCase() === 'test cases'
+      && categoryName.trim().toLowerCase() === 'total';
+  }
+
+  private isProtectedMetricCategory(category: MetricCategory): boolean {
+    const metricTypeName = category.metricType?.name || '';
+    if (!this.isProtectedMetricType(metricTypeName)) {
+      return false;
+    }
+    const protectedNames = new Set(['total', 'passed', 'failed']);
+    return protectedNames.has(category.name.trim().toLowerCase());
   }
 
   // ===== Task Member Metric Methods =====

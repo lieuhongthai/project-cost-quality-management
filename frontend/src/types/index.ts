@@ -412,3 +412,21 @@ export interface TaskMemberMetric {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface MetricInsightSummary {
+  totalTestCases: number;
+  bugCount: number;
+  bugRate: number;
+  testCasesPerMinute: number;
+  actualMinutes: number;
+}
+
+export interface ProjectMetricInsights {
+  project: MetricInsightSummary;
+  stages: Array<MetricInsightSummary & { stageId: number }>;
+  stepScreenFunctions: Array<MetricInsightSummary & {
+    stepScreenFunctionId: number;
+    stepId: number;
+    screenFunctionId: number;
+  }>;
+}

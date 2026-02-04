@@ -26,6 +26,7 @@ import type {
   StepScreenFunction,
   StageDetailData,
   StageOverviewData,
+  ProjectMetricInsights,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -320,6 +321,8 @@ export const taskWorkflowApi = {
     api.get<MetricType[]>(`/task-workflow/metric-types/project/${projectId}`),
   getMetricType: (id: number) =>
     api.get<MetricType>(`/task-workflow/metric-types/${id}`),
+  getProjectMetricInsights: (projectId: number) =>
+    api.get<ProjectMetricInsights>(`/task-workflow/metrics/project/${projectId}`),
   createMetricType: (data: { projectId: number; name: string; description?: string; displayOrder?: number }) =>
     api.post<MetricType>('/task-workflow/metric-types', data),
   updateMetricType: (id: number, data: { name?: string; description?: string; displayOrder?: number; isActive?: boolean }) =>
