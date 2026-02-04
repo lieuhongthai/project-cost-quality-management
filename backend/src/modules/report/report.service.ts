@@ -123,10 +123,7 @@ export class ReportService {
 
     // Collect testing data
     let totalTestCases = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
     let totalDefects = 0;
-    let totalTestingTime = 0;
 
     const stageSnapshots: Array<{
       id: number;
@@ -139,10 +136,7 @@ export class ReportService {
       endDate: string | null;
       testing: {
         totalTestCases: number;
-        totalPassed: number;
-        totalFailed: number;
         totalDefects: number;
-        passRate: number;
       };
     }> = [];
 
@@ -158,10 +152,7 @@ export class ReportService {
         endDate: stage.endDate,
         testing: {
           totalTestCases: 0,
-          totalPassed: 0,
-          totalFailed: 0,
           totalDefects: 0,
-          passRate: 0,
         },
       });
     }
@@ -176,10 +167,7 @@ export class ReportService {
     // Calculate testing metrics
     const testingMetrics = this.metricsService.calculateTestingMetrics({
       totalTestCases,
-      passedTestCases: totalPassed,
-      failedTestCases: totalFailed,
       defectsDetected: totalDefects,
-      testingTime: totalTestingTime,
     });
 
     // Get productivity metrics
@@ -231,14 +219,8 @@ export class ReportService {
       },
       testing: {
         totalTestCases,
-        totalPassed,
-        totalFailed,
         totalDefects,
-        totalTestingTime,
-        passRate: testingMetrics.passRate,
         defectRate: testingMetrics.defectRate,
-        timePerTestCase: testingMetrics.timePerTestCase,
-        testCasesPerHour: testingMetrics.testCasesPerHour,
       },
       productivity: productivityMetrics,
       memberCost: memberCostAnalysis,
@@ -269,8 +251,6 @@ export class ReportService {
           },
           testing: {
             totalTestCases: 0,
-            totalPassed: 0,
-            totalFailed: 0,
             totalDefects: 0,
           },
         };

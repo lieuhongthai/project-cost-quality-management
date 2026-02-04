@@ -461,7 +461,7 @@ function ProjectDetail() {
                 {t('common.update')}
               </button>
             }>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 {/* SPI */}
                 <div className={`p-3 rounded-lg ${
                   projectMetrics.schedule.spi >= 0.95 ? 'bg-green-50' :
@@ -507,22 +507,6 @@ function ProjectDetail() {
                   <p className="text-xs text-gray-500">Target: ≤ 5%</p>
                 </div>
 
-                {/* Pass Rate */}
-                <div className={`p-3 rounded-lg ${
-                  projectMetrics.testing.totalTestCases === 0 ? 'bg-gray-50' :
-                  projectMetrics.testing.passRate >= 95 ? 'bg-green-50' :
-                  projectMetrics.testing.passRate >= 80 ? 'bg-yellow-50' : 'bg-red-50'
-                }`}>
-                  <p className="text-xs text-gray-500 mb-1">{t('metrics.passRate')}</p>
-                  <p className={`text-xl font-bold ${
-                    projectMetrics.testing.totalTestCases === 0 ? 'text-gray-400' :
-                    projectMetrics.testing.passRate >= 95 ? 'text-green-700' :
-                    projectMetrics.testing.passRate >= 80 ? 'text-yellow-700' : 'text-red-700'
-                  }`}>
-                    {projectMetrics.testing.totalTestCases === 0 ? 'N/A' : `${projectMetrics.testing.passRate.toFixed(1)}%`}
-                  </p>
-                  <p className="text-xs text-gray-500">Target: ≥ 95%</p>
-                </div>
               </div>
 
               {/* Status Reasons */}
@@ -635,7 +619,6 @@ function ProjectDetail() {
                     <MetricsChart
                       spi={projectMetrics.schedule.spi}
                       cpi={projectMetrics.schedule.cpi}
-                      passRate={projectMetrics.testing.passRate}
                     />
                     <p className="mt-3 text-xs text-gray-500">{t('metrics.evmDescription')}</p>
                   </div>
@@ -654,11 +637,6 @@ function ProjectDetail() {
                       <p className="text-xs text-gray-500">{t('metrics.delayRate')}</p>
                       <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.schedule.delayRate, 1)}</p>
                       <p className="text-xs text-gray-400">{t('metrics.delayRate')}</p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 p-3">
-                      <p className="text-xs text-gray-500">{t('metrics.passRate')}</p>
-                      <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.testing.passRate, 1)}</p>
-                      <p className="text-xs text-gray-400">{t('metrics.qualityMetrics')}</p>
                     </div>
                     <div className="rounded-lg border border-gray-200 p-3">
                       <p className="text-xs text-gray-500">{t('metrics.bac')}</p>
@@ -685,27 +663,11 @@ function ProjectDetail() {
               </Card>
 
               <Card title={t('metrics.qualityMetrics')}>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">{t('metrics.testCasesPassed')}</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {projectMetrics.testing.passedTestCases.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {t('metrics.passRate')}: {formatPercentValue(projectMetrics.testing.passRate, 1)}
-                    </p>
-                  </div>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">{t('metrics.defectRate')}</p>
                     <p className="text-lg font-semibold text-gray-900">{formatMetricValue(projectMetrics.testing.defectRate, 3)}</p>
                     <p className="text-xs text-gray-400">{t('metrics.defectsPerTestCase')}</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">{t('metrics.testPassRate')}</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatPercentValue(projectMetrics.testing.passRate, 1)}</p>
-                    <p className="text-xs text-gray-400">
-                      {projectMetrics.testing.totalTestCases.toLocaleString()} {t('common.total')}
-                    </p>
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">{t('metrics.tasksDelayed')}</p>

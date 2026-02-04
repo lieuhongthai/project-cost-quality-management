@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
-import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
 
 @Injectable()
@@ -200,25 +199,21 @@ export class ProjectService {
     schedulePerformanceIndex: number;  // SPI (kept for compatibility)
     costPerformanceIndex: number;      // CPI - this is the key metric (efficiency)
     delayRate: number;                 // % (kept for compatibility)
-    passRate: number;                  // %
   }): 'Good' | 'Warning' | 'At Risk' {
-    const { costPerformanceIndex: cpi, passRate } = metrics;
+    const { costPerformanceIndex: cpi } = metrics;
 
     // CPI = Earned Value / Actual Cost = (Estimated × Progress) / Actual
     // CPI >= 1.0 means on or under budget (Good)
     // CPI 0.83-1.0 means slightly over budget (Warning) - equivalent to 100-120% actual
     // CPI < 0.83 means significantly over budget (At Risk) - equivalent to >120% actual
 
-    // Also consider pass rate for quality issues
-    const hasQualityIssue = passRate > 0 && passRate < 80;
-
     // At Risk: CPI < 0.83 (>20% over budget) OR serious quality issues
-    if (cpi < 0.83 || hasQualityIssue) {
+    if (cpi < 0.83) {
       return 'At Risk';
     }
 
     // Warning: CPI 0.83-1.0 (slightly over budget) OR minor quality concerns
-    if (cpi < 1.0 || (passRate > 0 && passRate < 95)) {
+    if (cpi < 1.0) {
       return 'Warning';
     }
 
@@ -235,7 +230,6 @@ export class ProjectService {
       schedulePerformanceIndex: number;
       costPerformanceIndex: number;
       delayRate: number;
-      passRate: number;
     },
   ): Promise<void> {
     const newStatus = this.evaluateProjectStatus(metrics);

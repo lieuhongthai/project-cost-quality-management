@@ -113,10 +113,6 @@ export interface Metrics {
   varianceAtCompletion: number; // VAC = BAC - EAC
   toCompletePerformanceIndex: number; // TCPI = (BAC - EV) / (BAC - AC)
   defectRate: number;
-  passRate: number;
-  timePerTestCase: number;
-  testCasesPerHour: number;
-  defectDensity?: number;
 }
 
 // Screen/Function types

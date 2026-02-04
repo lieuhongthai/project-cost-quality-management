@@ -11,10 +11,9 @@ import {
 interface MetricsChartProps {
   spi: number;
   cpi: number;
-  passRate: number;
 }
 
-export const MetricsChart: React.FC<MetricsChartProps> = ({ spi, cpi, passRate }) => {
+export const MetricsChart: React.FC<MetricsChartProps> = ({ spi, cpi }) => {
   const data = [
     {
       metric: 'SPI',
@@ -25,11 +24,6 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ spi, cpi, passRate }
       metric: 'CPI',
       value: Math.min(cpi * 100, 150),
       fullMark: 150,
-    },
-    {
-      metric: 'Quality',
-      value: passRate,
-      fullMark: 100,
     },
   ];
 
