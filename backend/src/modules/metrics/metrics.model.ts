@@ -109,29 +109,6 @@ export class Metrics extends Model {
   })
   defectRate: number;
 
-  @Column({
-    type: DataType.FLOAT,
-    defaultValue: 0,
-  })
-  passRate: number; // percentage
-
-  @Column({
-    type: DataType.FLOAT,
-    defaultValue: 0,
-  })
-  timePerTestCase: number; // hours
-
-  @Column({
-    type: DataType.FLOAT,
-    defaultValue: 0,
-  })
-  testCasesPerHour: number;
-
-  @Column({
-    type: DataType.FLOAT,
-  })
-  defectDensity: number; // defects per KLOC (optional)
-
   @BelongsTo(() => Report)
   report: Report;
 }

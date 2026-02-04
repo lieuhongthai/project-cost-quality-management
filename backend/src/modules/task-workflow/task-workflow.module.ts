@@ -4,11 +4,13 @@ import { TaskWorkflowService } from './task-workflow.service';
 import { taskWorkflowProviders } from './task-workflow.providers';
 import { DatabaseModule } from '../../database/database.module';
 import { ScreenFunctionModule } from '../screen-function/screen-function.module';
+import { ProjectModule } from '../project/project.module';
 
 @Module({
   imports: [
     DatabaseModule,
     forwardRef(() => ScreenFunctionModule),
+    forwardRef(() => ProjectModule),
   ],
   controllers: [TaskWorkflowController],
   providers: [TaskWorkflowService, ...taskWorkflowProviders],

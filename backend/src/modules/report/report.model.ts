@@ -13,7 +13,7 @@ import { Metrics } from '../metrics/metrics.model';
 
 export enum ReportScope {
   WEEKLY = 'Weekly',
-  PHASE = 'Phase',
+  STAGE = 'Stage',
   PROJECT = 'Project',
 }
 
@@ -37,7 +37,7 @@ export class Report extends Model {
   projectId: number;
 
   @Column({
-    type: DataType.ENUM('Weekly', 'Phase', 'Project'),
+    type: DataType.ENUM('Weekly', 'Stage', 'Project'),
     allowNull: false,
   })
   scope: string;
@@ -45,12 +45,12 @@ export class Report extends Model {
   @Column({
     type: DataType.INTEGER,
   })
-  phaseId: number; // for phase-level reports
+  stageId: number; // for stage-level reports
 
   @Column({
     type: DataType.STRING,
   })
-  phaseName: string; // for phase-level reports
+  stageName: string; // for stage-level reports
 
   @Column({
     type: DataType.INTEGER,

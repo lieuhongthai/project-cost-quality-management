@@ -15,7 +15,6 @@ interface TestingQualityChartProps {
     week: string;
     passed: number;
     failed: number;
-    passRate: number;
   }>;
 }
 

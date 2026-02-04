@@ -12,11 +12,11 @@ import { WorkflowStage } from './workflow-stage.model';
 export const DEFAULT_WORKFLOW_STEPS: Record<string, string[]> = {
   'Requirement': ['Tạo', 'Review', 'Fix'],
   'Functional Design': ['Tạo', 'Review', 'Fix'],
-  'Coding': ['Code', 'Review', 'Fix', 'Tạo QB', 'Review QB', 'Fix QB', 'Tạo TC', 'Review TC', 'Fix TC'],
-  'Unit Test': ['Test', 'Fix bug', 'Retest', 'Tạo QB', 'Review'],
-  'Integration Test': ['Tạo', 'Fix TC', 'Review', 'Test', 'Fix bug', 'Retest'],
-  'System Test': ['Tạo QB', 'Tạo TC', 'Review', 'Fix', 'Test', 'Fix bug', 'Retest'],
-  'User Test': ['Test', 'Fix bug', 'Retest'],
+  'Coding': ['Code', 'Review', 'Fix'],
+  'Unit Test': ['Tạo QĐ', 'Review QĐ', 'Fix QĐ', 'Tạo TC', 'Review TC', 'Fix TC', 'Test', 'Fix bug', 'Retest', 'Tạo QB', 'Review'],
+  'Integration Test': ['Tạo QĐ', 'Review QĐ', 'Fix QĐ', 'Tạo TC', 'Review TC', 'Fix TC', 'Test', 'Fix bug', 'Retest', 'Tạo QB', 'Review'],
+  'System Test': ['Tạo TC', 'Test', 'Fix bug', 'Retest'],
+  'User Test': ['Tạo QĐ', 'Tạo TC', 'Review QĐ&TC', 'Fix', 'Test', 'Fix bug', 'Retest'],
 };
 
 @Table({
@@ -34,7 +34,7 @@ export class WorkflowStep extends Model {
   @ForeignKey(() => WorkflowStage)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     onDelete: 'CASCADE',
   })
   stageId: number;

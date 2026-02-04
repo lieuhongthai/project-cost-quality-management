@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
 import { Modal, Button, Input, DateInput } from '@/components/common';
 import { Select, TextArea } from '@/components/common/FormFields';
-import type { StepScreenFunctionStatus, Member, ScreenFunction } from '@/types';
+import type { StepScreenFunctionStatus, Member, ScreenFunction, StepScreenFunctionMember, TaskMemberMetric } from '@/types';
 
 interface StepScreenFunctionData {
   id: number;
   screenFunction?: ScreenFunction;
-  assignee?: Member;
+  members?: StepScreenFunctionMember[];
   estimatedEffort: number;
   actualEffort: number;
   progress: number;
@@ -21,25 +21,155 @@ interface StepScreenFunctionData {
   actualEndDate?: string;
 }
 
+interface MemberFormData {
+  id?: number;
+  memberId: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  estimatedStartDate: string;
+  estimatedEndDate: string;
+  actualStartDate: string;
+  actualEndDate: string;
+  note: string;
+  isNew?: boolean;
+  isEditing?: boolean;
+}
+
 interface StepScreenFunctionEditModalProps {
   data: StepScreenFunctionData;
   members: Member[];
+  projectId: number;
   onClose: (saved?: boolean) => void;
 }
 
 export function StepScreenFunctionEditModal({
   data,
   members,
+  projectId,
   onClose,
 }: StepScreenFunctionEditModalProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
-  // Form state
+  // Fetch metric types for this project
+  const { data: metricTypes = [] } = useQuery({
+    queryKey: ['metricTypes', projectId],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getMetricTypes(projectId);
+      return response.data;
+    },
+    enabled: !!projectId,
+  });
+
+  // State for member metrics (keyed by memberId)
+  const [memberMetrics, setMemberMetrics] = useState<Record<number, Record<number, number>>>({});
+
+  // State for member edit tabs: 'details' or 'metrics'
+  const [memberActiveTab, setMemberActiveTab] = useState<Record<number, 'details' | 'metrics'>>({});
+
+  // State for tracking which metric types are enabled per member (by metric type ID)
+  const [memberEnabledMetricTypes, setMemberEnabledMetricTypes] = useState<Record<number, number[]>>({});
+
+  // State for showing add metric type dropdown per member
+  const [showAddMetricDropdown, setShowAddMetricDropdown] = useState<Record<number, boolean>>({});
+
+  // Fetch metrics for a member when they expand
+  const fetchMemberMetrics = async (memberId: number) => {
+    if (memberMetrics[memberId]) return; // Already fetched
+    try {
+      const response = await taskWorkflowApi.getTaskMemberMetrics(memberId);
+      const metrics = response.data;
+      const metricsMap: Record<number, number> = {};
+      metrics.forEach((m: TaskMemberMetric) => {
+        metricsMap[m.metricCategoryId] = m.value;
+      });
+      setMemberMetrics((prev) => ({ ...prev, [memberId]: metricsMap }));
+
+      // Auto-enable metric types that have values
+      if (metricTypes.length > 0) {
+        const enabledTypeIds: number[] = [];
+        metricTypes.forEach((type) => {
+          const hasValues = type.categories?.some((cat) => metricsMap[cat.id] > 0);
+          if (hasValues) {
+            enabledTypeIds.push(type.id);
+          }
+        });
+        if (enabledTypeIds.length > 0) {
+          setMemberEnabledMetricTypes((prev) => ({ ...prev, [memberId]: enabledTypeIds }));
+        }
+      }
+    } catch {
+      // Error handled silently
+    }
+  };
+
+  // Add a specific metric type for a member
+  const addMetricTypeForMember = (memberId: number, metricTypeId: number) => {
+    setMemberEnabledMetricTypes((prev) => ({
+      ...prev,
+      [memberId]: [...(prev[memberId] || []), metricTypeId],
+    }));
+    setShowAddMetricDropdown((prev) => ({ ...prev, [memberId]: false }));
+    // Switch to metrics tab
+    setMemberActiveTab((prev) => ({ ...prev, [memberId]: 'metrics' }));
+  };
+
+  // Remove a specific metric type for a member
+  const removeMetricTypeForMember = (memberId: number, metricTypeId: number) => {
+    setMemberEnabledMetricTypes((prev) => ({
+      ...prev,
+      [memberId]: (prev[memberId] || []).filter((id) => id !== metricTypeId),
+    }));
+  };
+
+  // Get enabled metric types for a member
+  const getEnabledMetricTypes = (memberId: number) => {
+    const enabledIds = memberEnabledMetricTypes[memberId] || [];
+    return metricTypes.filter((type) => enabledIds.includes(type.id));
+  };
+
+  // Get available metric types to add for a member (not yet enabled)
+  const getAvailableMetricTypes = (memberId: number) => {
+    const enabledIds = memberEnabledMetricTypes[memberId] || [];
+    return metricTypes.filter((type) => !enabledIds.includes(type.id));
+  };
+
+  // Check if member has any metric types enabled
+  const hasMemberMetrics = (memberId: number) => {
+    return (memberEnabledMetricTypes[memberId] || []).length > 0;
+  };
+
+  // Get active tab for a member
+  const getMemberTab = (memberId: number) => memberActiveTab[memberId] || 'details';
+
+  // Update metric value locally
+  const updateMetricValue = (memberId: number, categoryId: number, value: number) => {
+    setMemberMetrics((prev) => ({
+      ...prev,
+      [memberId]: {
+        ...(prev[memberId] || {}),
+        [categoryId]: value,
+      },
+    }));
+  };
+
+  // Save member metrics
+  const saveMetricsMutation = useMutation({
+    mutationFn: async ({ memberId, metrics }: { memberId: number; metrics: Record<number, number> }) => {
+      const metricsArray = Object.entries(metrics).map(([categoryId, value]) => ({
+        metricCategoryId: parseInt(categoryId),
+        value: value || 0,
+      }));
+      return taskWorkflowApi.bulkUpsertTaskMemberMetrics({
+        stepScreenFunctionMemberId: memberId,
+        metrics: metricsArray,
+      });
+    },
+  });
+
+  // Form state for SSF level fields
   const [formData, setFormData] = useState({
-    assigneeId: data.assignee?.id ?? null,
-    estimatedEffort: data.estimatedEffort || 0,
-    actualEffort: data.actualEffort || 0,
-    progress: data.progress || 0,
     status: data.status || 'Not Started',
     note: data.note || '',
     estimatedStartDate: data.estimatedStartDate || '',
@@ -48,28 +178,119 @@ export function StepScreenFunctionEditModal({
     actualEndDate: data.actualEndDate || '',
   });
 
-  // Update mutation
-  const updateMutation = useMutation({
+  // Members list state
+  const [membersList, setMembersList] = useState<MemberFormData[]>([]);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState<MemberFormData>({
+    memberId: 0,
+    estimatedEffort: 0,
+    actualEffort: 0,
+    progress: 0,
+    estimatedStartDate: '',
+    estimatedEndDate: '',
+    actualStartDate: '',
+    actualEndDate: '',
+    note: '',
+    isNew: true,
+  });
+
+  // Initialize members list from data
+  useEffect(() => {
+    if (data.members) {
+      setMembersList(
+        data.members.map((m) => ({
+          id: m.id,
+          memberId: m.memberId,
+          estimatedEffort: m.estimatedEffort || 0,
+          actualEffort: m.actualEffort || 0,
+          progress: m.progress || 0,
+          estimatedStartDate: m.estimatedStartDate || '',
+          estimatedEndDate: m.estimatedEndDate || '',
+          actualStartDate: m.actualStartDate || '',
+          actualEndDate: m.actualEndDate || '',
+          note: m.note || '',
+          isEditing: false,
+        }))
+      );
+    }
+  }, [data.members]);
+
+  // Calculate totals from members
+  const totalEstimatedEffort = membersList.reduce((sum, m) => sum + (m.estimatedEffort || 0), 0);
+  const totalActualEffort = membersList.reduce((sum, m) => sum + (m.actualEffort || 0), 0);
+  const avgProgress = membersList.length > 0
+    ? Math.round(membersList.reduce((sum, m) => sum + (m.progress || 0), 0) / membersList.length)
+    : 0;
+
+  // Calculate actual dates from members (MIN start, MAX end)
+  const calculatedActualStartDate = membersList.length > 0
+    ? membersList
+        .map((m) => m.actualStartDate)
+        .filter((d) => d && d.trim() !== '')
+        .sort()[0] || ''
+    : '';
+  const calculatedActualEndDate = membersList.length > 0
+    ? membersList
+        .map((m) => m.actualEndDate)
+        .filter((d) => d && d.trim() !== '')
+        .sort()
+        .reverse()[0] || ''
+    : '';
+
+  // Update SSF mutation
+  const updateSSFMutation = useMutation({
     mutationFn: () =>
       taskWorkflowApi.updateStepScreenFunction(data.id, {
-        assigneeId: formData.assigneeId ?? undefined,
-        estimatedEffort: formData.estimatedEffort,
-        actualEffort: formData.actualEffort,
-        progress: formData.progress,
         status: formData.status as StepScreenFunctionStatus,
         note: formData.note || undefined,
         estimatedStartDate: formData.estimatedStartDate || undefined,
         estimatedEndDate: formData.estimatedEndDate || undefined,
-        actualStartDate: formData.actualStartDate || undefined,
-        actualEndDate: formData.actualEndDate || undefined,
+        // Actual dates are calculated from members
+        actualStartDate: calculatedActualStartDate || undefined,
+        actualEndDate: calculatedActualEndDate || undefined,
       }),
-    onSuccess: () => {
-      onClose(true);
-    },
+  });
+
+  // Create member mutation
+  const createMemberMutation = useMutation({
+    mutationFn: (memberData: MemberFormData) =>
+      taskWorkflowApi.createStepScreenFunctionMember({
+        stepScreenFunctionId: data.id,
+        memberId: memberData.memberId,
+        estimatedEffort: memberData.estimatedEffort,
+        actualEffort: memberData.actualEffort,
+        progress: memberData.progress,
+        estimatedStartDate: memberData.estimatedStartDate || undefined,
+        estimatedEndDate: memberData.estimatedEndDate || undefined,
+        actualStartDate: memberData.actualStartDate || undefined,
+        actualEndDate: memberData.actualEndDate || undefined,
+        note: memberData.note || undefined,
+      }),
+  });
+
+  // Update member mutation
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ id, ...memberData }: MemberFormData & { id: number }) =>
+      taskWorkflowApi.updateStepScreenFunctionMember(id, {
+        memberId: memberData.memberId,
+        estimatedEffort: memberData.estimatedEffort,
+        actualEffort: memberData.actualEffort,
+        progress: memberData.progress,
+        estimatedStartDate: memberData.estimatedStartDate || undefined,
+        estimatedEndDate: memberData.estimatedEndDate || undefined,
+        actualStartDate: memberData.actualStartDate || undefined,
+        actualEndDate: memberData.actualEndDate || undefined,
+        note: memberData.note || undefined,
+      }),
+  });
+
+  // Delete member mutation
+  const deleteMemberMutation = useMutation({
+    mutationFn: (id: number) => taskWorkflowApi.deleteStepScreenFunctionMember(id),
   });
 
   // Handle form field change
-  const handleChange = (field: keyof typeof formData, value: string | number | null) => {
+  const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -81,10 +302,127 @@ export function StepScreenFunctionEditModal({
     handleChange(field, e.target.value);
   };
 
+  // Add new member
+  const handleAddMember = async () => {
+    if (newMember.memberId === 0) return;
+
+    try {
+      const response = await createMemberMutation.mutateAsync(newMember);
+      const createdMember = response.data;
+      // Add new member to local state
+      setMembersList((prev) => [
+        ...prev,
+        {
+          id: createdMember.id,
+          memberId: createdMember.memberId,
+          estimatedEffort: createdMember.estimatedEffort || 0,
+          actualEffort: createdMember.actualEffort || 0,
+          progress: createdMember.progress || 0,
+          estimatedStartDate: createdMember.estimatedStartDate || '',
+          estimatedEndDate: createdMember.estimatedEndDate || '',
+          actualStartDate: createdMember.actualStartDate || '',
+          actualEndDate: createdMember.actualEndDate || '',
+          note: createdMember.note || '',
+          isEditing: false,
+        },
+      ]);
+      // Reset form
+      setNewMember({
+        memberId: 0,
+        estimatedEffort: 0,
+        actualEffort: 0,
+        progress: 0,
+        estimatedStartDate: '',
+        estimatedEndDate: '',
+        actualStartDate: '',
+        actualEndDate: '',
+        note: '',
+        isNew: true,
+      });
+      setShowAddMember(false);
+      // Refresh data in background (don't close modal)
+      queryClient.invalidateQueries({ queryKey: ['stageDetail'] });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  // Update existing member
+  const handleUpdateMember = async (memberData: MemberFormData) => {
+    if (!memberData.id) return;
+
+    try {
+      await updateMemberMutation.mutateAsync({ id: memberData.id, ...memberData });
+
+      // Save metrics if any
+      const metrics = memberMetrics[memberData.id];
+      if (metrics && Object.keys(metrics).length > 0) {
+        await saveMetricsMutation.mutateAsync({ memberId: memberData.id, metrics });
+      }
+
+      // Update local state
+      setMembersList((prev) =>
+        prev.map((m) => (m.id === memberData.id ? { ...memberData, isEditing: false } : m))
+      );
+      queryClient.invalidateQueries({ queryKey: ['stageDetail'] });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  // Delete member
+  const handleDeleteMember = async (id: number) => {
+    if (!confirm(t('stages.confirmDeleteMember'))) return;
+
+    try {
+      await deleteMemberMutation.mutateAsync(id);
+      setMembersList((prev) => prev.filter((m) => m.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['stageDetail'] });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  // Toggle edit mode for a member
+  const toggleEditMember = (id: number) => {
+    const member = membersList.find((m) => m.id === id);
+    if (member && !member.isEditing) {
+      // Fetch metrics when expanding
+      fetchMemberMetrics(id);
+    }
+    setMembersList((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, isEditing: !m.isEditing } : m))
+    );
+  };
+
+  // Update member field locally
+  const updateMemberField = (id: number, field: keyof MemberFormData, value: string | number) => {
+    setMembersList((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+    );
+  };
+
   // Handle submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateMutation.mutate();
+    try {
+      await updateSSFMutation.mutateAsync();
+      onClose(true);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  // Get member name by ID
+  const getMemberName = (memberId: number) => {
+    const member = members.find((m) => m.id === memberId);
+    return member ? `${member.name} (${member.role})` : t('common.unknown');
+  };
+
+  // Get available members (not yet assigned)
+  const getAvailableMembers = () => {
+    const assignedIds = membersList.map((m) => m.memberId);
+    return members.filter((m) => !assignedIds.includes(m.id));
   };
 
   // Status options
@@ -100,7 +438,7 @@ export function StepScreenFunctionEditModal({
       isOpen
       onClose={() => onClose()}
       title={t('stages.editScreenFunction')}
-      size="lg"
+      size="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Screen/Function Info (readonly) */}
@@ -118,74 +456,434 @@ export function StepScreenFunctionEditModal({
           </span>
         </div>
 
-        {/* Assignee and Status */}
+        {/* Status */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('screenFunction.assignee')}
-            </label>
-            <select
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
-              value={formData.assigneeId ?? ''}
-              onChange={(e) => handleChange('assigneeId', e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">{t('stages.unassigned')}</option>
-              {members?.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name} ({member.role})
-                </option>
-              ))}
-            </select>
-          </div>
           <Select
             label={t('screenFunction.status')}
             value={formData.status}
             onChange={(e) => handleChange('status', e.target.value)}
             options={statusOptions}
           />
-        </div>
-
-        {/* Progress and Effort */}
-        <div className="grid grid-cols-3 gap-4">
           <div>
+            {/* Summary info */}
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('screenFunction.progress')} (%)
+              {t('stages.summary')}
             </label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={formData.progress}
-              onChange={(e) => handleChange('progress', Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('screenFunction.estimatedEffort')} (h)
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step="any"
-              value={formData.estimatedEffort}
-              onChange={(e) => handleChange('estimatedEffort', Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('screenFunction.actualEffort')} (h)
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step="any"
-              value={formData.actualEffort}
-              onChange={(e) => handleChange('actualEffort', Number(e.target.value))}
-            />
+            <div className="text-sm text-gray-600 bg-gray-50 rounded-md px-3 py-2">
+              <div>{t('screenFunction.estimatedEffort')}: <span className="font-medium">{totalEstimatedEffort}h</span></div>
+              <div>{t('screenFunction.actualEffort')}: <span className="font-medium">{totalActualEffort}h</span></div>
+              <div>{t('screenFunction.progress')}: <span className="font-medium">{avgProgress}%</span></div>
+            </div>
           </div>
         </div>
 
-        {/* Estimated Dates */}
+        {/* Members Section */}
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-sm font-medium text-gray-900">{t('stages.assignedMembers')}</h4>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAddMember(true)}
+              disabled={getAvailableMembers().length === 0}
+            >
+              + {t('stages.addMember')}
+            </Button>
+          </div>
+
+          {/* Members Table */}
+          {membersList.length > 0 ? (
+            <div className="space-y-2">
+              {membersList.map((member) => (
+                <div key={member.id} className={`border rounded-lg ${member.isEditing ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+                  {/* Member Header Row */}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-900">{getMemberName(member.memberId)}</span>
+                      <div className="text-xs text-gray-500 mt-1 flex gap-4">
+                        <span>{t('screenFunction.estimatedEffort')}: {member.estimatedEffort}h</span>
+                        <span>{t('screenFunction.actualEffort')}: {member.actualEffort}h</span>
+                        <span>{t('screenFunction.progress')}: {member.progress}%</span>
+                        {member.estimatedStartDate && (
+                          <span>{t('stages.dates')}: {member.estimatedStartDate} → {member.estimatedEndDate || '?'}</span>
+                        )}
+                        {member.note && (
+                          <span className="truncate max-w-[150px]" title={member.note}>📝 {member.note}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {!member.isEditing ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => toggleEditMember(member.id!)}
+                          >
+                            {t('common.edit')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeleteMember(member.id!)}
+                            disabled={deleteMemberMutation.isPending}
+                          >
+                            {t('common.delete')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleUpdateMember(member)}
+                            disabled={updateMemberMutation.isPending}
+                          >
+                            {t('common.save')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => toggleEditMember(member.id!)}
+                          >
+                            {t('common.cancel')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded Edit Form */}
+                  {member.isEditing && (
+                    <div className="border-t border-blue-200">
+                      {/* Tabs */}
+                      <div className="flex border-b border-blue-200 bg-blue-50/50">
+                        <button
+                          type="button"
+                          onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'details' }))}
+                          className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            getMemberTab(member.id!) === 'details'
+                              ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          {t('metrics.detailsTab')}
+                        </button>
+                        {hasMemberMetrics(member.id!) && (
+                          <button
+                            type="button"
+                            onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'metrics' }))}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              getMemberTab(member.id!) === 'metrics'
+                                ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            {t('metrics.metricsTab')} ({getEnabledMetricTypes(member.id!).length})
+                          </button>
+                        )}
+                        {/* Add Metric Type Dropdown */}
+                        {metricTypes.length > 0 && getAvailableMetricTypes(member.id!).length > 0 && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowAddMetricDropdown((prev) => ({ ...prev, [member.id!]: !prev[member.id!] }))}
+                              className="px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors flex items-center gap-1"
+                            >
+                              <span>+</span> {t('metrics.addMetricType')}
+                            </button>
+                            {showAddMetricDropdown[member.id!] && (
+                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+                                {getAvailableMetricTypes(member.id!).map((type) => (
+                                  <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => addMetricTypeForMember(member.id!, type.id)}
+                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <span className="text-green-500">+</span>
+                                    {type.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tab Content */}
+                      <div className="px-4 pb-4 pt-3">
+                        {/* Details Tab */}
+                        {getMemberTab(member.id!) === 'details' && (
+                          <div className="space-y-3">
+                            {/* Effort and Progress Row */}
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={member.estimatedEffort}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedEffort', Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={member.actualEffort}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualEffort', Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={member.progress}
+                                  onChange={(e) => updateMemberField(member.id!, 'progress', Number(e.target.value))}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Estimated Dates Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <DateInput
+                                  label={t('stages.startDate')}
+                                  name={`estimatedStartDate-${member.id}`}
+                                  value={member.estimatedStartDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
+                                />
+                                <DateInput
+                                  label={t('stages.endDate')}
+                                  name={`estimatedEndDate-${member.id}`}
+                                  value={member.estimatedEndDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Actual Dates Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <DateInput
+                                  label={t('stages.startDate')}
+                                  name={`actualStartDate-${member.id}`}
+                                  value={member.actualStartDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
+                                />
+                                <DateInput
+                                  label={t('stages.endDate')}
+                                  name={`actualEndDate-${member.id}`}
+                                  value={member.actualEndDate}
+                                  onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Note Row */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
+                              <TextArea
+                                value={member.note}
+                                onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
+                                rows={2}
+                                placeholder={t('stages.memberNotePlaceholder')}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Metrics Tab */}
+                        {getMemberTab(member.id!) === 'metrics' && hasMemberMetrics(member.id!) && (
+                          <div className="space-y-3">
+                            {getEnabledMetricTypes(member.id!).map((metricType) => (
+                              <div key={metricType.id} className="bg-gray-50 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-sm font-medium text-gray-700">{metricType.name}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeMetricTypeForMember(member.id!, metricType.id)}
+                                    className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                                  >
+                                    {t('common.delete')}
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  {metricType.categories?.map((category) => (
+                                    <div key={category.id}>
+                                      <label className="block text-xs text-gray-500 mb-1">{category.name}</label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={memberMetrics[member.id!]?.[category.id] || 0}
+                                        onChange={(e) => updateMetricValue(member.id!, category.id, Number(e.target.value))}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {getEnabledMetricTypes(member.id!).length === 0 && (
+                              <div className="text-center py-4 text-gray-500">
+                                {t('metrics.noMetricsSelected')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-md">
+              {t('stages.noMembersAssigned')}
+            </div>
+          )}
+
+          {/* Add Member Form */}
+          {showAddMember && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
+              <h5 className="text-sm font-medium text-blue-800 mb-3">{t('stages.addNewMember')}</h5>
+
+              {/* Member Selection */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('member.name')}</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  value={newMember.memberId}
+                  onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
+                >
+                  <option value={0}>{t('stages.selectMember')}</option>
+                  {getAvailableMembers().map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} ({member.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Effort and Progress */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={newMember.estimatedEffort}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEffort: Number(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={newMember.actualEffort}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualEffort: Number(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={newMember.progress}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, progress: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+
+              {/* Estimated Dates */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <DateInput
+                    label={t('stages.startDate')}
+                    name="newMemberEstimatedStartDate"
+                    value={newMember.estimatedStartDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedStartDate: e.target.value }))}
+                  />
+                  <DateInput
+                    label={t('stages.endDate')}
+                    name="newMemberEstimatedEndDate"
+                    value={newMember.estimatedEndDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEndDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Actual Dates */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <DateInput
+                    label={t('stages.startDate')}
+                    name="newMemberActualStartDate"
+                    value={newMember.actualStartDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualStartDate: e.target.value }))}
+                  />
+                  <DateInput
+                    label={t('stages.endDate')}
+                    name="newMemberActualEndDate"
+                    value={newMember.actualEndDate}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualEndDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
+                <TextArea
+                  value={newMember.note}
+                  onChange={(e) => setNewMember((prev) => ({ ...prev, note: e.target.value }))}
+                  rows={2}
+                  placeholder={t('stages.memberNotePlaceholder')}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowAddMember(false)}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleAddMember}
+                  disabled={newMember.memberId === 0 || createMemberMutation.isPending}
+                >
+                  {createMemberMutation.isPending ? t('common.saving') : t('common.add')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SSF-level Dates */}
         <div className="border-t pt-4">
           <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.estimatedSchedule')}</h4>
           <div className="grid grid-cols-2 gap-4">
@@ -204,23 +902,29 @@ export function StepScreenFunctionEditModal({
           </div>
         </div>
 
-        {/* Actual Dates */}
         <div className="border-t pt-4">
           <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.actualSchedule')}</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <DateInput
-              label={t('stages.actualStartDate')}
-              name="actualStartDate"
-              value={formData.actualStartDate}
-              onChange={handleDateChange('actualStartDate')}
-            />
-            <DateInput
-              label={t('stages.actualEndDate')}
-              name="actualEndDate"
-              value={formData.actualEndDate}
-              onChange={handleDateChange('actualEndDate')}
-            />
-          </div>
+          {membersList.length > 0 ? (
+            <>
+              <p className="text-xs text-gray-500 mb-2">{t('stages.actualDatesAutoCalculated')}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualStartDate')}</label>
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                    {calculatedActualStartDate || '-'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualEndDate')}</label>
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+                    {calculatedActualEndDate || '-'}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-md px-3 py-2">{t('stages.actualDatesNoMembers')}</p>
+          )}
         </div>
 
         {/* Note */}
@@ -247,16 +951,16 @@ export function StepScreenFunctionEditModal({
           </Button>
           <Button
             type="submit"
-            disabled={updateMutation.isPending}
+            disabled={updateSSFMutation.isPending}
           >
-            {updateMutation.isPending ? t('common.saving') : t('common.save')}
+            {updateSSFMutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </div>
 
         {/* Error display */}
-        {updateMutation.isError && (
+        {(updateSSFMutation.isError || createMemberMutation.isError || updateMemberMutation.isError || deleteMemberMutation.isError) && (
           <div className="text-red-600 text-sm mt-2">
-            {t('common.error')}: {(updateMutation.error as Error).message}
+            {t('common.error')}: {(updateSSFMutation.error as Error)?.message || (createMemberMutation.error as Error)?.message || (updateMemberMutation.error as Error)?.message || (deleteMemberMutation.error as Error)?.message}
           </div>
         )}
       </form>

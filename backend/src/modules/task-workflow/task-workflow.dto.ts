@@ -288,11 +288,6 @@ export class CreateStepScreenFunctionDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  assigneeId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
   estimatedEffort?: number;
 
   @IsOptional()
@@ -315,11 +310,6 @@ export class CreateStepScreenFunctionDto {
 }
 
 export class UpdateStepScreenFunctionDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  assigneeId?: number;
-
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -423,4 +413,310 @@ export class StepScreenFunctionUpdateItemDto {
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+// ===== Step Screen Function Member DTOs =====
+
+export class CreateStepScreenFunctionMemberDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  memberId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateStepScreenFunctionMemberDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  memberId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkCreateStepScreenFunctionMemberDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StepScreenFunctionMemberItemDto)
+  items: StepScreenFunctionMemberItemDto[];
+}
+
+export class StepScreenFunctionMemberItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  memberId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  actualEffort?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  progress?: number;
+
+  @IsOptional()
+  @IsString()
+  estimatedStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  actualEndDate?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+// ===== Metric Type DTOs =====
+
+export class CreateMetricTypeDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  projectId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateMetricTypeDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+// ===== Metric Category DTOs =====
+
+export class CreateMetricCategoryDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricTypeId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateMetricCategoryDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+// ===== Task Member Metric DTOs =====
+
+export class CreateTaskMemberMetricDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionMemberId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricCategoryId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class UpdateTaskMemberMetricDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class BulkUpsertTaskMemberMetricDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepScreenFunctionMemberId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TaskMemberMetricItemDto)
+  metrics: TaskMemberMetricItemDto[];
+}
+
+export class TaskMemberMetricItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  metricCategoryId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  value?: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+// ===== Initialize Project Metrics =====
+
+export class InitializeProjectMetricsDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  projectId: number;
 }

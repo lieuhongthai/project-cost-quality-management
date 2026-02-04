@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
-import { EVALUATION_THRESHOLDS, getWorstStatus } from '../../config/evaluation-thresholds';
-import { PhaseService } from '../phase/phase.service';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
 
 @Injectable()
 export class ProjectService {
@@ -12,8 +11,6 @@ export class ProjectService {
     private projectRepository: typeof Project,
     @Inject('PROJECT_SETTINGS_REPOSITORY')
     private projectSettingsRepository: typeof ProjectSettings,
-    @Inject(forwardRef(() => PhaseService))
-    private phaseService: PhaseService,
   ) {}
 
   async findAll(): Promise<Project[]> {
@@ -38,23 +35,9 @@ export class ProjectService {
     return project;
   }
 
-  // Default phases to create for new projects
-  private readonly DEFAULT_PHASES = [
-    { name: 'Requirement', displayOrder: 1 },
-    { name: 'Functional Design', displayOrder: 2 },
-    { name: 'Coding', displayOrder: 3 },
-    { name: 'Unit Test', displayOrder: 4 },
-    { name: 'Integration Test', displayOrder: 5 },
-    { name: 'System Test', displayOrder: 6 },
-    { name: 'User Test', displayOrder: 7 },
-  ];
-
   async create(createProjectDto: CreateProjectDto): Promise<Project> {
     // Create the project
     const project = await this.projectRepository.create(createProjectDto as any);
-
-    // Create default phases for the new project
-    await this.createDefaultPhases(project.id);
 
     // Create default settings
     await this.projectSettingsRepository.create({
@@ -68,20 +51,6 @@ export class ProjectService {
     } as any);
 
     return project;
-  }
-
-  /**
-   * Create default phases for a new project
-   */
-  async createDefaultPhases(projectId: number): Promise<void> {
-    for (const phase of this.DEFAULT_PHASES) {
-      await this.phaseService.create({
-        projectId,
-        name: phase.name,
-        startDate: new Date(),
-        estimatedEffort: 0,
-      });
-    }
   }
 
   async update(id: number, updateProjectDto: UpdateProjectDto): Promise<Project> {
@@ -230,25 +199,21 @@ export class ProjectService {
     schedulePerformanceIndex: number;  // SPI (kept for compatibility)
     costPerformanceIndex: number;      // CPI - this is the key metric (efficiency)
     delayRate: number;                 // % (kept for compatibility)
-    passRate: number;                  // %
   }): 'Good' | 'Warning' | 'At Risk' {
-    const { costPerformanceIndex: cpi, passRate } = metrics;
+    const { costPerformanceIndex: cpi } = metrics;
 
     // CPI = Earned Value / Actual Cost = (Estimated × Progress) / Actual
     // CPI >= 1.0 means on or under budget (Good)
     // CPI 0.83-1.0 means slightly over budget (Warning) - equivalent to 100-120% actual
     // CPI < 0.83 means significantly over budget (At Risk) - equivalent to >120% actual
 
-    // Also consider pass rate for quality issues
-    const hasQualityIssue = passRate > 0 && passRate < 80;
-
     // At Risk: CPI < 0.83 (>20% over budget) OR serious quality issues
-    if (cpi < 0.83 || hasQualityIssue) {
+    if (cpi < 0.83) {
       return 'At Risk';
     }
 
     // Warning: CPI 0.83-1.0 (slightly over budget) OR minor quality concerns
-    if (cpi < 1.0 || (passRate > 0 && passRate < 95)) {
+    if (cpi < 1.0) {
       return 'Warning';
     }
 
@@ -265,7 +230,6 @@ export class ProjectService {
       schedulePerformanceIndex: number;
       costPerformanceIndex: number;
       delayRate: number;
-      passRate: number;
     },
   ): Promise<void> {
     const newStatus = this.evaluateProjectStatus(metrics);
@@ -276,24 +240,37 @@ export class ProjectService {
   }
 
   /**
-   * Update project actualEffort and progress based on phase data
-   * Called automatically when phase metrics are updated
+   * Update project actualEffort and progress based on stage data
+   * Called automatically when stage metrics are updated
    *
-   * Progress = simple average of all phase progress (each phase has equal weight)
+   * Progress = simple average of all stage progress (each stage has equal weight)
    */
-  async updateProjectMetricsFromPhases(projectId: number): Promise<void> {
-    const phases = await this.phaseService.findByProject(projectId);
+  async updateProjectMetricsFromStages(projectId: number): Promise<void> {
+    const stages = await WorkflowStage.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
 
-    if (phases.length === 0) {
+    if (stages.length === 0) {
       return;
     }
 
-    // Calculate total actual effort (sum of all phases)
-    const totalActual = phases.reduce((sum, phase) => sum + (phase.actualEffort || 0), 0);
+    // Calculate total actual effort from stages (stored in man-hours)
+    const totalActualHours = stages.reduce((sum, stage) => sum + (stage.actualEffort || 0), 0);
 
-    // Calculate simple average progress (each phase has equal weight)
-    // Example: 5 phases with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
-    const avgProgress = phases.reduce((sum, phase) => sum + (phase.progress || 0), 0) / phases.length;
+    const settings = await this.projectSettingsRepository.findOne({
+      where: { projectId },
+    });
+    const hoursPerDay = settings?.workingHoursPerDay || 8;
+    const daysPerMonth = settings?.workingDaysPerMonth || 20;
+    const hoursPerMonth = hoursPerDay * daysPerMonth;
+
+    // Project actualEffort is stored in man-months
+    const totalActual = hoursPerMonth > 0 ? totalActualHours / hoursPerMonth : 0;
+
+    // Calculate simple average progress (each stage has equal weight)
+    // Example: 5 stages with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
+    const avgProgress = stages.reduce((sum, stage) => sum + (stage.progress || 0), 0) / stages.length;
 
     await this.projectRepository.update(
       {

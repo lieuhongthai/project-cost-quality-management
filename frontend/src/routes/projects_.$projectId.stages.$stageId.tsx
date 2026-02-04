@@ -74,7 +74,6 @@ function StageDetail() {
   const [editingSSF, setEditingSSF] = useState<any | null>(null);
   const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [quickEditDraft, setQuickEditDraft] = useState<{
-    assigneeId: number | null;
     status: StepScreenFunctionStatus;
     progress: number;
     estimatedEffort: number;
@@ -83,6 +82,7 @@ function StageDetail() {
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
 
   // Fetch stage detail
   const { data: stageDetail, isLoading } = useQuery({
@@ -116,6 +116,14 @@ function StageDetail() {
     },
   });
 
+  const { data: projectMetricInsights } = useQuery({
+    queryKey: ['projectMetricInsights', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricInsights(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   // Fetch available screen functions for linking
   const { data: availableScreenFunctions } = useQuery({
     queryKey: ['availableScreenFunctions', activeStepId],
@@ -131,6 +139,31 @@ function StageDetail() {
   const invalidateStageQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['stageDetail', parseInt(stageId)] });
     queryClient.invalidateQueries({ queryKey: ['stagesOverview', parseInt(projectId)] });
+  };
+
+  // Helper to sort screen functions by name
+  const sortScreenFunctions = (screenFunctions: any[]) => {
+    if (!sortOrder) return screenFunctions;
+    return [...screenFunctions].sort((a, b) => {
+      const nameA = (a.screenFunction?.name || '').toLowerCase();
+      const nameB = (b.screenFunction?.name || '').toLowerCase();
+      if (sortOrder === 'asc') {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+  };
+
+  // Toggle sort order
+  const toggleSort = () => {
+    if (sortOrder === null) {
+      setSortOrder('asc');
+    } else if (sortOrder === 'asc') {
+      setSortOrder('desc');
+    } else {
+      setSortOrder(null);
+    }
   };
 
   // Link screen functions mutation
@@ -196,7 +229,6 @@ function StageDetail() {
   const startQuickEdit = (ssf: any) => {
     setQuickEditId(ssf.id);
     setQuickEditDraft({
-      assigneeId: ssf.assignee?.id ?? null,
       status: ssf.status || 'Not Started',
       progress: ssf.progress || 0,
       estimatedEffort: ssf.estimatedEffort || 0,
@@ -214,11 +246,8 @@ function StageDetail() {
     updateMutation.mutate({
       id: ssfId,
       payload: {
-        assigneeId: quickEditDraft.assigneeId ?? undefined,
         status: quickEditDraft.status,
         progress: quickEditDraft.progress,
-        estimatedEffort: quickEditDraft.estimatedEffort,
-        actualEffort: quickEditDraft.actualEffort,
       },
     });
   };
@@ -309,6 +338,17 @@ function StageDetail() {
       </div>
     );
   }
+
+  const stageTestInsights = projectMetricInsights?.stages.find(
+    (item) => item.stageId === parseInt(stageId),
+  );
+
+  const formatPercentValue = (value?: number, digits = 1) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return t('common.notAvailable');
+    }
+    return `${value.toFixed(digits)}%`;
+  };
 
   const { stage, steps, progress, effort, status } = stageDetail;
   const activeStep = steps.find(s => s.id === activeStepId);
@@ -461,6 +501,50 @@ function StageDetail() {
             </div>
           </Card>
         </div>
+
+        <div className="mt-6">
+          <Card title={t('metrics.testMetricsStage')}>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.bugRate')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? formatPercentValue(stageTestInsights.bugRate * 100, 1)
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.testCasesPerMinute')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.testCasesPerMinute.toFixed(2)
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.totalTestCases')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.totalTestCases.toLocaleString()
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">{t('metrics.bugCount')}</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {stageTestInsights
+                    ? stageTestInsights.bugCount.toLocaleString()
+                    : t('common.notAvailable')}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {stageTestInsights
+                    ? t('metrics.actualMinutes', { value: stageTestInsights.actualMinutes.toFixed(0) })
+                    : t('common.notAvailable')}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Steps Tabs */}
@@ -538,10 +622,19 @@ function StageDetail() {
                     <thead>
                       <tr>
                         <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                          {t('screenFunction.name')}
+                          <button
+                            type="button"
+                            onClick={toggleSort}
+                            className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                          >
+                            {t('screenFunction.name')}
+                            <span className="text-xs">
+                              {sortOrder === 'asc' ? '↑' : sortOrder === 'desc' ? '↓' : '↕'}
+                            </span>
+                          </button>
                         </th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                          {t('screenFunction.assignee')}
+                          {t('stages.assignedMembers')}
                         </th>
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           {t('screenFunction.status')}
@@ -561,7 +654,7 @@ function StageDetail() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {activeStep.screenFunctions.map((ssf: any) => {
+                      {sortScreenFunctions(activeStep.screenFunctions).map((ssf: any) => {
                         const isQuickEditing = quickEditId === ssf.id;
                         const draft = isQuickEditing ? quickEditDraft : null;
                         const statusValue = draft ? draft.status : (ssf.status || 'Not Started');
@@ -593,28 +686,23 @@ function StageDetail() {
                               </div>
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              {isQuickEditing ? (
-                                <select
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                  value={draft?.assigneeId ?? ''}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    assigneeId: e.target.value ? Number(e.target.value) : null,
-                                  }) : prev)}
-                                >
-                                  <option value="">{t('stages.unassigned')}</option>
-                                  {members?.map((member) => (
-                                    <option key={member.id} value={member.id}>
-                                      {member.name}
-                                    </option>
+                              {ssf.members && ssf.members.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {ssf.members.slice(0, 2).map((m: any) => (
+                                    <span key={m.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
+                                      {m.member?.name || t('common.unknown')}
+                                    </span>
                                   ))}
-                                </select>
+                                  {ssf.members.length > 2 && (
+                                    <Tooltip content={ssf.members.slice(2).map((m: any) => m.member?.name).join(', ')}>
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 cursor-help">
+                                        +{ssf.members.length - 2}
+                                      </span>
+                                    </Tooltip>
+                                  )}
+                                </div>
                               ) : (
-                                ssf.assignee ? (
-                                  <span className="text-gray-900">{ssf.assignee.name}</span>
-                                ) : (
-                                  <span className="text-gray-400">{t('stages.unassigned')}</span>
-                                )
+                                <span className="text-gray-400">{t('stages.noMembersAssigned')}</span>
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -663,38 +751,10 @@ function StageDetail() {
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {isQuickEditing ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
-                                  value={estimatedValue}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    estimatedEffort: Number(e.target.value),
-                                  }) : prev)}
-                                  className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                />
-                              ) : (
-                                <>{estimatedValue}h</>
-                              )}
+                              {estimatedValue}h
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {isQuickEditing ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step="any"
-                                  value={actualValue}
-                                  onChange={(e) => setQuickEditDraft((prev) => prev ? ({
-                                    ...prev,
-                                    actualEffort: Number(e.target.value),
-                                  }) : prev)}
-                                  className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm"
-                                />
-                              ) : (
-                                <>{actualValue}h</>
-                              )}
+                              {actualValue}h
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex items-center justify-center gap-1">
@@ -880,6 +940,7 @@ function StageDetail() {
         <StepScreenFunctionEditModal
           data={editingSSF}
           members={members}
+          projectId={parseInt(projectId)}
           onClose={(saved) => {
             setEditingSSF(null);
             if (saved) {
