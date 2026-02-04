@@ -125,19 +125,7 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
     };
   }, [stages]);
 
-  if (!timelineData) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
-        {t('stages.timeline.empty')}
-      </div>
-    );
-  }
-
-  const totalDays = getDurationDays(timelineData.minDate, timelineData.maxDate);
-  const todayOffset = differenceInCalendarDays(timelineData.today, timelineData.minDate);
   const dayWidth = view === 'day' ? 24 : view === 'week' ? 8 : 3;
-  const totalWidth = Math.max(600, totalDays * dayWidth);
-  const todayLeftPx = todayOffset * dayWidth;
 
   const tickSpans = useMemo(() => {
     if (!timelineData) return [];
@@ -177,6 +165,19 @@ export const StageTimelineGantt = ({ stages }: StageTimelineGanttProps) => {
       };
     });
   }, [dayWidth, timelineData, view]);
+
+  if (!timelineData) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-10 text-sm text-gray-500">
+        {t('stages.timeline.empty')}
+      </div>
+    );
+  }
+
+  const totalDays = getDurationDays(timelineData.minDate, timelineData.maxDate);
+  const todayOffset = differenceInCalendarDays(timelineData.today, timelineData.minDate);
+  const totalWidth = Math.max(600, totalDays * dayWidth);
+  const todayLeftPx = todayOffset * dayWidth;
 
   return (
     <div className="space-y-4">
