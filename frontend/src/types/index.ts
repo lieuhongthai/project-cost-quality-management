@@ -69,35 +69,6 @@ export const DAYS_OF_WEEK = [
 
 export const DEFAULT_NON_WORKING_DAYS = [0, 6]; // Sunday and Saturday
 
-export interface Effort {
-  id: number;
-  stageId: number;
-  weekNumber: number;
-  year: number;
-  weekStartDate: string;
-  weekEndDate: string;
-  plannedEffort: number;
-  actualEffort: number;
-  progress: number;
-}
-
-export interface Testing {
-  id: number;
-  stageId: number;
-  weekNumber: number;
-  year: number;
-  weekStartDate: string;
-  weekEndDate: string;
-  totalTestCases: number;
-  passedTestCases: number;
-  failedTestCases: number;
-  testingTime: number;
-  defectsDetected: number;
-  defectRate: number;
-  passRate: number;
-  status: 'Good' | 'Acceptable' | 'Poor';
-}
-
 export interface Report {
   id: number;
   projectId: number;
@@ -146,26 +117,6 @@ export interface Metrics {
   timePerTestCase: number;
   testCasesPerHour: number;
   defectDensity?: number;
-}
-
-export interface EffortSummary {
-  totalPlanned: number;
-  totalActual: number;
-  avgProgress: number;
-  variance: number;
-  variancePercentage: number;
-}
-
-export interface TestingSummary {
-  totalTestCases: number;
-  totalPassed: number;
-  totalFailed: number;
-  totalDefects: number;
-  totalTestingTime: number;
-  overallPassRate: number;
-  overallDefectRate: number;
-  avgTimePerTestCase: number;
-  testCasesPerHour: number;
 }
 
 // Screen/Function types

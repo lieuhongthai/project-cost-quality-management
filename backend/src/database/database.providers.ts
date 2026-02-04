@@ -1,7 +1,5 @@
 import { Sequelize } from "sequelize-typescript";
 import { Project } from "../modules/project/project.model";
-import { Effort } from "../modules/effort/effort.model";
-import { Testing } from "../modules/testing/testing.model";
 import { Report } from "../modules/report/report.model";
 import { Commentary } from "../modules/commentary/commentary.model";
 import { ProjectSettings } from "../modules/project/project-settings.model";
@@ -52,8 +50,6 @@ export const databaseProviders = [
 
       sequelize.addModels([
         Project,
-        Effort,
-        Testing,
         Report,
         Commentary,
         ProjectSettings,

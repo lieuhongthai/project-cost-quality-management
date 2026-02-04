@@ -1,6 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Metrics } from './metrics.model';
-import { TestingService } from '../testing/testing.service';
 import { ProjectService } from '../project/project.service';
 import { MemberService } from '../member/member.service';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
@@ -30,7 +29,6 @@ export class MetricsService {
   constructor(
     @Inject('METRICS_REPOSITORY')
     private metricsRepository: typeof Metrics,
-    private testingService: TestingService,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
     @Inject(forwardRef(() => MemberService))
@@ -151,8 +149,6 @@ export class MetricsService {
     if (!stage) {
       throw new Error(`Stage with ID ${stageId} not found`);
     }
-    const testingSummary = await this.testingService.getStageTestingSummary(stageId);
-
     // Use stage's actualEffort and progress directly (updated from StepScreenFunction)
     // This ensures consistency between what's displayed in the UI and what's in the report
     const scheduleMetrics = this.calculateScheduleMetrics({
@@ -162,11 +158,11 @@ export class MetricsService {
     });
 
     const testingMetrics = this.calculateTestingMetrics({
-      totalTestCases: testingSummary.totalTestCases,
-      passedTestCases: testingSummary.totalPassed,
-      failedTestCases: testingSummary.totalFailed,
-      defectsDetected: testingSummary.totalDefects,
-      testingTime: testingSummary.totalTestingTime,
+      totalTestCases: 0,
+      passedTestCases: 0,
+      failedTestCases: 0,
+      defectsDetected: 0,
+      testingTime: 0,
     });
 
     return this.metricsRepository.create({
@@ -190,12 +186,11 @@ export class MetricsService {
     let totalTestingTime = 0;
 
     for (const stage of stages) {
-      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
-      totalTestCases += testingSummary.totalTestCases;
-      totalPassed += testingSummary.totalPassed;
-      totalFailed += testingSummary.totalFailed;
-      totalDefects += testingSummary.totalDefects;
-      totalTestingTime += testingSummary.totalTestingTime;
+      totalTestCases += 0;
+      totalPassed += 0;
+      totalFailed += 0;
+      totalDefects += 0;
+      totalTestingTime += 0;
     }
 
     // Use project's data directly (updated from stages)
@@ -258,12 +253,11 @@ export class MetricsService {
     let totalTestingTime = 0;
 
     for (const stage of stages) {
-      const testingSummary = await this.testingService.getStageTestingSummary(stage.id);
-      totalTestCases += testingSummary.totalTestCases;
-      totalPassed += testingSummary.totalPassed;
-      totalFailed += testingSummary.totalFailed;
-      totalDefects += testingSummary.totalDefects;
-      totalTestingTime += testingSummary.totalTestingTime;
+      totalTestCases += 0;
+      totalPassed += 0;
+      totalFailed += 0;
+      totalDefects += 0;
+      totalTestingTime += 0;
     }
 
     // Calculate schedule metrics

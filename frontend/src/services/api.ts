@@ -2,13 +2,9 @@ import axios from 'axios';
 import type {
   Project,
   ProjectSettings,
-  Effort,
-  Testing,
   Report,
   Commentary,
   Metrics,
-  EffortSummary,
-  TestingSummary,
   ScreenFunction,
   ScreenFunctionSummary,
   Member,
@@ -77,34 +73,6 @@ export const projectApi = {
     nonWorkingDays?: number[];
     holidays?: string[];
   }) => api.post<{ endDate: string; workingDays: number; totalDays: number }>('/projects/calculate-end-date', data),
-};
-
-// Effort APIs
-export const effortApi = {
-  getAll: () => api.get<Effort[]>('/efforts'),
-  getByPhase: (phaseId: number) => api.get<Effort[]>(`/efforts/stage/${phaseId}`),
-  getByStage: (stageId: number) => api.get<Effort[]>(`/efforts/stage/${stageId}`),
-  getByWeek: (stageId: number, year: number, weekNumber: number) => 
-    api.get<Effort>(`/efforts/stage/${stageId}/week?year=${year}&weekNumber=${weekNumber}`),
-  getOne: (id: number) => api.get<Effort>(`/efforts/${id}`),
-  create: (data: Partial<Effort>) => api.post<Effort>('/efforts', data),
-  bulkCreate: (data: { stageId: number; efforts: Partial<Effort>[] }) => 
-    api.post<Effort[]>('/efforts/bulk', data),
-  update: (id: number, data: Partial<Effort>) => api.put<Effort>(`/efforts/${id}`, data),
-  delete: (id: number) => api.delete(`/efforts/${id}`),
-  getSummary: (stageId: number) => api.get<EffortSummary>(`/efforts/stage/${stageId}/summary`),
-};
-
-// Testing APIs
-export const testingApi = {
-  getAll: () => api.get<Testing[]>('/testing'),
-  getByPhase: (phaseId: number) => api.get<Testing[]>(`/testing/stage/${phaseId}`),
-  getByStage: (stageId: number) => api.get<Testing[]>(`/testing/stage/${stageId}`),
-  getOne: (id: number) => api.get<Testing>(`/testing/${id}`),
-  create: (data: Partial<Testing>) => api.post<Testing>('/testing', data),
-  update: (id: number, data: Partial<Testing>) => api.put<Testing>(`/testing/${id}`, data),
-  delete: (id: number) => api.delete(`/testing/${id}`),
-  getSummary: (stageId: number) => api.get<TestingSummary>(`/testing/stage/${stageId}/summary`),
 };
 
 
