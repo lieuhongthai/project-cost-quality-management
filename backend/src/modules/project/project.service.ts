@@ -292,8 +292,18 @@ export class ProjectService {
       return;
     }
 
-    // Calculate total actual effort (sum of all stages)
-    const totalActual = stages.reduce((sum, stage) => sum + (stage.actualEffort || 0), 0);
+    // Calculate total actual effort from stages (stored in man-hours)
+    const totalActualHours = stages.reduce((sum, stage) => sum + (stage.actualEffort || 0), 0);
+
+    const settings = await this.projectSettingsRepository.findOne({
+      where: { projectId },
+    });
+    const hoursPerDay = settings?.workingHoursPerDay || 8;
+    const daysPerMonth = settings?.workingDaysPerMonth || 20;
+    const hoursPerMonth = hoursPerDay * daysPerMonth;
+
+    // Project actualEffort is stored in man-months
+    const totalActual = hoursPerMonth > 0 ? totalActualHours / hoursPerMonth : 0;
 
     // Calculate simple average progress (each stage has equal weight)
     // Example: 5 stages with progress [75, 0, 0, 0, 0] => (75+0+0+0+0)/5 = 15%
