@@ -1435,43 +1435,51 @@ function ProjectDetail() {
                                 </div>
                               </div>
 
-                              <div className="mt-3 space-y-3">
-                                {stage.steps.map((step) => (
-                                  <details key={step.stepId} className="rounded-xl border border-gray-200 bg-white">
-                                    <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-medium text-gray-800">
-                                      <span>{step.stepName}</span>
-                                      <span className="text-xs text-gray-500">
-                                        {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
+                              <div className="mt-3 space-y-4">
+                                {stage.steps.map((step, stepIndex) => (
+                                  <div key={step.stepId} className="relative pl-6">
+                                    <span className="absolute left-2 top-3 h-full w-px bg-gray-200" />
+                                    <div className="relative">
+                                      <span className="absolute -left-6 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-2 ring-primary-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
                                       </span>
-                                    </summary>
-                                    <div className="grid gap-3 border-t border-gray-100 px-3 py-3 sm:grid-cols-2">
+                                      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800">
+                                        <span>{step.stepName}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 space-y-3 pl-4">
                                       {step.screenFunctions.map((screenFunction) => (
-                                        <div
-                                          key={screenFunction.stepScreenFunctionId}
-                                          className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm"
-                                        >
-                                          <div className="flex items-start justify-between gap-3">
+                                        <div key={screenFunction.stepScreenFunctionId} className="relative pl-6">
+                                          <span className="absolute left-2 top-4 h-full w-px bg-gray-200" />
+                                          <span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-gray-300" />
+                                          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
                                             <div className="text-sm font-semibold text-gray-900">
                                               {screenFunction.screenFunctionName}
                                             </div>
-                                          </div>
-                                          <div className="mt-2 flex flex-wrap gap-2">
-                                            {metricType.categories.map((category, categoryIndex) => (
-                                              <span
-                                                key={category.id}
-                                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
-                                                  categoryIndex % metricBadgeStyles.length
-                                                ]}`}
-                                              >
-                                                {category.name}:{' '}
-                                                {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
-                                              </span>
-                                            ))}
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                              {metricType.categories.map((category, categoryIndex) => (
+                                                <span
+                                                  key={category.id}
+                                                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
+                                                    categoryIndex % metricBadgeStyles.length
+                                                  ]}`}
+                                                >
+                                                  {category.name}:{' '}
+                                                  {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
+                                                </span>
+                                              ))}
+                                            </div>
                                           </div>
                                         </div>
                                       ))}
                                     </div>
-                                  </details>
+                                    {stepIndex === stage.steps.length - 1 && (
+                                      <span className="absolute left-2 top-3 h-[calc(100%-0.75rem)] w-px bg-transparent" />
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             </div>
