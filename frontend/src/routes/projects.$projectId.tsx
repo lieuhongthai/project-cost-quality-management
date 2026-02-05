@@ -18,6 +18,7 @@ import { MetricsChart, StageTimelineGantt, StageTimelineSvarGantt } from '@/comp
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
+import { MetricsDashboard } from '@/components/metrics';
 import { format } from 'date-fns';
 import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
@@ -82,6 +83,7 @@ function ProjectDetail() {
     stageId: '',
     showOnlyWithMetrics: true,
   });
+  const [metricReportView, setMetricReportView] = useState<'dashboard' | 'details'>('dashboard');
   const [memberFilter, setMemberFilter] = useState<{ role: string; status: string; search: string }>({
     role: '',
     status: '',
@@ -1344,14 +1346,32 @@ function ProjectDetail() {
               />
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr,1fr,1fr]">
-                  <Input
-                    placeholder={t('metrics.metricSummarySearchPlaceholder')}
-                    value={metricSummaryFilter.search}
-                    onChange={(event) =>
-                      setMetricSummaryFilter((prev) => ({ ...prev, search: event.target.value }))
-                    }
-                  />
+                {/* View Toggle */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex rounded-lg border border-gray-200 p-1">
+                    <button
+                      onClick={() => setMetricReportView('dashboard')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        metricReportView === 'dashboard'
+                          ? 'bg-primary-500 text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {t('metrics.viewDashboard', 'Dashboard')}
+                    </button>
+                    <button
+                      onClick={() => setMetricReportView('details')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        metricReportView === 'details'
+                          ? 'bg-primary-500 text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {t('metrics.viewDetails', 'Details')}
+                    </button>
+                  </div>
+
+                  {/* Stage Filter - visible in both views */}
                   <select
                     className="rounded-md border border-gray-300 px-3 py-2 text-sm"
                     value={metricSummaryFilter.stageId}
@@ -1366,129 +1386,153 @@ function ProjectDetail() {
                       </option>
                     ))}
                   </select>
-                  <label className="flex items-center gap-2 text-sm text-gray-600">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={metricSummaryFilter.showOnlyWithMetrics}
-                      onChange={(event) =>
-                        setMetricSummaryFilter((prev) => ({
-                          ...prev,
-                          showOnlyWithMetrics: event.target.checked,
-                        }))
-                      }
-                    />
-                    {t('metrics.onlyWithMetrics')}
-                  </label>
                 </div>
 
-                {projectMetricTypeSummary.metricTypes.map((metricType, index) => {
-                  const filteredStages = getFilteredMetricStages(metricType);
-                  const metricVisual = getMetricTypeVisual(metricType.name);
-                  return (
-                    <details
-                      key={metricType.id}
-                      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-                      open={index === 0}
-                    >
-                      <summary className="flex cursor-pointer flex-wrap items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ${metricVisual.accent}`}
-                          >
-                            <span aria-hidden="true">{metricVisual.icon}</span>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{metricType.name}</h3>
-                            <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {metricType.categories.map((category, categoryIndex) => (
-                            <span
-                              key={category.id}
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
-                                categoryIndex % metricBadgeStyles.length
-                              ]}`}
-                            >
-                              {category.name}
-                            </span>
-                          ))}
-                        </div>
-                      </summary>
+                {/* Dashboard View */}
+                {metricReportView === 'dashboard' && (
+                  <MetricsDashboard
+                    projectMetricTypeSummary={projectMetricTypeSummary}
+                    stageFilter={metricSummaryFilter.stageId}
+                  />
+                )}
 
-                      <div className="mt-4 space-y-4">
-                        {filteredStages.length === 0 ? (
-                          <EmptyState
-                            title={t('metrics.noMetricsForFilter')}
-                            description={t('metrics.metricSummaryTryAnother')}
-                          />
-                        ) : (
-                          filteredStages.map((stage) => (
-                            <div key={stage.stageId} className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="text-sm font-semibold text-gray-900">{stage.stageName}</div>
-                                <div className="text-xs text-gray-500">
-                                  {t('metrics.screenFunctionCount', {
-                                    value: getStageScreenFunctionCount(stage),
-                                  })}
-                                </div>
+                {/* Details View - Existing Tree */}
+                {metricReportView === 'details' && (
+                  <div className="space-y-6">
+                    {/* Additional Filters for Details View */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr,1fr]">
+                      <Input
+                        placeholder={t('metrics.metricSummarySearchPlaceholder')}
+                        value={metricSummaryFilter.search}
+                        onChange={(event) =>
+                          setMetricSummaryFilter((prev) => ({ ...prev, search: event.target.value }))
+                        }
+                      />
+                      <label className="flex items-center gap-2 text-sm text-gray-600">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={metricSummaryFilter.showOnlyWithMetrics}
+                          onChange={(event) =>
+                            setMetricSummaryFilter((prev) => ({
+                              ...prev,
+                              showOnlyWithMetrics: event.target.checked,
+                            }))
+                          }
+                        />
+                        {t('metrics.onlyWithMetrics')}
+                      </label>
+                    </div>
+
+                    {projectMetricTypeSummary.metricTypes.map((metricType, index) => {
+                      const filteredStages = getFilteredMetricStages(metricType);
+                      const metricVisual = getMetricTypeVisual(metricType.name);
+                      return (
+                        <details
+                          key={metricType.id}
+                          className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                          open={index === 0}
+                        >
+                          <summary className="flex cursor-pointer flex-wrap items-start justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ${metricVisual.accent}`}
+                              >
+                                <span aria-hidden="true">{metricVisual.icon}</span>
                               </div>
-
-                              <div className="mt-3 space-y-4">
-                                {stage.steps.map((step, stepIndex) => (
-                                  <div key={step.stepId} className="relative pl-6">
-                                    <span className="absolute left-2 top-3 h-full w-px bg-gray-200" />
-                                    <div className="relative">
-                                      <span className="absolute -left-6 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-2 ring-primary-200">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
-                                      </span>
-                                      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800">
-                                        <span>{step.stepName}</span>
-                                        <span className="text-xs text-gray-500">
-                                          {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="mt-3 space-y-3 pl-4">
-                                      {step.screenFunctions.map((screenFunction) => (
-                                        <div key={screenFunction.stepScreenFunctionId} className="relative pl-6">
-                                          <span className="absolute left-2 top-4 h-full w-px bg-gray-200" />
-                                          <span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-gray-300" />
-                                          <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
-                                            <div className="text-sm font-semibold text-gray-900">
-                                              {screenFunction.screenFunctionName}
-                                            </div>
-                                            <div className="mt-2 flex flex-wrap gap-2">
-                                              {metricType.categories.map((category, categoryIndex) => (
-                                                <span
-                                                  key={category.id}
-                                                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
-                                                    categoryIndex % metricBadgeStyles.length
-                                                  ]}`}
-                                                >
-                                                  {category.name}:{' '}
-                                                  {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                    {stepIndex === stage.steps.length - 1 && (
-                                      <span className="absolute left-2 top-3 h-[calc(100%-0.75rem)] w-px bg-transparent" />
-                                    )}
-                                  </div>
-                                ))}
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900">{metricType.name}</h3>
+                                <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
                               </div>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </details>
-                  );
-                })}
+                            <div className="flex flex-wrap gap-2">
+                              {metricType.categories.map((category, categoryIndex) => (
+                                <span
+                                  key={category.id}
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
+                                    categoryIndex % metricBadgeStyles.length
+                                  ]}`}
+                                >
+                                  {category.name}
+                                </span>
+                              ))}
+                            </div>
+                          </summary>
+
+                          <div className="mt-4 space-y-4">
+                            {filteredStages.length === 0 ? (
+                              <EmptyState
+                                title={t('metrics.noMetricsForFilter')}
+                                description={t('metrics.metricSummaryTryAnother')}
+                              />
+                            ) : (
+                              filteredStages.map((stage) => (
+                                <div key={stage.stageId} className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="text-sm font-semibold text-gray-900">{stage.stageName}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {t('metrics.screenFunctionCount', {
+                                        value: getStageScreenFunctionCount(stage),
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 space-y-4">
+                                    {stage.steps.map((step, stepIndex) => (
+                                      <div key={step.stepId} className="relative pl-6">
+                                        <span className="absolute left-2 top-3 h-full w-px bg-gray-200" />
+                                        <div className="relative">
+                                          <span className="absolute -left-6 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-2 ring-primary-200">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+                                          </span>
+                                          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800">
+                                            <span>{step.stepName}</span>
+                                            <span className="text-xs text-gray-500">
+                                              {t('metrics.stepScreenFunctionCount', { value: step.screenFunctions.length })}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="mt-3 space-y-3 pl-4">
+                                          {step.screenFunctions.map((screenFunction) => (
+                                            <div key={screenFunction.stepScreenFunctionId} className="relative pl-6">
+                                              <span className="absolute left-2 top-4 h-full w-px bg-gray-200" />
+                                              <span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-gray-300" />
+                                              <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
+                                                <div className="text-sm font-semibold text-gray-900">
+                                                  {screenFunction.screenFunctionName}
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                  {metricType.categories.map((category, categoryIndex) => (
+                                                    <span
+                                                      key={category.id}
+                                                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
+                                                        categoryIndex % metricBadgeStyles.length
+                                                      ]}`}
+                                                    >
+                                                      {category.name}:{' '}
+                                                      {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        {stepIndex === stage.steps.length - 1 && (
+                                          <span className="absolute left-2 top-3 h-[calc(100%-0.75rem)] w-px bg-transparent" />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </Card>
