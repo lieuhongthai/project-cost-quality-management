@@ -103,22 +103,8 @@ function MyTasksPage() {
   }
 
   const copyRowText = (item: TodoItem) => {
-    const lines = [
-      `${t('todo.project')}: ${item.projectName}`,
-      `${t('todo.stage')}: ${item.stageName}`,
-      `${t('todo.step')}: ${item.stepName}`,
-      `${t('todo.screen')}: ${item.screenFunctionName} (${item.screenFunctionType})`,
-      `${t('todo.status')}: ${item.taskStatus}`,
-      `${t('todo.effort')}: ${item.estimatedEffort || 0}h / ${item.actualEffort || 0}h`,
-      `${t('todo.progress')}: ${(item.progress || 0).toFixed(0)}%`,
-    ]
-    if (item.actualStartDate) {
-      lines.push(`${t('todo.dates')}: ${item.actualStartDate} - ${item.actualEndDate || '...'}`)
-    }
-    if (item.note) {
-      lines.push(`${t('todo.note')}: ${item.note}`)
-    }
-    navigator.clipboard.writeText(lines.join('\n'))
+    const text = `[${item.projectName}] [${item.stageName}] [${item.stepName}] ${item.screenFunctionName}`
+    navigator.clipboard.writeText(text)
     setCopiedId(item.assignmentId)
     setTimeout(() => setCopiedId(null), 2000)
   }
