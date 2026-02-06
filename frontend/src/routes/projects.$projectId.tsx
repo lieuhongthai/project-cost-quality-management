@@ -14,7 +14,7 @@ import {
   Input,
   HolidayImportDialog,
 } from '@/components/common';
-import { MetricsChart, StageTimelineGantt, StageTimelineSvarGantt } from '@/components/charts';
+import { MetricsChart, StageTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
 import { ProjectForm, ScreenFunctionForm, MemberForm } from '@/components/forms';
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
@@ -32,7 +32,6 @@ import {
 const PROJECT_TABS = [
   'overview',
   'timeline',
-  'timeline-svar',
   'stages',
   'screen-functions',
   'members',
@@ -404,7 +403,6 @@ function ProjectDetail() {
   const tabs: Array<{ id: ProjectTab; name: string }> = [
     { id: 'overview' as const, name: t('stages.overviewTab') },
     { id: 'timeline' as const, name: t('stages.timelineTitle') },
-    { id: 'timeline-svar' as const, name: t('stages.timelineSvarTitle') },
     { id: 'stages' as const, name: t('stages.title') },
     { id: 'screen-functions' as const, name: t('nav.screenFunctions') },
     { id: 'members' as const, name: t('nav.members') },
@@ -872,16 +870,22 @@ function ProjectDetail() {
       )}
 
       {activeTab === 'timeline' && (
-        <Card title={t('stages.timelineTitle')}>
+        <Card
+          title={t('stages.timelineTitle')}
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open(`/projects/${projectId}/timeline-interactive`, '_blank')}
+            >
+              {t('stages.timelineSvarTitle')}
+            </Button>
+          }
+        >
           <StageTimelineGantt stages={stagesOverview || []} />
         </Card>
       )}
 
-      {activeTab === 'timeline-svar' && (
-        <div className="mb-6">
-          <StageTimelineSvarGantt stages={stagesOverview || []} projectId={parseInt(projectId)} />
-        </div>
-      )}
 
 
       {activeTab === 'screen-functions' && (
