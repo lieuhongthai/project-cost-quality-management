@@ -233,19 +233,26 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
                       {type.categories?.length || 0} {t('metrics.categories').toLowerCase()}
                     </span>
                   </div>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="secondary" size="sm" onClick={() => handleEditType(type)}>
-                      {t('common.edit')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleDeleteType(type)}
-                      disabled={deleteTypeMutation.isPending || isProtectedType}
-                      title={isProtectedType ? t('metrics.protectedType') : undefined}
-                    >
-                      {t('common.delete')}
-                    </Button>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {isProtectedType ? (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
+                        {t('metrics.protectedType')}
+                      </span>
+                    ) : (
+                      <>
+                        <Button variant="secondary" size="sm" onClick={() => handleEditType(type)}>
+                          {t('common.edit')}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDeleteType(type)}
+                          disabled={deleteTypeMutation.isPending}
+                        >
+                          {t('common.delete')}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -270,23 +277,30 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => handleEditCategory(category)}
-                                >
-                                  {t('common.edit')}
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => handleDeleteCategory(category, type.name)}
-                                  disabled={deleteCategoryMutation.isPending || isProtectedCategory}
-                                  title={isProtectedCategory ? t('metrics.protectedCategory') : undefined}
-                                >
-                                  {t('common.delete')}
-                                </Button>
+                              <div className="flex items-center gap-1">
+                                {isProtectedCategory ? (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded font-medium">
+                                    {t('metrics.protectedCategory')}
+                                  </span>
+                                ) : (
+                                  <>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => handleEditCategory(category)}
+                                    >
+                                      {t('common.edit')}
+                                    </Button>
+                                    <Button
+                                      variant="danger"
+                                      size="sm"
+                                      onClick={() => handleDeleteCategory(category, type.name)}
+                                      disabled={deleteCategoryMutation.isPending}
+                                    >
+                                      {t('common.delete')}
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           );

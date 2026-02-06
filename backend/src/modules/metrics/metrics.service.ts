@@ -125,16 +125,15 @@ export class MetricsService {
 
   /**
    * Aggregate real testing data from TaskMemberMetric for given stage IDs.
-   * Reads "Test Cases" > "Total" for totalTestCases and "Test Cases" > "Failed" for defects.
-   * Also counts all "Bugs" type metrics as additional bug count.
+   * Only uses MetricType "Test Cases" with categories: "Total", "Passed", "Failed".
    * Returns per-stage and project-level totals.
    */
   async getTestingDataForStages(stageIds: number[]): Promise<{
-    byStage: Map<number, { totalTestCases: number; defectsDetected: number; bugCount: number; reviewIssues: number }>;
-    project: { totalTestCases: number; defectsDetected: number; bugCount: number; reviewIssues: number };
+    byStage: Map<number, { totalTestCases: number; passedTestCases: number; failedTestCases: number }>;
+    project: { totalTestCases: number; passedTestCases: number; failedTestCases: number };
   }> {
-    const byStage = new Map<number, { totalTestCases: number; defectsDetected: number; bugCount: number; reviewIssues: number }>();
-    const project = { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 };
+    const byStage = new Map<number, { totalTestCases: number; passedTestCases: number; failedTestCases: number }>();
+    const project = { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
 
     if (stageIds.length === 0) return { byStage, project };
 
@@ -174,27 +173,32 @@ export class MetricsService {
       memberToSsfMap.set(member.id, member.stepScreenFunctionId);
     }
 
-    // Get all task member metrics with category and type
+    // Get only "Test Cases" metrics with category and type
     const metrics = await TaskMemberMetric.findAll({
       where: { stepScreenFunctionMemberId: { [Op.in]: memberIds } },
       include: [{
         model: MetricCategory,
         as: 'metricCategory',
-        include: [{ model: MetricType, as: 'metricType' }],
+        include: [{
+          model: MetricType,
+          as: 'metricType',
+        }],
       }],
     });
 
     // Initialize byStage
     for (const stageId of stageIds) {
-      byStage.set(stageId, { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 });
+      byStage.set(stageId, { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 });
     }
 
-    // Aggregate metrics
+    // Aggregate only "Test Cases" metrics
     for (const metric of metrics) {
       const category = metric.metricCategory;
       if (!category?.metricType) continue;
 
       const typeName = category.metricType.name.trim().toLowerCase();
+      if (typeName !== 'test cases') continue;
+
       const catName = category.name.trim().toLowerCase();
 
       // Resolve stage
@@ -208,20 +212,15 @@ export class MetricsService {
       const stageTotals = byStage.get(stageId)!;
       const value = metric.value || 0;
 
-      if (typeName === 'test cases') {
-        if (catName === 'total') {
-          stageTotals.totalTestCases += value;
-          project.totalTestCases += value;
-        } else if (catName === 'failed') {
-          stageTotals.defectsDetected += value;
-          project.defectsDetected += value;
-        }
-      } else if (typeName === 'bugs') {
-        stageTotals.bugCount += value;
-        project.bugCount += value;
-      } else if (typeName === 'review issues') {
-        stageTotals.reviewIssues += value;
-        project.reviewIssues += value;
+      if (catName === 'total') {
+        stageTotals.totalTestCases += value;
+        project.totalTestCases += value;
+      } else if (catName === 'passed') {
+        stageTotals.passedTestCases += value;
+        project.passedTestCases += value;
+      } else if (catName === 'failed') {
+        stageTotals.failedTestCases += value;
+        project.failedTestCases += value;
       }
     }
 
@@ -243,11 +242,11 @@ export class MetricsService {
 
     // Get real testing data from TaskMemberMetric
     const testingData = await this.getTestingDataForStages([stageId]);
-    const stageTestData = testingData.byStage.get(stageId) || { totalTestCases: 0, defectsDetected: 0 };
+    const stageTestData = testingData.byStage.get(stageId) || { totalTestCases: 0, failedTestCases: 0 };
 
     const testingMetrics = this.calculateTestingMetrics({
       totalTestCases: stageTestData.totalTestCases,
-      defectsDetected: stageTestData.defectsDetected,
+      defectsDetected: stageTestData.failedTestCases,
     });
 
     return this.metricsRepository.create({
@@ -278,7 +277,7 @@ export class MetricsService {
 
     const testingMetrics = this.calculateTestingMetrics({
       totalTestCases: testingData.project.totalTestCases,
-      defectsDetected: testingData.project.defectsDetected,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Auto-update project status based on calculated metrics
@@ -330,7 +329,7 @@ export class MetricsService {
     // Calculate testing metrics from real data
     const testingMetrics = this.calculateTestingMetrics({
       totalTestCases: testingData.project.totalTestCases,
-      defectsDetected: testingData.project.defectsDetected,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Evaluate status based on metrics

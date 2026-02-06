@@ -269,12 +269,11 @@ Forecasting Metrics${isStageScope ? ' (Stage-level)' : ''}:
 - Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
 - To-Complete Performance Index (TCPI): ${forecastingMetrics.tcpi.toFixed(2)}
 
-Quality Metrics:
+Quality Metrics (Test Cases):
 - Total Test Cases: ${safeNumber(testingSnapshot.totalTestCases)}
-- Failed Test Cases: ${safeNumber(testingSnapshot.totalDefects)}
+- Passed Test Cases: ${safeNumber(testingSnapshot.passedTestCases)}
+- Failed Test Cases: ${safeNumber(testingSnapshot.failedTestCases)}
 - Defect Rate (Failed/Total): ${safeNumber(testingSnapshot.defectRate).toFixed(3)}
-- Bug Count (from code review/testing): ${safeNumber(testingSnapshot.bugCount)}
-- Review Issues: ${safeNumber(testingSnapshot.reviewIssues)}
 - Efficiency (CPI as %): ${(scheduleMetrics.cpi * 100).toFixed(0)}%
 
 Productivity Snapshot:

@@ -130,14 +130,13 @@ export class ReportService {
       endDate: string | null;
       testing: {
         totalTestCases: number;
-        totalDefects: number;
-        bugCount: number;
-        reviewIssues: number;
+        passedTestCases: number;
+        failedTestCases: number;
       };
     }> = [];
 
     for (const stage of stages) {
-      const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 };
+      const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
       stageSnapshots.push({
         id: stage.id,
         name: stage.name,
@@ -149,9 +148,8 @@ export class ReportService {
         endDate: stage.endDate,
         testing: {
           totalTestCases: stageTest.totalTestCases,
-          totalDefects: stageTest.defectsDetected,
-          bugCount: stageTest.bugCount,
-          reviewIssues: stageTest.reviewIssues,
+          passedTestCases: stageTest.passedTestCases,
+          failedTestCases: stageTest.failedTestCases,
         },
       });
     }
@@ -163,10 +161,10 @@ export class ReportService {
       progress: project.progress || 0,
     });
 
-    // Calculate testing metrics from real data
+    // Calculate testing metrics from real data (Test Cases only)
     const testingMetrics = this.metricsService.calculateTestingMetrics({
       totalTestCases: testingData.project.totalTestCases,
-      defectsDetected: testingData.project.defectsDetected,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Get productivity metrics
@@ -218,9 +216,8 @@ export class ReportService {
       },
       testing: {
         totalTestCases: testingData.project.totalTestCases,
-        totalDefects: testingData.project.defectsDetected,
-        bugCount: testingData.project.bugCount,
-        reviewIssues: testingData.project.reviewIssues,
+        passedTestCases: testingData.project.passedTestCases,
+        failedTestCases: testingData.project.failedTestCases,
         defectRate: testingMetrics.defectRate,
       },
       productivity: productivityMetrics,
@@ -261,12 +258,11 @@ export class ReportService {
             tcpi: stageScheduleMetrics.toCompletePerformanceIndex,
           },
           testing: (() => {
-            const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 };
+            const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
             return {
               totalTestCases: stageTest.totalTestCases,
-              totalDefects: stageTest.defectsDetected,
-              bugCount: stageTest.bugCount,
-              reviewIssues: stageTest.reviewIssues,
+              passedTestCases: stageTest.passedTestCases,
+              failedTestCases: stageTest.failedTestCases,
             };
           })(),
         };
