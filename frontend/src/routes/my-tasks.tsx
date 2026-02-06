@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
-import { Button, Card, LoadingSpinner, Modal, Input } from '@/components/common'
+import { Button, Card, LoadingSpinner, Modal, Input, DateInput } from '@/components/common'
 import { Pencil, Copy, Check } from 'lucide-react'
 import type { TodoItem } from '@/types'
 
@@ -363,28 +363,18 @@ function MyTasksPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('todo.actualStartDate')}
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  value={editForm.actualStartDate}
-                  onChange={(e) => setEditForm({ ...editForm, actualStartDate: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('todo.actualEndDate')}
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  value={editForm.actualEndDate}
-                  onChange={(e) => setEditForm({ ...editForm, actualEndDate: e.target.value })}
-                />
-              </div>
+              <DateInput
+                label={t('todo.actualStartDate')}
+                name="actualStartDate"
+                value={editForm.actualStartDate}
+                onChange={(e) => setEditForm({ ...editForm, actualStartDate: e.target.value })}
+              />
+              <DateInput
+                label={t('todo.actualEndDate')}
+                name="actualEndDate"
+                value={editForm.actualEndDate}
+                onChange={(e) => setEditForm({ ...editForm, actualEndDate: e.target.value })}
+              />
             </div>
 
             <div>
