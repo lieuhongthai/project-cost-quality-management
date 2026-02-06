@@ -20,8 +20,8 @@ import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ReportsReportIdRouteImport } from './routes/reports.$reportId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
-import { Route as ProjectsProjectIdStagesStageIdRouteImport } from './routes/projects_.$projectId.stages.$stageId'
 import { Route as ProjectsProjectIdTimelineInteractiveRouteImport } from './routes/projects_.$projectId.timeline-interactive'
+import { Route as ProjectsProjectIdStagesStageIdRouteImport } from './routes/projects_.$projectId.stages.$stageId'
 
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
@@ -78,16 +78,16 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
 } as any)
-const ProjectsProjectIdStagesStageIdRoute =
-  ProjectsProjectIdStagesStageIdRouteImport.update({
-    id: '/projects_/$projectId/stages/$stageId',
-    path: '/projects/$projectId/stages/$stageId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ProjectsProjectIdTimelineInteractiveRoute =
   ProjectsProjectIdTimelineInteractiveRouteImport.update({
     id: '/projects_/$projectId/timeline-interactive',
     path: '/projects/$projectId/timeline-interactive',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ProjectsProjectIdStagesStageIdRoute =
+  ProjectsProjectIdStagesStageIdRouteImport.update({
+    id: '/projects_/$projectId/stages/$stageId',
+    path: '/projects/$projectId/stages/$stageId',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -103,8 +103,8 @@ export interface FileRoutesByFullPath {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
   '/reports/': typeof ReportsIndexRoute
-  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
   '/projects/$projectId/timeline-interactive': typeof ProjectsProjectIdTimelineInteractiveRoute
+  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -116,8 +116,8 @@ export interface FileRoutesByTo {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects': typeof ProjectsIndexRoute
   '/reports': typeof ReportsIndexRoute
-  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
   '/projects/$projectId/timeline-interactive': typeof ProjectsProjectIdTimelineInteractiveRoute
+  '/projects/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -132,8 +132,8 @@ export interface FileRoutesById {
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects/': typeof ProjectsIndexRoute
   '/reports/': typeof ReportsIndexRoute
-  '/projects_/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
   '/projects_/$projectId/timeline-interactive': typeof ProjectsProjectIdTimelineInteractiveRoute
+  '/projects_/$projectId/stages/$stageId': typeof ProjectsProjectIdStagesStageIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -149,8 +149,8 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects/'
     | '/reports/'
-    | '/projects/$projectId/stages/$stageId'
     | '/projects/$projectId/timeline-interactive'
+    | '/projects/$projectId/stages/$stageId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -162,8 +162,8 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects'
     | '/reports'
-    | '/projects/$projectId/stages/$stageId'
     | '/projects/$projectId/timeline-interactive'
+    | '/projects/$projectId/stages/$stageId'
   id:
     | '__root__'
     | '/'
@@ -177,8 +177,8 @@ export interface FileRouteTypes {
     | '/reports/$reportId'
     | '/projects/'
     | '/reports/'
-    | '/projects_/$projectId/stages/$stageId'
     | '/projects_/$projectId/timeline-interactive'
+    | '/projects_/$projectId/stages/$stageId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,8 +189,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
-  ProjectsProjectIdStagesStageIdRoute: typeof ProjectsProjectIdStagesStageIdRoute
   ProjectsProjectIdTimelineInteractiveRoute: typeof ProjectsProjectIdTimelineInteractiveRoute
+  ProjectsProjectIdStagesStageIdRoute: typeof ProjectsProjectIdStagesStageIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,18 +272,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
     }
-    '/projects_/$projectId/stages/$stageId': {
-      id: '/projects_/$projectId/stages/$stageId'
-      path: '/projects/$projectId/stages/$stageId'
-      fullPath: '/projects/$projectId/stages/$stageId'
-      preLoaderRoute: typeof ProjectsProjectIdStagesStageIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects_/$projectId/timeline-interactive': {
       id: '/projects_/$projectId/timeline-interactive'
       path: '/projects/$projectId/timeline-interactive'
       fullPath: '/projects/$projectId/timeline-interactive'
       preLoaderRoute: typeof ProjectsProjectIdTimelineInteractiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects_/$projectId/stages/$stageId': {
+      id: '/projects_/$projectId/stages/$stageId'
+      path: '/projects/$projectId/stages/$stageId'
+      fullPath: '/projects/$projectId/stages/$stageId'
+      preLoaderRoute: typeof ProjectsProjectIdStagesStageIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -324,8 +324,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
+  ProjectsProjectIdTimelineInteractiveRoute:
+    ProjectsProjectIdTimelineInteractiveRoute,
   ProjectsProjectIdStagesStageIdRoute: ProjectsProjectIdStagesStageIdRoute,
-  ProjectsProjectIdTimelineInteractiveRoute: ProjectsProjectIdTimelineInteractiveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
