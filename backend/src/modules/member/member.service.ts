@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Member } from './member.model';
 import { CreateMemberDto, UpdateMemberDto } from './member.dto';
 import { Op, literal } from 'sequelize';
+import { StepScreenFunctionMember } from '../task-workflow/step-screen-function-member.model';
+import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 
 // Role priority order for sorting (lower number = higher priority)
 const ROLE_PRIORITY: Record<string, number> = {
@@ -149,33 +151,114 @@ export class MemberService {
     };
   }
 
-  // Get workload for a specific member
+  // Get workload for a specific member by aggregating StepScreenFunctionMember data
   async getMemberWorkload(memberId: number) {
     const member = await this.findOne(memberId);
+
+    // Get all StepScreenFunctionMember assignments for this member
+    const assignments = await StepScreenFunctionMember.findAll({
+      where: { memberId },
+      include: [{ model: StepScreenFunction, as: 'stepScreenFunction' }],
+    });
+
+    const totalAssigned = assignments.length;
+    const totalEstimatedEffort = assignments.reduce(
+      (sum, a) => sum + (a.estimatedEffort || 0), 0,
+    );
+    const totalActualEffort = assignments.reduce(
+      (sum, a) => sum + (a.actualEffort || 0), 0,
+    );
+
+    // Count tasks by parent StepScreenFunction status
+    let completedTasks = 0;
+    let inProgressTasks = 0;
+    let pendingTasks = 0;
+
+    for (const assignment of assignments) {
+      const ssf = assignment.stepScreenFunction;
+      if (!ssf) continue;
+      if (ssf.status === 'Completed') {
+        completedTasks++;
+      } else if (ssf.status === 'In Progress') {
+        inProgressTasks++;
+      } else {
+        pendingTasks++;
+      }
+    }
 
     return {
       memberId: member.id,
       memberName: member.name,
-      totalAssigned: 0,
-      totalEstimatedEffort: 0,
-      totalActualEffort: 0,
-      completedTasks: 0,
-      inProgressTasks: 0,
-      pendingTasks: 0,
+      totalAssigned,
+      totalEstimatedEffort,
+      totalActualEffort,
+      completedTasks,
+      inProgressTasks,
+      pendingTasks,
     };
   }
 
-  // Get all members' workload for a project
+  // Get all members' workload for a project (batch query for efficiency)
   async getProjectWorkload(projectId: number) {
     const members = await this.findByProject(projectId);
 
-    const workloads = await Promise.all(
-      members.map(async (member) => {
-        return this.getMemberWorkload(member.id);
-      }),
-    );
+    if (members.length === 0) return [];
 
-    return workloads;
+    const memberIds = members.map(m => m.id);
+
+    // Single batch query for all member assignments in this project
+    const allAssignments = await StepScreenFunctionMember.findAll({
+      where: { memberId: { [Op.in]: memberIds } },
+      include: [{ model: StepScreenFunction, as: 'stepScreenFunction' }],
+    });
+
+    // Group assignments by memberId
+    const assignmentsByMember = new Map<number, StepScreenFunctionMember[]>();
+    for (const assignment of allAssignments) {
+      const existing = assignmentsByMember.get(assignment.memberId) || [];
+      existing.push(assignment);
+      assignmentsByMember.set(assignment.memberId, existing);
+    }
+
+    // Build workload for each member
+    return members.map(member => {
+      const assignments = assignmentsByMember.get(member.id) || [];
+
+      const totalAssigned = assignments.length;
+      const totalEstimatedEffort = assignments.reduce(
+        (sum, a) => sum + (a.estimatedEffort || 0), 0,
+      );
+      const totalActualEffort = assignments.reduce(
+        (sum, a) => sum + (a.actualEffort || 0), 0,
+      );
+
+      let completedTasks = 0;
+      let inProgressTasks = 0;
+      let pendingTasks = 0;
+
+      for (const assignment of assignments) {
+        const ssf = assignment.stepScreenFunction;
+        if (!ssf) continue;
+        if (ssf.status === 'Completed') {
+          completedTasks++;
+        } else if (ssf.status === 'In Progress') {
+          inProgressTasks++;
+        } else {
+          pendingTasks++;
+        }
+      }
+
+      return {
+        memberId: member.id,
+        memberName: member.name,
+        totalAssigned,
+        totalEstimatedEffort,
+        totalActualEffort,
+        completedTasks,
+        inProgressTasks,
+        pendingTasks,
+      };
+    });
   }
 
   /**

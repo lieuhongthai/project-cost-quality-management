@@ -1265,12 +1265,17 @@ function ProjectDetail() {
                               {member.availability}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              {workload ? (
+                              {workload && workload.totalAssigned > 0 ? (
                                 <div className="text-xs">
                                   <p className="font-medium">{workload.totalAssigned} {t('member.totalAssigned')}</p>
                                   <p className="text-gray-500">
                                     {workload.completedTasks} {t('member.done')} / {workload.inProgressTasks} {t('member.active')}
                                   </p>
+                                  {(workload.totalEstimatedEffort > 0 || workload.totalActualEffort > 0) && (
+                                    <p className="text-gray-400 mt-0.5">
+                                      {displayEffort(workload.totalEstimatedEffort, 'man-hour')} / {displayEffort(workload.totalActualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                                    </p>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-gray-400">{t('member.noTasks')}</span>
