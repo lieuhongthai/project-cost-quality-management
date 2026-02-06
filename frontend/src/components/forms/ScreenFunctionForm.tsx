@@ -11,6 +11,7 @@ interface ScreenFunctionFormProps {
   screenFunction?: ScreenFunction;
   effortUnit?: EffortUnit;
   workSettings?: Partial<ProjectSettings>;
+  nextDisplayOrder?: number;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   screenFunction,
   effortUnit = 'man-hour',
   workSettings,
+  nextDisplayOrder = 1,
   onSuccess,
   onCancel,
 }) => {
@@ -38,6 +40,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     priority: screenFunction?.priority || 'Medium' as Priority,
     complexity: screenFunction?.complexity || 'Medium' as Complexity,
     estimatedEffort: initialEffort,
+    displayOrder: screenFunction?.displayOrder ?? nextDisplayOrder,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -91,6 +94,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     const submitData = {
       ...formData,
       estimatedEffort: effortInManHours,
+      displayOrder: formData.displayOrder,
     };
 
     if (screenFunction) {
@@ -102,7 +106,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const finalValue = name === 'estimatedEffort' ? parseFloat(value) || 0 : value;
+    const finalValue = (name === 'estimatedEffort' || name === 'displayOrder') ? parseFloat(value) || 0 : value;
     setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
@@ -141,7 +145,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         disabled={isLoading}
       />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Select
           label={t('screenFunction.type')}
           name="type"
@@ -150,6 +154,17 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
           options={typeOptions}
           error={errors.type}
           required
+          disabled={isLoading}
+        />
+
+        <Input
+          label={t('screenFunction.displayOrder', { defaultValue: 'Order' })}
+          name="displayOrder"
+          type="number"
+          min="0"
+          step="1"
+          value={formData.displayOrder}
+          onChange={handleChange}
           disabled={isLoading}
         />
 

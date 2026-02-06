@@ -1137,7 +1137,8 @@ function ProjectDetail() {
                 <table className="min-w-full divide-y divide-gray-300">
                   <thead>
                     <tr>
-                      <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">{t('common.name')}</th>
+                      <th className="py-3.5 pl-4 pr-1 text-center text-sm font-semibold text-gray-900 w-10">#</th>
+                      <th className="py-3.5 pl-2 pr-3 text-left text-sm font-semibold text-gray-900">{t('common.name')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.type')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.priority')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.complexity')}</th>
@@ -1150,7 +1151,10 @@ function ProjectDetail() {
                   <tbody className="divide-y divide-gray-200">
                     {filteredScreenFunctions.map((sf) => (
                       <tr key={sf.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                        <td className="whitespace-nowrap py-4 pl-4 pr-1 text-center text-sm text-gray-400 w-10">
+                          {sf.displayOrder}
+                        </td>
+                        <td className="whitespace-nowrap py-4 pl-2 pr-3 text-sm">
                           <div>
                             <p className="font-medium text-gray-900">{sf.name}</p>
                             {sf.description && (
@@ -1993,6 +1997,7 @@ function ProjectDetail() {
           screenFunction={editingScreenFunction || undefined}
           effortUnit={effortUnit}
           workSettings={settingsForm}
+          nextDisplayOrder={(screenFunctions?.length || 0) + 1}
           onSuccess={() => {
             setShowAddScreenFunction(false);
             setEditingScreenFunction(null);
