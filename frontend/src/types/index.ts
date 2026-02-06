@@ -179,8 +179,59 @@ export interface Member {
   hourlyRate?: number;
   availability: MemberAvailability;
   status: MemberStatus;
+  userId?: number;
+  user?: { id: number; username: string; email?: string };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LinkableUser {
+  id: number;
+  username: string;
+  email?: string;
+}
+
+export interface MyProjectMember {
+  projectId: number;
+  memberId: number;
+  memberRole: MemberRole;
+  project: Project;
+}
+
+export interface TodoItem {
+  assignmentId: number;
+  memberId: number;
+  memberName: string;
+  memberRole: MemberRole;
+  projectId: number;
+  projectName: string;
+  stepScreenFunctionId: number;
+  screenFunctionId: number;
+  screenFunctionName: string;
+  screenFunctionType: string;
+  stepId: number;
+  stepName: string;
+  stageName: string;
+  stageColor?: string;
+  // Task-level data
+  taskStatus: string;
+  taskEstimatedEffort: number;
+  taskActualEffort: number;
+  taskProgress: number;
+  taskNote?: string;
+  taskEstimatedStartDate?: string;
+  taskEstimatedEndDate?: string;
+  taskActualStartDate?: string;
+  taskActualEndDate?: string;
+  // Member assignment data
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  estimatedStartDate?: string;
+  estimatedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  note?: string;
 }
 
 export interface MemberSummary {

@@ -74,7 +74,8 @@
     "reports": "Báo cáo",
     "benchmarks": "So sánh",
     "settings": "Cài đặt",
-    "accessControl": "Phân quyền"
+    "accessControl": "Phân quyền",
+    "myTasks": "Công việc"
   },
   "iam": {
     "title": "Phân quyền truy cập",
@@ -355,7 +356,14 @@
         "roleRequired": "Vai trò là bắt buộc",
         "emailInvalid": "Email không hợp lệ"
       }
-    }
+    },
+    "linkUser": "Liên kết User",
+    "unlinkUser": "Hủy liên kết",
+    "linkedUser": "User liên kết",
+    "noLinkedUser": "Chưa liên kết",
+    "selectUser": "Chọn user để liên kết",
+    "linkUserDescription": "Liên kết thành viên với user hệ thống để truy cập Todo List",
+    "onlyMemberPermission": "Chỉ hiển thị user có quyền Member"
   },
   "report": {
     "title": "Báo cáo",
@@ -959,6 +967,43 @@
     "addMetrics": "Thêm Work Metrics",
     "addMetricType": "Thêm Metric",
     "noMetricsSelected": "Chưa chọn metric nào. Nhấn '+ Thêm Metric' để thêm."
+  },
+  "todo": {
+    "title": "Công việc của tôi",
+    "subtitle": "Các task được giao cho bạn trên tất cả dự án",
+    "noTasks": "Chưa có task nào",
+    "noTasksDesc": "Bạn chưa được giao task nào. Liên hệ quản lý dự án để bắt đầu.",
+    "filterByProject": "Tất cả dự án",
+    "filterByStatus": "Tất cả trạng thái",
+    "filterByStage": "Tất cả giai đoạn",
+    "searchPlaceholder": "Tìm theo tên màn hình...",
+    "project": "Dự án",
+    "stage": "Giai đoạn",
+    "step": "Bước",
+    "screen": "Màn hình/Chức năng",
+    "status": "Trạng thái",
+    "effort": "Công sức (ƯT/TT)",
+    "progress": "Tiến độ",
+    "dates": "Ngày",
+    "estimatedDates": "Dự kiến",
+    "actualDates": "Thực tế",
+    "note": "Ghi chú",
+    "editTask": "Sửa task",
+    "saveChanges": "Lưu thay đổi",
+    "actualStartDate": "Ngày BĐ thực tế",
+    "actualEndDate": "Ngày KT thực tế",
+    "actualEffort": "Effort thực tế",
+    "notePlaceholder": "Thêm ghi chú...",
+    "taskUpdated": "Đã cập nhật task thành công",
+    "statusNotStarted": "Chưa bắt đầu",
+    "statusInProgress": "Đang thực hiện",
+    "statusCompleted": "Hoàn thành",
+    "statusSkipped": "Bỏ qua",
+    "summary": "Tổng kết",
+    "totalTasks": "Tổng task",
+    "completed": "Hoàn thành",
+    "inProgress": "Đang thực hiện",
+    "pending": "Chờ xử lý"
   },
   "status": {
     "good": "Tốt",

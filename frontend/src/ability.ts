@@ -14,6 +14,7 @@ export type Subjects =
   | 'user'
   | 'role'
   | 'position'
+  | 'member'
   | 'all';
 
 export type AppAbility = MongoAbility<[Actions, Subjects]>;
