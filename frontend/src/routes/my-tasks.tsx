@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
 import { Button, Card, LoadingSpinner, Modal, Input } from '@/components/common'
+import { Pencil, Copy, Check } from 'lucide-react'
 import type { TodoItem } from '@/types'
 
 export const Route = createFileRoute('/my-tasks')({
@@ -20,6 +21,7 @@ function MyTasksPage() {
     search: '',
   })
   const [editingTask, setEditingTask] = useState<TodoItem | null>(null)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({
     actualEffort: 0,
     progress: 0,
@@ -98,6 +100,27 @@ function MyTasksPage() {
       case 'Skipped': return 'bg-gray-100 text-gray-800'
       default: return 'bg-yellow-100 text-yellow-800'
     }
+  }
+
+  const copyRowText = (item: TodoItem) => {
+    const lines = [
+      `${t('todo.project')}: ${item.projectName}`,
+      `${t('todo.stage')}: ${item.stageName}`,
+      `${t('todo.step')}: ${item.stepName}`,
+      `${t('todo.screen')}: ${item.screenFunctionName} (${item.screenFunctionType})`,
+      `${t('todo.status')}: ${item.taskStatus}`,
+      `${t('todo.effort')}: ${item.estimatedEffort || 0}h / ${item.actualEffort || 0}h`,
+      `${t('todo.progress')}: ${(item.progress || 0).toFixed(0)}%`,
+    ]
+    if (item.actualStartDate) {
+      lines.push(`${t('todo.dates')}: ${item.actualStartDate} - ${item.actualEndDate || '...'}`)
+    }
+    if (item.note) {
+      lines.push(`${t('todo.note')}: ${item.note}`)
+    }
+    navigator.clipboard.writeText(lines.join('\n'))
+    setCopiedId(item.assignmentId)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   if (isLoading) {
@@ -258,13 +281,28 @@ function MyTasksPage() {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => openEditModal(item)}
-                        >
-                          {t('common.edit')}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-md transition-colors"
+                            onClick={() => openEditModal(item)}
+                            title={t('common.edit')}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-md transition-colors"
+                            onClick={() => copyRowText(item)}
+                            title={t('todo.copyOutput')}
+                          >
+                            {copiedId === item.assignmentId ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -1003,7 +1003,8 @@
     "totalTasks": "Tổng task",
     "completed": "Hoàn thành",
     "inProgress": "Đang thực hiện",
-    "pending": "Chờ xử lý"
+    "pending": "Chờ xử lý",
+    "copyOutput": "Sao chép nội dung"
   },
   "status": {
     "good": "Tốt",
