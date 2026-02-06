@@ -211,8 +211,11 @@ export interface TodoItem {
   screenFunctionType: string;
   stepId: number;
   stepName: string;
+  stageId: number;
   stageName: string;
   stageColor?: string;
+  stageOrder: number;
+  stepOrder: number;
   // Task-level data
   taskStatus: string;
   taskEstimatedEffort: number;

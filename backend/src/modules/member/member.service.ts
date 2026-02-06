@@ -430,8 +430,11 @@ export class MemberService {
         screenFunctionType: ssf?.screenFunction?.type,
         stepId: ssf?.stepId,
         stepName: ssf?.step?.name,
+        stageId: ssf?.step?.stage?.id,
         stageName: ssf?.step?.stage?.name,
         stageColor: ssf?.step?.stage?.color,
+        stageOrder: ssf?.step?.stage?.displayOrder ?? 0,
+        stepOrder: ssf?.step?.displayOrder ?? 0,
         // Task-level data
         taskStatus: ssf?.status,
         taskEstimatedEffort: ssf?.estimatedEffort,
