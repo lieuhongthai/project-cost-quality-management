@@ -461,6 +461,11 @@ export class TaskWorkflowController {
     return this.taskWorkflowService.getStagesOverview(projectId);
   }
 
+  @Get('stages/screen-function-stats/project/:projectId')
+  getScreenFunctionStageStats(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.getScreenFunctionStageStats(projectId);
+  }
+
   @Get('steps/:stepId/available-screen-functions')
   getAvailableScreenFunctionsForStep(@Param('stepId', ParseIntPipe) stepId: number) {
     return this.taskWorkflowService.getAvailableScreenFunctionsForStep(stepId);

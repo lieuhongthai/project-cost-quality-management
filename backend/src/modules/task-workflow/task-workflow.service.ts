@@ -886,6 +886,117 @@ export class TaskWorkflowService {
     return StageStatus.GOOD;
   }
 
+  // Get Screen/Function statistics grouped by Stage and Step
+  async getScreenFunctionStageStats(projectId: number) {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const allScreenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId },
+    });
+    const sfMap = new Map(allScreenFunctions.map(sf => [sf.id, sf]));
+
+    const result = [];
+
+    for (const stage of stages) {
+      const steps = await this.stepRepository.findAll({
+        where: { stageId: stage.id, isActive: true },
+        order: [['displayOrder', 'ASC']],
+      });
+      const stepIds = steps.map(s => s.id);
+
+      // Get all StepScreenFunctions for this stage
+      const stageSSFs = stepIds.length > 0
+        ? await this.stepScreenFunctionRepository.findAll({
+            where: { stepId: { [Op.in]: stepIds } },
+          })
+        : [];
+
+      // Group SSFs by stepId
+      const ssfByStep = new Map<number, typeof stageSSFs>();
+      for (const ssf of stageSSFs) {
+        const existing = ssfByStep.get(ssf.stepId) || [];
+        existing.push(ssf);
+        ssfByStep.set(ssf.stepId, existing);
+      }
+
+      // Stage-level aggregation
+      const stageUniqueScreenIds = [...new Set(stageSSFs.map(ssf => ssf.screenFunctionId))];
+      const stageTotalTasks = stageSSFs.length;
+      const stageCompleted = stageSSFs.filter(ssf => ssf.status === 'Completed').length;
+      const stageInProgress = stageSSFs.filter(ssf => ssf.status === 'In Progress').length;
+      const stagePending = stageTotalTasks - stageCompleted - stageInProgress;
+      const stageEstEffort = stageSSFs.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+      const stageActEffort = stageSSFs.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+      const stageProgress = stageTotalTasks > 0
+        ? Math.round((stageCompleted / stageTotalTasks) * 100)
+        : 0;
+
+      // Build step-level statistics
+      const stepsStats = steps.map(step => {
+        const stepSSFs = ssfByStep.get(step.id) || [];
+        const stepUniqueScreenIds = [...new Set(stepSSFs.map(ssf => ssf.screenFunctionId))];
+        const totalTasks = stepSSFs.length;
+        const completed = stepSSFs.filter(ssf => ssf.status === 'Completed').length;
+        const inProgress = stepSSFs.filter(ssf => ssf.status === 'In Progress').length;
+        const pending = totalTasks - completed - inProgress;
+        const estEffort = stepSSFs.reduce((sum, ssf) => sum + (ssf.estimatedEffort || 0), 0);
+        const actEffort = stepSSFs.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
+        const progress = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
+
+        // Build screen function details for this step
+        const screenFunctions = stepSSFs.map(ssf => {
+          const sf = sfMap.get(ssf.screenFunctionId);
+          return {
+            stepScreenFunctionId: ssf.id,
+            screenFunctionId: ssf.screenFunctionId,
+            screenFunctionName: sf?.name || 'Unknown',
+            screenFunctionType: sf?.type || 'Screen',
+            estimatedEffort: ssf.estimatedEffort || 0,
+            actualEffort: ssf.actualEffort || 0,
+            progress: ssf.progress || 0,
+            status: ssf.status,
+          };
+        });
+
+        return {
+          stepId: step.id,
+          stepName: step.name,
+          displayOrder: step.displayOrder,
+          linkedScreensCount: stepUniqueScreenIds.length,
+          totalTasks,
+          completedTasks: completed,
+          inProgressTasks: inProgress,
+          pendingTasks: pending,
+          estimatedEffort: estEffort,
+          actualEffort: actEffort,
+          progress,
+          screenFunctions,
+        };
+      });
+
+      result.push({
+        stageId: stage.id,
+        stageName: stage.name,
+        stageColor: stage.color,
+        displayOrder: stage.displayOrder,
+        linkedScreensCount: stageUniqueScreenIds.length,
+        totalTasks: stageTotalTasks,
+        completedTasks: stageCompleted,
+        inProgressTasks: stageInProgress,
+        pendingTasks: stagePending,
+        estimatedEffort: stageEstEffort,
+        actualEffort: stageActEffort,
+        progress: stageProgress,
+        steps: stepsStats,
+      });
+    }
+
+    return result;
+  }
+
   // Get all stages with overview for project detail
   async getStagesOverview(projectId: number): Promise<Array<{
     id: number;

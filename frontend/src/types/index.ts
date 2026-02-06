@@ -376,6 +376,50 @@ export interface StageOverviewData {
   linkedScreensCount: number;
 }
 
+// ===== Screen/Function Stage Statistics =====
+
+export interface StepScreenFunctionStat {
+  stepScreenFunctionId: number;
+  screenFunctionId: number;
+  screenFunctionName: string;
+  screenFunctionType: string;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StepScreenFunctionStatus;
+}
+
+export interface StepStageStat {
+  stepId: number;
+  stepName: string;
+  displayOrder: number;
+  linkedScreensCount: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  pendingTasks: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  screenFunctions: StepScreenFunctionStat[];
+}
+
+export interface StageSFStat {
+  stageId: number;
+  stageName: string;
+  stageColor?: string;
+  displayOrder: number;
+  linkedScreensCount: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  pendingTasks: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  steps: StepStageStat[];
+}
+
 // ===== Metric Types =====
 
 export interface MetricType {
