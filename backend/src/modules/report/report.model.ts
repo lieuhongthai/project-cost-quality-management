@@ -12,7 +12,6 @@ import { Commentary } from '../commentary/commentary.model';
 import { Metrics } from '../metrics/metrics.model';
 
 export enum ReportScope {
-  WEEKLY = 'Weekly',
   STAGE = 'Stage',
   PROJECT = 'Project',
 }
@@ -37,7 +36,7 @@ export class Report extends Model {
   projectId: number;
 
   @Column({
-    type: DataType.ENUM('Weekly', 'Stage', 'Project'),
+    type: DataType.ENUM('Stage', 'Project'),
     allowNull: false,
   })
   scope: string;
@@ -55,12 +54,12 @@ export class Report extends Model {
   @Column({
     type: DataType.INTEGER,
   })
-  weekNumber: number; // for weekly reports
+  weekNumber: number; // deprecated - kept for backward compatibility
 
   @Column({
     type: DataType.INTEGER,
   })
-  year: number; // for weekly reports
+  year: number; // deprecated - kept for backward compatibility
 
   @Column({
     type: DataType.DATE,

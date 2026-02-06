@@ -91,24 +91,8 @@ export class CommentaryService {
         } else {
           metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
         }
-      } else if (report.scope === 'Weekly') {
-        // For weekly reports, calculate stage metrics (same as Stage scope)
-        if (!report.stageId) {
-          if (report.stageName) {
-            const stages = await this.taskWorkflowService.findAllStages(report.projectId);
-            const stage = stages.find(s => s.name === report.stageName);
-            if (!stage) {
-              throw new BadRequestException(`Stage '${report.stageName}' not found for this project`);
-            }
-            metrics = await this.metricsService.calculateStageMetrics(stage.id, reportId);
-          } else {
-            throw new BadRequestException(`Report scope is 'Weekly' but no stageId or stageName provided`);
-          }
-        } else {
-          metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
-        }
       } else {
-        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project', 'Stage', and 'Weekly' scopes are supported.`);
+        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Stage' scopes are supported.`);
       }
     }
 
@@ -178,9 +162,9 @@ export class CommentaryService {
     const safeNumber = (value: number | null | undefined, fallback = 0) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
-    // For Stage/Weekly scoped reports, use stage-level metrics instead of project-level
+    // For Stage scoped reports, use stage-level metrics instead of project-level
     // This ensures the AI analyzes the same data that the user sees on the report detail page
-    const isStageScope = report.scope === 'Stage' || report.scope === 'Weekly';
+    const isStageScope = report.scope === 'Stage';
 
     let scheduleSource: any;
     let forecastingSource: any;
@@ -232,7 +216,7 @@ export class CommentaryService {
       .sort((a: any, b: any) => (b.totalActualCost || 0) - (a.totalActualCost || 0))
       .slice(0, 3);
 
-    // Build stage context for Stage/Weekly reports
+    // Build stage context for Stage reports
     let stageContext = '';
     if (isStageScope) {
       stageContext = `
@@ -258,8 +242,7 @@ ${scopeInstruction}
 Report Details:
 - Scope: ${report.scope}
 - Title: ${report.title}
-- Date: ${report.reportDate}
-- Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${stageContext}
+- Date: ${report.reportDate}${stageContext}
 
 Project Overview:
 - Project Name: ${projectSnapshot.name || 'N/A'}

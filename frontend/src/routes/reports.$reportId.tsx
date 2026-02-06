@@ -43,7 +43,7 @@ function ReportDetail() {
 
       if (report.scope === 'Project') {
         return metricsApi.calculateProject(report.projectId, parseInt(reportId));
-      } else if ((report.scope === 'Stage' || report.scope === 'Weekly') && report.stageId) {
+      } else if (report.scope === 'Stage' && report.stageId) {
         return metricsApi.calculateStage(report.stageId, parseInt(reportId));
       }
       return null;
@@ -179,7 +179,6 @@ function ReportDetail() {
   const scopeReportLabels: Record<string, string> = {
     Project: t('report.scopeProjectReport'),
     Stage: t('report.scopeStageReport'),
-    Weekly: t('report.scopeWeeklyReport'),
   };
 
   return (
@@ -195,9 +194,6 @@ function ReportDetail() {
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span className="font-medium">{scopeReportLabels[report.scope]}</span>
               {report.stageName && <span>• {report.stageName}</span>}
-              {report.weekNumber && (
-                <span>• {t('report.detail.weekLabel', { week: report.weekNumber, year: report.year })}</span>
-              )}
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
             {/* Snapshot indicator */}

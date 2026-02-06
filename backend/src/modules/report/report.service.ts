@@ -93,12 +93,6 @@ export class ReportService {
           createReportDto.stageId,
           report.id,
         );
-      } else if (createReportDto.scope === 'Weekly' && createReportDto.stageId) {
-        // For weekly reports, also calculate stage metrics if stageId is provided
-        await this.metricsService.calculateStageMetrics(
-          createReportDto.stageId,
-          report.id,
-        );
       }
     } catch (error) {
       // Log error but don't fail the report creation
@@ -226,8 +220,8 @@ export class ReportService {
       memberCost: memberCostAnalysis,
     };
 
-    // For stage-specific reports (Stage and Weekly), add detailed stage data
-    if ((scope === 'Stage' || scope === 'Weekly') && stageId) {
+    // For stage-specific reports, add detailed stage data
+    if (scope === 'Stage' && stageId) {
       const stage = stages.find(s => s.id === stageId);
       if (stage) {
         const stageScheduleMetrics = this.metricsService.calculateScheduleMetrics({

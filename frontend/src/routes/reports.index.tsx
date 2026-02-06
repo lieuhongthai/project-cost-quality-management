@@ -25,7 +25,6 @@ function ReportsList() {
 
   const getScopeTranslation = (scope: string) => {
     switch (scope) {
-      case 'Weekly': return t('report.scopeWeekly')
       case 'Stage': return t('report.scopeStage')
       case 'Project': return t('report.scopeProject')
       default: return scope
@@ -72,7 +71,6 @@ function ReportsList() {
                 <p className="mt-1 text-sm text-gray-500">
                   {getScopeTranslation(report.scope)}
                   {report.stageName && ` - ${report.stageName}`}
-                  {report.weekNumber && ` - ${t('report.weekNumber')} ${report.weekNumber}, ${report.year}`}
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
                   {t('report.reportDate')}: {format(new Date(report.reportDate), 'MMM dd, yyyy')}
