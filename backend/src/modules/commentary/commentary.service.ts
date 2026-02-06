@@ -156,6 +156,7 @@ export class CommentaryService {
     const snapshot = report.snapshotData || {};
     const projectSnapshot = snapshot.project || {};
     const stageDetail = snapshot.stageDetail || {};
+    const testingSnapshot = snapshot.testing || {};
     const productivitySnapshot = snapshot.productivity || {};
     const memberCostSnapshot = snapshot.memberCost || {};
 
@@ -267,6 +268,14 @@ Forecasting Metrics${isStageScope ? ' (Stage-level)' : ''}:
 - Estimate at Completion (EAC): ${forecastingMetrics.eac.toFixed(2)}
 - Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
 - To-Complete Performance Index (TCPI): ${forecastingMetrics.tcpi.toFixed(2)}
+
+Quality Metrics:
+- Total Test Cases: ${safeNumber(testingSnapshot.totalTestCases)}
+- Failed Test Cases: ${safeNumber(testingSnapshot.totalDefects)}
+- Defect Rate (Failed/Total): ${safeNumber(testingSnapshot.defectRate).toFixed(3)}
+- Bug Count (from code review/testing): ${safeNumber(testingSnapshot.bugCount)}
+- Review Issues: ${safeNumber(testingSnapshot.reviewIssues)}
+- Efficiency (CPI as %): ${(scheduleMetrics.cpi * 100).toFixed(0)}%
 
 Productivity Snapshot:
 - Summary: ${productivitySummary ? `Efficiency ${safeNumber(productivitySummary.efficiency).toFixed(2)}, Completion ${safeNumber(productivitySummary.completionRate).toFixed(0)}%, Variance ${safeNumber(productivitySummary.variance).toFixed(2)}` : 'N/A'}

@@ -115,9 +115,9 @@ export class ReportService {
     const project = await this.projectService.findOne(projectId);
     const stages = await this.taskWorkflowService.findAllStages(projectId);
 
-    // Collect testing data
-    let totalTestCases = 0;
-    let totalDefects = 0;
+    // Get real testing data from TaskMemberMetric
+    const stageIds = stages.map(s => s.id);
+    const testingData = await this.metricsService.getTestingDataForStages(stageIds);
 
     const stageSnapshots: Array<{
       id: number;
@@ -131,10 +131,13 @@ export class ReportService {
       testing: {
         totalTestCases: number;
         totalDefects: number;
+        bugCount: number;
+        reviewIssues: number;
       };
     }> = [];
 
     for (const stage of stages) {
+      const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 };
       stageSnapshots.push({
         id: stage.id,
         name: stage.name,
@@ -145,8 +148,10 @@ export class ReportService {
         startDate: stage.startDate,
         endDate: stage.endDate,
         testing: {
-          totalTestCases: 0,
-          totalDefects: 0,
+          totalTestCases: stageTest.totalTestCases,
+          totalDefects: stageTest.defectsDetected,
+          bugCount: stageTest.bugCount,
+          reviewIssues: stageTest.reviewIssues,
         },
       });
     }
@@ -158,10 +163,10 @@ export class ReportService {
       progress: project.progress || 0,
     });
 
-    // Calculate testing metrics
+    // Calculate testing metrics from real data
     const testingMetrics = this.metricsService.calculateTestingMetrics({
-      totalTestCases,
-      defectsDetected: totalDefects,
+      totalTestCases: testingData.project.totalTestCases,
+      defectsDetected: testingData.project.defectsDetected,
     });
 
     // Get productivity metrics
@@ -212,8 +217,10 @@ export class ReportService {
         tcpi: scheduleMetrics.toCompletePerformanceIndex,
       },
       testing: {
-        totalTestCases,
-        totalDefects,
+        totalTestCases: testingData.project.totalTestCases,
+        totalDefects: testingData.project.defectsDetected,
+        bugCount: testingData.project.bugCount,
+        reviewIssues: testingData.project.reviewIssues,
         defectRate: testingMetrics.defectRate,
       },
       productivity: productivityMetrics,
@@ -253,10 +260,15 @@ export class ReportService {
             vac: stageScheduleMetrics.varianceAtCompletion,
             tcpi: stageScheduleMetrics.toCompletePerformanceIndex,
           },
-          testing: {
-            totalTestCases: 0,
-            totalDefects: 0,
-          },
+          testing: (() => {
+            const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, defectsDetected: 0, bugCount: 0, reviewIssues: 0 };
+            return {
+              totalTestCases: stageTest.totalTestCases,
+              totalDefects: stageTest.defectsDetected,
+              bugCount: stageTest.bugCount,
+              reviewIssues: stageTest.reviewIssues,
+            };
+          })(),
         };
       }
     }
