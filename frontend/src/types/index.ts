@@ -116,7 +116,7 @@ export interface Metrics {
 }
 
 // Screen/Function types
-export type ScreenFunctionType = 'Screen' | 'Function';
+export type ScreenFunctionType = 'Screen' | 'Function' | 'Other';
 export type Priority = 'High' | 'Medium' | 'Low';
 export type Complexity = 'Simple' | 'Medium' | 'Complex';
 export type ScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed';
@@ -149,6 +149,7 @@ export interface ScreenFunctionSummary {
   byType: {
     Screen: number;
     Function: number;
+    Other: number;
   };
   byStatus: {
     'Not Started': number;
@@ -374,6 +375,50 @@ export interface StageOverviewData {
   status: StageStatus;
   stepsCount: number;
   linkedScreensCount: number;
+}
+
+// ===== Screen/Function Stage Statistics =====
+
+export interface StepScreenFunctionStat {
+  stepScreenFunctionId: number;
+  screenFunctionId: number;
+  screenFunctionName: string;
+  screenFunctionType: string;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  status: StepScreenFunctionStatus;
+}
+
+export interface StepStageStat {
+  stepId: number;
+  stepName: string;
+  displayOrder: number;
+  linkedScreensCount: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  pendingTasks: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  screenFunctions: StepScreenFunctionStat[];
+}
+
+export interface StageSFStat {
+  stageId: number;
+  stageName: string;
+  stageColor?: string;
+  displayOrder: number;
+  linkedScreensCount: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  pendingTasks: number;
+  estimatedEffort: number;
+  actualEffort: number;
+  progress: number;
+  steps: StepStageStat[];
 }
 
 // ===== Metric Types =====

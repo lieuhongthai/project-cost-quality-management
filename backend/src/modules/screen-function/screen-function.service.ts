@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Op } from 'sequelize';
 import { ScreenFunction } from './screen-function.model';
+import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto } from './screen-function.dto';
 
 @Injectable()
@@ -16,10 +18,49 @@ export class ScreenFunctionService {
   }
 
   async findByProject(projectId: number): Promise<ScreenFunction[]> {
-    return this.screenFunctionRepository.findAll({
+    const screenFunctions = await this.screenFunctionRepository.findAll({
       where: { projectId },
       order: [['displayOrder', 'ASC'], ['createdAt', 'ASC']],
     });
+
+    if (screenFunctions.length === 0) return screenFunctions;
+
+    // Get all StepScreenFunction records for these screen functions
+    const sfIds = screenFunctions.map(sf => sf.id);
+    const allStepScreenFunctions = await StepScreenFunction.findAll({
+      where: { screenFunctionId: { [Op.in]: sfIds } },
+    });
+
+    // Group by screenFunctionId
+    const ssfByScreenFunction = new Map<number, StepScreenFunction[]>();
+    for (const ssf of allStepScreenFunctions) {
+      const existing = ssfByScreenFunction.get(ssf.screenFunctionId) || [];
+      existing.push(ssf);
+      ssfByScreenFunction.set(ssf.screenFunctionId, existing);
+    }
+
+    // Update ScreenFunctions with aggregated values and save to DB
+    for (const sf of screenFunctions) {
+      const sfSteps = ssfByScreenFunction.get(sf.id) || [];
+      if (sfSteps.length === 0) continue;
+
+      const estimatedEffort = sfSteps.reduce((sum, s) => sum + (s.estimatedEffort || 0), 0);
+      const actualEffort = sfSteps.reduce((sum, s) => sum + (s.actualEffort || 0), 0);
+      const totalTasks = sfSteps.length;
+      const completedTasks = sfSteps.filter(s => s.status === 'Completed').length;
+      const progress = Math.round((completedTasks / totalTasks) * 100);
+      const allCompleted = sfSteps.every(s => s.status === 'Completed');
+      const allNotStarted = sfSteps.every(s => s.status === 'Not Started');
+      const status = allCompleted ? 'Completed' : allNotStarted ? 'Not Started' : 'In Progress';
+
+      // Update if values have changed
+      if (sf.estimatedEffort !== estimatedEffort || sf.actualEffort !== actualEffort ||
+          sf.progress !== progress || sf.status !== status) {
+        await sf.update({ estimatedEffort, actualEffort, progress, status });
+      }
+    }
+
+    return screenFunctions;
   }
 
   async findOne(id: number): Promise<ScreenFunction> {
@@ -68,25 +109,89 @@ export class ScreenFunctionService {
     }
   }
 
-  // Get summary for a project
+  // Get summary for a project - aggregates from StepScreenFunction data
   async getProjectSummary(projectId: number) {
     const screenFunctions = await this.findByProject(projectId);
 
-    const totalEstimated = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
-    const totalActual = screenFunctions.reduce((sum, sf) => sum + (sf.actualEffort || 0), 0);
-    const avgProgress = screenFunctions.length > 0
-      ? screenFunctions.reduce((sum, sf) => sum + (sf.progress || 0), 0) / screenFunctions.length
-      : 0;
+    if (screenFunctions.length === 0) {
+      return {
+        total: 0,
+        totalEstimated: 0,
+        totalActual: 0,
+        avgProgress: 0,
+        variance: 0,
+        variancePercentage: 0,
+        byType: { Screen: 0, Function: 0, Other: 0 },
+        byStatus: { 'Not Started': 0, 'In Progress': 0, 'Completed': 0 },
+        byPriority: { High: 0, Medium: 0, Low: 0 },
+      };
+    }
+
+    const sfIds = screenFunctions.map(sf => sf.id);
+
+    // Get all StepScreenFunction records for these screen functions
+    const allStepScreenFunctions = await StepScreenFunction.findAll({
+      where: { screenFunctionId: { [Op.in]: sfIds } },
+    });
+
+    // Group StepScreenFunctions by screenFunctionId
+    const ssfByScreenFunction = new Map<number, StepScreenFunction[]>();
+    for (const ssf of allStepScreenFunctions) {
+      const existing = ssfByScreenFunction.get(ssf.screenFunctionId) || [];
+      existing.push(ssf);
+      ssfByScreenFunction.set(ssf.screenFunctionId, existing);
+    }
+
+    // Compute aggregated values per ScreenFunction
+    const aggregated = screenFunctions.map(sf => {
+      const sfSteps = ssfByScreenFunction.get(sf.id) || [];
+
+      if (sfSteps.length === 0) {
+        // No StepScreenFunctions linked - use the ScreenFunction's own values
+        return {
+          ...sf.toJSON(),
+          estimatedEffort: sf.estimatedEffort || 0,
+          actualEffort: sf.actualEffort || 0,
+          progress: sf.progress || 0,
+          status: sf.status || 'Not Started',
+        };
+      }
+
+      // Aggregate from StepScreenFunctions
+      const estimatedEffort = sfSteps.reduce((sum, s) => sum + (s.estimatedEffort || 0), 0);
+      const actualEffort = sfSteps.reduce((sum, s) => sum + (s.actualEffort || 0), 0);
+
+      const totalTasks = sfSteps.length;
+      const completedTasks = sfSteps.filter(s => s.status === 'Completed').length;
+      const progress = Math.round((completedTasks / totalTasks) * 100);
+
+      const allCompleted = sfSteps.every(s => s.status === 'Completed');
+      const allNotStarted = sfSteps.every(s => s.status === 'Not Started');
+      const status = allCompleted ? 'Completed' : allNotStarted ? 'Not Started' : 'In Progress';
+
+      return {
+        ...sf.toJSON(),
+        estimatedEffort,
+        actualEffort,
+        progress,
+        status,
+      };
+    });
+
+    const totalEstimated = aggregated.reduce((sum, sf) => sum + sf.estimatedEffort, 0);
+    const totalActual = aggregated.reduce((sum, sf) => sum + sf.actualEffort, 0);
+    const avgProgress = aggregated.reduce((sum, sf) => sum + sf.progress, 0) / aggregated.length;
 
     const byType = {
       Screen: screenFunctions.filter(sf => sf.type === 'Screen').length,
       Function: screenFunctions.filter(sf => sf.type === 'Function').length,
+      Other: screenFunctions.filter(sf => sf.type === 'Other').length,
     };
 
     const byStatus = {
-      'Not Started': screenFunctions.filter(sf => sf.status === 'Not Started').length,
-      'In Progress': screenFunctions.filter(sf => sf.status === 'In Progress').length,
-      'Completed': screenFunctions.filter(sf => sf.status === 'Completed').length,
+      'Not Started': aggregated.filter(sf => sf.status === 'Not Started').length,
+      'In Progress': aggregated.filter(sf => sf.status === 'In Progress').length,
+      'Completed': aggregated.filter(sf => sf.status === 'Completed').length,
     };
 
     const byPriority = {

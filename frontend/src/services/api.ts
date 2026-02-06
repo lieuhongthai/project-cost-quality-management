@@ -26,6 +26,7 @@ import type {
   StepScreenFunction,
   StageDetailData,
   StageOverviewData,
+  StageSFStat,
   ProjectMetricInsights,
   ProjectMetricTypeSummary,
 } from '../types';
@@ -179,6 +180,12 @@ export const taskWorkflowApi = {
     api.get<StageDetailData>(`/task-workflow/stages/${stageId}/detail`),
   getStagesOverview: (projectId: number) =>
     api.get<StageOverviewData[]>(`/task-workflow/stages/overview/project/${projectId}`),
+  getScreenFunctionStageStats: (projectId: number) =>
+    api.get<StageSFStat[]>(`/task-workflow/stages/screen-function-stats/project/${projectId}`),
+  quickLinkByType: (stageId: number, type: string) =>
+    api.post<{ created: number; skipped: number; details: Array<{ stepId: number; stepName: string; linked: number }> }>(
+      `/task-workflow/stages/${stageId}/quick-link`, { type }
+    ),
 
   // Workflow Steps
   getSteps: (stageId: number) =>

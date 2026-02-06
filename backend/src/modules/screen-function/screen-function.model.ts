@@ -12,6 +12,7 @@ import { Project } from '../project/project.model';
 export enum ScreenFunctionType {
   SCREEN = 'Screen',
   FUNCTION = 'Function',
+  OTHER = 'Other',
 }
 
 export enum Priority {
@@ -58,7 +59,7 @@ export class ScreenFunction extends Model {
   name: string;
 
   @Column({
-    type: DataType.ENUM('Screen', 'Function'),
+    type: DataType.ENUM('Screen', 'Function', 'Other'),
     allowNull: false,
     defaultValue: 'Screen',
   })

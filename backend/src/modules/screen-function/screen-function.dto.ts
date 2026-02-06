@@ -12,7 +12,7 @@ export class CreateScreenFunctionDto {
   name: string;
 
   @IsOptional()
-  @IsEnum(['Screen', 'Function'])
+  @IsEnum(['Screen', 'Function', 'Other'])
   type?: string;
 
   @IsOptional()
@@ -58,7 +58,7 @@ export class UpdateScreenFunctionDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(['Screen', 'Function'])
+  @IsEnum(['Screen', 'Function', 'Other'])
   type?: string;
 
   @IsOptional()

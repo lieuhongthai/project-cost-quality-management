@@ -11,6 +11,7 @@ interface ScreenFunctionFormProps {
   screenFunction?: ScreenFunction;
   effortUnit?: EffortUnit;
   workSettings?: Partial<ProjectSettings>;
+  nextDisplayOrder?: number;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   screenFunction,
   effortUnit = 'man-hour',
   workSettings,
+  nextDisplayOrder = 1,
   onSuccess,
   onCancel,
 }) => {
@@ -38,6 +40,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     priority: screenFunction?.priority || 'Medium' as Priority,
     complexity: screenFunction?.complexity || 'Medium' as Complexity,
     estimatedEffort: initialEffort,
+    displayOrder: screenFunction?.displayOrder ?? nextDisplayOrder,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -91,6 +94,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     const submitData = {
       ...formData,
       estimatedEffort: effortInManHours,
+      displayOrder: formData.displayOrder,
     };
 
     if (screenFunction) {
@@ -102,7 +106,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const finalValue = name === 'estimatedEffort' ? parseFloat(value) || 0 : value;
+    const finalValue = (name === 'estimatedEffort' || name === 'displayOrder') ? parseFloat(value) || 0 : value;
     setFormData((prev) => ({ ...prev, [name]: finalValue }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
@@ -114,6 +118,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   const typeOptions: { value: ScreenFunctionType; label: string }[] = [
     { value: 'Screen', label: t('screenFunction.typeScreen') },
     { value: 'Function', label: t('screenFunction.typeFunction') },
+    { value: 'Other', label: t('screenFunction.typeOther', { defaultValue: 'Other' }) },
   ];
 
   const priorityOptions: { value: Priority; label: string }[] = [
@@ -141,7 +146,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         disabled={isLoading}
       />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Select
           label={t('screenFunction.type')}
           name="type"
@@ -150,6 +155,17 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
           options={typeOptions}
           error={errors.type}
           required
+          disabled={isLoading}
+        />
+
+        <Input
+          label={t('screenFunction.displayOrder', { defaultValue: 'Order' })}
+          name="displayOrder"
+          type="number"
+          min="0"
+          step="1"
+          value={formData.displayOrder}
+          onChange={handleChange}
           disabled={isLoading}
         />
 
@@ -172,19 +188,28 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         />
       </div>
 
-      <Input
-        label={t('screenFunction.form.estimatedEffortLabel', {
-          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
-        })}
-        name="estimatedEffort"
-        type="number"
-        step="0.01"
-        min="0"
-        value={formData.estimatedEffort}
-        onChange={handleChange}
-        placeholder={t('screenFunction.form.estimatedEffortPlaceholder')}
-        disabled={isLoading}
-      />
+      <div>
+        <Input
+          label={t('screenFunction.form.estimatedEffortLabel', {
+            unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+          })}
+          name="estimatedEffort"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.estimatedEffort}
+          onChange={handleChange}
+          placeholder={t('screenFunction.form.estimatedEffortPlaceholder')}
+          disabled={isLoading}
+        />
+        {screenFunction && screenFunction.actualEffort > 0 && (
+          <p className="text-xs text-amber-600 mt-1">
+            {t('screenFunction.form.effortComputedFromSteps', {
+              defaultValue: 'Note: Effort, progress, and status are automatically computed from linked Stage/Step tasks.',
+            })}
+          </p>
+        )}
+      </div>
 
       <TextArea
         label={t('screenFunction.description')}
