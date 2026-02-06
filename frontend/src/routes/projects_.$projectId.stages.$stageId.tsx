@@ -13,7 +13,8 @@ import {
 } from "@/components/common";
 import { StepScreenFunctionEditModal } from "@/components/task-workflow";
 import { useTranslation } from "react-i18next";
-import type { StepScreenFunctionStatus, StepScreenFunction } from "@/types";
+import type { StepScreenFunctionStatus, StepScreenFunction, ScreenFunctionType } from "@/types";
+import { screenFunctionApi } from "@/services/api";
 
 export const Route = createFileRoute("/projects_/$projectId/stages/$stageId")({
   component: StageDetail,
@@ -83,6 +84,9 @@ function StageDetail() {
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
+  const [showQuickLink, setShowQuickLink] = useState(false);
+  const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
+  const [quickLinkResult, setQuickLinkResult] = useState<{ created: number; skipped: number; details: Array<{ stepId: number; stepName: string; linked: number }> } | null>(null);
 
   // Fetch stage detail
   const { data: stageDetail, isLoading } = useQuery({
@@ -122,6 +126,16 @@ function StageDetail() {
       const response = await taskWorkflowApi.getProjectMetricInsights(parseInt(projectId));
       return response.data;
     },
+  });
+
+  // Fetch screen function summary for quick link counts
+  const { data: sfSummary } = useQuery({
+    queryKey: ['screenFunctionSummary', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getSummary(parseInt(projectId));
+      return response.data;
+    },
+    enabled: showQuickLink,
   });
 
   // Fetch available screen functions for linking
@@ -206,6 +220,24 @@ function StageDetail() {
       setShowUpdateActualDateConfirm(false);
     },
   });
+
+  // Quick link mutation
+  const quickLinkMutation = useMutation({
+    mutationFn: (data: { stageId: number; type: string }) =>
+      taskWorkflowApi.quickLinkByType(data.stageId, data.type),
+    onSuccess: (response) => {
+      setQuickLinkResult(response.data);
+      invalidateStageQueries();
+      queryClient.invalidateQueries({ queryKey: ['availableScreenFunctions'] });
+    },
+  });
+
+  const handleQuickLink = () => {
+    quickLinkMutation.mutate({
+      stageId: parseInt(stageId),
+      type: quickLinkType,
+    });
+  };
 
   // Handle link screen functions
   const handleLinkScreenFunctions = () => {
@@ -415,6 +447,22 @@ function StageDetail() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Quick Link Button */}
+            <Tooltip content={t('stages.quickLinkTooltip', { defaultValue: 'Auto-link Screen/Functions to all steps' })}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setShowQuickLink(true);
+                  setQuickLinkResult(null);
+                }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span className="ml-2">{t('stages.quickLink', { defaultValue: 'Quick Link' })}</span>
+              </Button>
+            </Tooltip>
             {/* Update Actual Date Button */}
             <Tooltip content={t('stages.updateActualDateFromTasks')}>
               <Button
@@ -672,7 +720,9 @@ function StageDetail() {
                                 <span className={`px-2 py-0.5 text-xs rounded ${
                                   ssf.screenFunction?.type === 'Screen'
                                     ? 'bg-purple-100 text-purple-800'
-                                    : 'bg-blue-100 text-blue-800'
+                                    : ssf.screenFunction?.type === 'Function'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-orange-100 text-orange-800'
                                 }`}>
                                   {ssf.screenFunction?.type || '-'}
                                 </span>
@@ -886,7 +936,9 @@ function StageDetail() {
                       <p className="font-medium text-gray-900">{sf.name}</p>
                       <div className="flex gap-2 mt-1">
                         <span className={`px-2 py-0.5 text-xs rounded ${
-                          sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' :
+                          sf.type === 'Function' ? 'bg-blue-100 text-blue-800' :
+                          'bg-orange-100 text-orange-800'
                         }`}>
                           {sf.type}
                         </span>
@@ -1007,6 +1059,150 @@ function StageDetail() {
               {t('stages.confirmUpdate')}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Quick Link Modal */}
+      <Modal
+        isOpen={showQuickLink}
+        onClose={() => {
+          setShowQuickLink(false);
+          setQuickLinkResult(null);
+        }}
+        title={t('stages.quickLinkTitle', { defaultValue: 'Quick Link Screen/Functions' })}
+        size="md"
+      >
+        <div className="space-y-4">
+          {!quickLinkResult ? (
+            <>
+              <p className="text-sm text-gray-600">
+                {t('stages.quickLinkDescription', {
+                  defaultValue: 'Automatically link all Screen/Functions of a selected type to every step of this stage. Existing links will be skipped.',
+                })}
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('stages.quickLinkSelectType', { defaultValue: 'Select type to link' })}
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(['Screen', 'Function', 'Other'] as ScreenFunctionType[]).map((type) => {
+                    const count = sfSummary?.byType?.[type] ?? 0;
+                    const isSelected = quickLinkType === type;
+                    const colorMap: Record<string, string> = {
+                      Screen: isSelected ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-purple-300',
+                      Function: isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300',
+                      Other: isSelected ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-200 hover:border-orange-300',
+                    };
+                    const badgeColor: Record<string, string> = {
+                      Screen: 'bg-purple-100 text-purple-800',
+                      Function: 'bg-blue-100 text-blue-800',
+                      Other: 'bg-orange-100 text-orange-800',
+                    };
+
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setQuickLinkType(type)}
+                        className={`p-3 rounded-lg border-2 text-center transition-all cursor-pointer ${colorMap[type]}`}
+                      >
+                        <span className={`inline-block px-2 py-0.5 text-xs rounded mb-1 ${badgeColor[type]}`}>
+                          {type}
+                        </span>
+                        <p className="text-lg font-semibold text-gray-900">{count}</p>
+                        <p className="text-xs text-gray-500">{t('stages.items', { defaultValue: 'items' })}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {steps.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t('stages.quickLinkPreview', { defaultValue: 'Preview' })}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {t('stages.quickLinkPreviewText', {
+                      defaultValue: `${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s) × ${steps.length} step(s) = up to ${(sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length} tasks`,
+                      count: sfSummary?.byType?.[quickLinkType] ?? 0,
+                      type: quickLinkType,
+                      steps: steps.length,
+                      total: (sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length,
+                    })}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowQuickLink(false);
+                    setQuickLinkResult(null);
+                  }}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  onClick={handleQuickLink}
+                  disabled={quickLinkMutation.isPending || (sfSummary?.byType?.[quickLinkType] ?? 0) === 0}
+                  loading={quickLinkMutation.isPending}
+                >
+                  {t('stages.quickLinkAction', { defaultValue: `Link ${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s)` })}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center py-2">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {t('stages.quickLinkComplete', { defaultValue: 'Quick Link Complete' })}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {t('stages.quickLinkCreated', {
+                    defaultValue: `Created ${quickLinkResult.created} new task(s), skipped ${quickLinkResult.skipped} existing`,
+                    created: quickLinkResult.created,
+                    skipped: quickLinkResult.skipped,
+                  })}
+                </p>
+              </div>
+
+              {quickLinkResult.details.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                    {t('stages.quickLinkDetails', { defaultValue: 'Details by step' })}
+                  </p>
+                  <div className="space-y-1">
+                    {quickLinkResult.details.map((d) => (
+                      <div key={d.stepId} className="flex justify-between text-sm">
+                        <span className="text-gray-700">{d.stepName}</span>
+                        <span className={d.linked > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                          +{d.linked}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={() => {
+                    setShowQuickLink(false);
+                    setQuickLinkResult(null);
+                  }}
+                >
+                  {t('common.close', { defaultValue: 'Close' })}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

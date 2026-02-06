@@ -471,6 +471,14 @@ export class TaskWorkflowController {
     return this.taskWorkflowService.getAvailableScreenFunctionsForStep(stepId);
   }
 
+  @Post('stages/:stageId/quick-link')
+  quickLinkByType(
+    @Param('stageId', ParseIntPipe) stageId: number,
+    @Body() body: { type: string },
+  ) {
+    return this.taskWorkflowService.quickLinkByType(stageId, body.type);
+  }
+
   // ===== Step Screen Function Member Endpoints =====
 
   @Get('step-screen-function-members/ssf/:stepScreenFunctionId')

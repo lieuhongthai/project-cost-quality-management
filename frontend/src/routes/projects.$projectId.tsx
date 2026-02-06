@@ -893,7 +893,7 @@ function ProjectDetail() {
                 <p className="text-sm text-gray-500">{t('common.total')}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">{sfSummary.total}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {sfSummary.byType.Screen} {t('screenFunction.typeScreen')}, {sfSummary.byType.Function} {t('screenFunction.typeFunction')}
+                  {sfSummary.byType.Screen} {t('screenFunction.typeScreen')}, {sfSummary.byType.Function} {t('screenFunction.typeFunction')}{sfSummary.byType.Other ? `, ${sfSummary.byType.Other} Other` : ''}
                 </p>
               </Card>
               <Card>
@@ -1118,6 +1118,7 @@ function ProjectDetail() {
                 <option value="">{t('screenFunction.allTypes')}</option>
                 <option value="Screen">{t('screenFunction.typeScreen')}</option>
                 <option value="Function">{t('screenFunction.typeFunction')}</option>
+                <option value="Other">{t('screenFunction.typeOther', { defaultValue: 'Other' })}</option>
               </select>
               <select
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm"
@@ -1164,7 +1165,9 @@ function ProjectDetail() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <span className={`px-2 py-1 text-xs rounded ${
-                            sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                            sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' :
+                            sf.type === 'Function' ? 'bg-blue-100 text-blue-800' :
+                            'bg-orange-100 text-orange-800'
                           }`}>
                             {sf.type}
                           </span>

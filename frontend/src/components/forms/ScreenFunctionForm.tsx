@@ -118,6 +118,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   const typeOptions: { value: ScreenFunctionType; label: string }[] = [
     { value: 'Screen', label: t('screenFunction.typeScreen') },
     { value: 'Function', label: t('screenFunction.typeFunction') },
+    { value: 'Other', label: t('screenFunction.typeOther', { defaultValue: 'Other' }) },
   ];
 
   const priorityOptions: { value: Priority; label: string }[] = [

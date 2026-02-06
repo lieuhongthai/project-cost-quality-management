@@ -1275,6 +1275,101 @@ export class TaskWorkflowService {
     });
   }
 
+  // ===== Quick Link: Auto-link all ScreenFunctions of a type to all steps of a stage =====
+
+  async quickLinkByType(stageId: number, screenFunctionType: string): Promise<{
+    created: number;
+    skipped: number;
+    details: Array<{ stepId: number; stepName: string; linked: number }>;
+  }> {
+    const stage = await this.stageRepository.findByPk(stageId);
+    if (!stage) {
+      throw new NotFoundException(`Stage with ID ${stageId} not found`);
+    }
+
+    // Get all active steps for this stage
+    const steps = await this.stepRepository.findAll({
+      where: { stageId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (steps.length === 0) {
+      return { created: 0, skipped: 0, details: [] };
+    }
+
+    // Get all screen functions of the specified type for the project
+    const screenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId: stage.projectId, type: screenFunctionType },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (screenFunctions.length === 0) {
+      return { created: 0, skipped: 0, details: [] };
+    }
+
+    const stepIds = steps.map(s => s.id);
+    const sfIds = screenFunctions.map(sf => sf.id);
+
+    // Get all existing StepScreenFunction records for these steps
+    const existingSSFs = await this.stepScreenFunctionRepository.findAll({
+      where: {
+        stepId: { [Op.in]: stepIds },
+        screenFunctionId: { [Op.in]: sfIds },
+      },
+    });
+
+    // Build a set of existing (stepId, screenFunctionId) pairs
+    const existingSet = new Set(
+      existingSSFs.map(ssf => `${ssf.stepId}-${ssf.screenFunctionId}`),
+    );
+
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    const details: Array<{ stepId: number; stepName: string; linked: number }> = [];
+    const affectedScreenFunctionIds = new Set<number>();
+
+    for (const step of steps) {
+      const newItems: Array<{ stepId: number; screenFunctionId: number; estimatedEffort: number }> = [];
+
+      for (const sf of screenFunctions) {
+        const key = `${step.id}-${sf.id}`;
+        if (existingSet.has(key)) {
+          totalSkipped++;
+        } else {
+          newItems.push({
+            stepId: step.id,
+            screenFunctionId: sf.id,
+            estimatedEffort: 0,
+          });
+          affectedScreenFunctionIds.add(sf.id);
+        }
+      }
+
+      if (newItems.length > 0) {
+        await this.stepScreenFunctionRepository.bulkCreate(newItems as any[]);
+        totalCreated += newItems.length;
+      }
+
+      details.push({
+        stepId: step.id,
+        stepName: step.name,
+        linked: newItems.length,
+      });
+    }
+
+    // Recalculate stage effort for all affected steps
+    for (const stepId of stepIds) {
+      await this.recalculateStageEffort(stepId);
+    }
+
+    // Recalculate all affected screen functions
+    for (const sfId of affectedScreenFunctionIds) {
+      await this.recalculateScreenFunctionFromSteps(sfId);
+    }
+
+    return { created: totalCreated, skipped: totalSkipped, details };
+  }
+
   // ===== Metric Type Methods =====
 
   async findAllMetricTypes(projectId: number): Promise<MetricType[]> {

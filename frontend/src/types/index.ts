@@ -116,7 +116,7 @@ export interface Metrics {
 }
 
 // Screen/Function types
-export type ScreenFunctionType = 'Screen' | 'Function';
+export type ScreenFunctionType = 'Screen' | 'Function' | 'Other';
 export type Priority = 'High' | 'Medium' | 'Low';
 export type Complexity = 'Simple' | 'Medium' | 'Complex';
 export type ScreenFunctionStatus = 'Not Started' | 'In Progress' | 'Completed';
@@ -149,6 +149,7 @@ export interface ScreenFunctionSummary {
   byType: {
     Screen: number;
     Function: number;
+    Other: number;
   };
   byStatus: {
     'Not Started': number;

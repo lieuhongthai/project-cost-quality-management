@@ -121,7 +121,7 @@ export class ScreenFunctionService {
         avgProgress: 0,
         variance: 0,
         variancePercentage: 0,
-        byType: { Screen: 0, Function: 0 },
+        byType: { Screen: 0, Function: 0, Other: 0 },
         byStatus: { 'Not Started': 0, 'In Progress': 0, 'Completed': 0 },
         byPriority: { High: 0, Medium: 0, Low: 0 },
       };
@@ -185,6 +185,7 @@ export class ScreenFunctionService {
     const byType = {
       Screen: screenFunctions.filter(sf => sf.type === 'Screen').length,
       Function: screenFunctions.filter(sf => sf.type === 'Function').length,
+      Other: screenFunctions.filter(sf => sf.type === 'Other').length,
     };
 
     const byStatus = {
