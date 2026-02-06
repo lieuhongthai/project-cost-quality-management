@@ -580,6 +580,8 @@ export class TaskWorkflowService {
     const ssf = await this.stepScreenFunctionRepository.create(dto as any);
     // Recalculate parent Stage's effort values
     await this.recalculateStageEffort(dto.stepId);
+    // Recalculate parent ScreenFunction's aggregated values
+    await this.recalculateScreenFunctionFromSteps(dto.screenFunctionId);
     return ssf;
   }
 
@@ -589,6 +591,8 @@ export class TaskWorkflowService {
 
     // Recalculate and update parent Stage's effort values
     await this.recalculateStageEffort(ssf.stepId);
+    // Recalculate parent ScreenFunction's aggregated values
+    await this.recalculateScreenFunctionFromSteps(ssf.screenFunctionId);
 
     return ssf;
   }
@@ -637,16 +641,17 @@ export class TaskWorkflowService {
     });
 
     await this.projectService.updateProjectMetricsFromStages(stage.projectId);
-
-    await this.projectService.updateProjectMetricsFromStages(stage.projectId);
   }
 
   async deleteStepScreenFunction(id: number): Promise<void> {
     const ssf = await this.findStepScreenFunctionById(id);
     const stepId = ssf.stepId;
+    const screenFunctionId = ssf.screenFunctionId;
     await ssf.destroy();
     // Recalculate parent Stage's effort values
     await this.recalculateStageEffort(stepId);
+    // Recalculate parent ScreenFunction's aggregated values
+    await this.recalculateScreenFunctionFromSteps(screenFunctionId);
   }
 
   async bulkCreateStepScreenFunctions(dto: BulkCreateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
@@ -659,12 +664,18 @@ export class TaskWorkflowService {
     const result = await this.stepScreenFunctionRepository.bulkCreate(items as any[]);
     // Recalculate parent Stage's effort values
     await this.recalculateStageEffort(dto.stepId);
+    // Recalculate parent ScreenFunction's aggregated values for each affected screen function
+    const affectedScreenFunctionIds = [...new Set(dto.items.map(item => item.screenFunctionId))];
+    for (const sfId of affectedScreenFunctionIds) {
+      await this.recalculateScreenFunctionFromSteps(sfId);
+    }
     return result;
   }
 
   async bulkUpdateStepScreenFunctions(dto: BulkUpdateStepScreenFunctionDto): Promise<StepScreenFunction[]> {
     const results: StepScreenFunction[] = [];
     const updatedStepIds = new Set<number>();
+    const updatedScreenFunctionIds = new Set<number>();
 
     for (const item of dto.items) {
       const ssf = await this.stepScreenFunctionRepository.findByPk(item.id);
@@ -673,12 +684,18 @@ export class TaskWorkflowService {
         await ssf.update(updateData);
         results.push(ssf);
         updatedStepIds.add(ssf.stepId);
+        updatedScreenFunctionIds.add(ssf.screenFunctionId);
       }
     }
 
     // Recalculate parent Stage's effort values for all affected steps
     for (const stepId of updatedStepIds) {
       await this.recalculateStageEffort(stepId);
+    }
+
+    // Recalculate parent ScreenFunction's aggregated values for all affected screen functions
+    for (const sfId of updatedScreenFunctionIds) {
+      await this.recalculateScreenFunctionFromSteps(sfId);
     }
 
     return results;
@@ -1075,6 +1092,76 @@ export class TaskWorkflowService {
 
     // Also recalculate parent Stage's effort values
     await this.recalculateStageEffort(ssf.stepId);
+    // Also recalculate parent ScreenFunction's aggregated values
+    await this.recalculateScreenFunctionFromSteps(ssf.screenFunctionId);
+  }
+
+  // Recalculate all ScreenFunctions for a project from their StepScreenFunction data
+  async recalculateAllScreenFunctionsForProject(projectId: number): Promise<void> {
+    const screenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId },
+    });
+    for (const sf of screenFunctions) {
+      await this.recalculateScreenFunctionFromSteps(sf.id);
+    }
+  }
+
+  // Helper method to recalculate ScreenFunction effort/progress/status from its StepScreenFunctions
+  private async recalculateScreenFunctionFromSteps(screenFunctionId: number): Promise<void> {
+    const screenFunction = await this.screenFunctionRepository.findByPk(screenFunctionId);
+    if (!screenFunction) return;
+
+    // Get all StepScreenFunction records linked to this ScreenFunction across all steps/stages
+    const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+      where: { screenFunctionId },
+    });
+
+    if (stepScreenFunctions.length === 0) {
+      // No StepScreenFunctions linked - reset to defaults
+      await screenFunction.update({
+        actualEffort: 0,
+        progress: 0,
+        status: 'Not Started',
+      });
+      return;
+    }
+
+    // Aggregate estimatedEffort and actualEffort from all linked StepScreenFunctions
+    const totalEstimatedEffort = stepScreenFunctions.reduce(
+      (sum, ssf) => sum + (ssf.estimatedEffort || 0), 0,
+    );
+    const totalActualEffort = stepScreenFunctions.reduce(
+      (sum, ssf) => sum + (ssf.actualEffort || 0), 0,
+    );
+
+    // Calculate progress based on completed tasks
+    const totalTasks = stepScreenFunctions.length;
+    const completedTasks = stepScreenFunctions.filter(
+      ssf => ssf.status === 'Completed',
+    ).length;
+    const progressPercentage = Math.round((completedTasks / totalTasks) * 100);
+
+    // Determine status from StepScreenFunction statuses
+    const allCompleted = stepScreenFunctions.every(ssf => ssf.status === 'Completed');
+    const allNotStarted = stepScreenFunctions.every(
+      ssf => ssf.status === 'Not Started',
+    );
+
+    let status: string;
+    if (allCompleted) {
+      status = 'Completed';
+    } else if (allNotStarted) {
+      status = 'Not Started';
+    } else {
+      status = 'In Progress';
+    }
+
+    await screenFunction.update({
+      estimatedEffort: totalEstimatedEffort,
+      actualEffort: totalActualEffort,
+      progress: progressPercentage,
+      status,
+    });
   }
 
   // ===== Metric Type Methods =====

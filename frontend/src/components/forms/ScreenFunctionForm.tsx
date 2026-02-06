@@ -172,19 +172,28 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         />
       </div>
 
-      <Input
-        label={t('screenFunction.form.estimatedEffortLabel', {
-          unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
-        })}
-        name="estimatedEffort"
-        type="number"
-        step="0.01"
-        min="0"
-        value={formData.estimatedEffort}
-        onChange={handleChange}
-        placeholder={t('screenFunction.form.estimatedEffortPlaceholder')}
-        disabled={isLoading}
-      />
+      <div>
+        <Input
+          label={t('screenFunction.form.estimatedEffortLabel', {
+            unit: `${EFFORT_UNIT_FULL_LABELS[effortUnit]}s`,
+          })}
+          name="estimatedEffort"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.estimatedEffort}
+          onChange={handleChange}
+          placeholder={t('screenFunction.form.estimatedEffortPlaceholder')}
+          disabled={isLoading}
+        />
+        {screenFunction && screenFunction.actualEffort > 0 && (
+          <p className="text-xs text-amber-600 mt-1">
+            {t('screenFunction.form.effortComputedFromSteps', {
+              defaultValue: 'Note: Effort, progress, and status are automatically computed from linked Stage/Step tasks.',
+            })}
+          </p>
+        )}
+      </div>
 
       <TextArea
         label={t('screenFunction.description')}
