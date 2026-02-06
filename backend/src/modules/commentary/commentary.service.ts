@@ -91,8 +91,24 @@ export class CommentaryService {
         } else {
           metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
         }
+      } else if (report.scope === 'Weekly') {
+        // For weekly reports, calculate stage metrics (same as Stage scope)
+        if (!report.stageId) {
+          if (report.stageName) {
+            const stages = await this.taskWorkflowService.findAllStages(report.projectId);
+            const stage = stages.find(s => s.name === report.stageName);
+            if (!stage) {
+              throw new BadRequestException(`Stage '${report.stageName}' not found for this project`);
+            }
+            metrics = await this.metricsService.calculateStageMetrics(stage.id, reportId);
+          } else {
+            throw new BadRequestException(`Report scope is 'Weekly' but no stageId or stageName provided`);
+          }
+        } else {
+          metrics = await this.metricsService.calculateStageMetrics(report.stageId, reportId);
+        }
       } else {
-        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project' and 'Stage' scopes are supported.`);
+        throw new BadRequestException(`Cannot generate metrics for report scope '${report.scope}'. Only 'Project', 'Stage', and 'Weekly' scopes are supported.`);
       }
     }
 
@@ -155,31 +171,46 @@ export class CommentaryService {
   private buildPrompt(report: any, metrics: any): string {
     const snapshot = report.snapshotData || {};
     const projectSnapshot = snapshot.project || {};
-    const scheduleSnapshot = snapshot.schedule || {};
-    const forecastingSnapshot = snapshot.forecasting || {};
+    const stageDetail = snapshot.stageDetail || {};
     const productivitySnapshot = snapshot.productivity || {};
     const memberCostSnapshot = snapshot.memberCost || {};
-    const stageDetail = snapshot.stageDetail || {};
 
     const safeNumber = (value: number | null | undefined, fallback = 0) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
+    // For Stage/Weekly scoped reports, use stage-level metrics instead of project-level
+    // This ensures the AI analyzes the same data that the user sees on the report detail page
+    const isStageScope = report.scope === 'Stage' || report.scope === 'Weekly';
+
+    let scheduleSource: any;
+    let forecastingSource: any;
+
+    if (isStageScope && stageDetail?.schedule) {
+      // Use stage-specific schedule metrics from snapshot
+      scheduleSource = stageDetail.schedule;
+      forecastingSource = stageDetail.forecasting || {};
+    } else {
+      // Use project-level schedule metrics from snapshot
+      scheduleSource = snapshot.schedule || {};
+      forecastingSource = snapshot.forecasting || {};
+    }
+
     const scheduleMetrics = {
-      spi: safeNumber(scheduleSnapshot.spi, metrics?.schedulePerformanceIndex),
-      cpi: safeNumber(scheduleSnapshot.cpi, metrics?.costPerformanceIndex),
-      delayRate: safeNumber(scheduleSnapshot.delayRate, metrics?.delayRate),
-      delayInManMonths: safeNumber(scheduleSnapshot.delayInManMonths, metrics?.delayInManMonths),
-      estimatedVsActual: safeNumber(scheduleSnapshot.estimatedVsActual, metrics?.estimatedVsActual),
-      plannedValue: safeNumber(scheduleSnapshot.plannedValue, metrics?.plannedValue),
-      earnedValue: safeNumber(scheduleSnapshot.earnedValue, metrics?.earnedValue),
-      actualCost: safeNumber(scheduleSnapshot.actualCost, metrics?.actualCost),
+      spi: safeNumber(scheduleSource.spi, metrics?.schedulePerformanceIndex),
+      cpi: safeNumber(scheduleSource.cpi, metrics?.costPerformanceIndex),
+      delayRate: safeNumber(scheduleSource.delayRate, metrics?.delayRate),
+      delayInManMonths: safeNumber(scheduleSource.delayInManMonths, metrics?.delayInManMonths),
+      estimatedVsActual: safeNumber(scheduleSource.estimatedVsActual, metrics?.estimatedVsActual),
+      plannedValue: safeNumber(scheduleSource.plannedValue, metrics?.plannedValue),
+      earnedValue: safeNumber(scheduleSource.earnedValue, metrics?.earnedValue),
+      actualCost: safeNumber(scheduleSource.actualCost, metrics?.actualCost),
     };
 
     const forecastingMetrics = {
-      bac: safeNumber(forecastingSnapshot.bac, metrics?.budgetAtCompletion),
-      eac: safeNumber(forecastingSnapshot.eac, metrics?.estimateAtCompletion),
-      vac: safeNumber(forecastingSnapshot.vac, metrics?.varianceAtCompletion),
-      tcpi: safeNumber(forecastingSnapshot.tcpi, metrics?.toCompletePerformanceIndex),
+      bac: safeNumber(forecastingSource.bac, metrics?.budgetAtCompletion),
+      eac: safeNumber(forecastingSource.eac, metrics?.estimateAtCompletion),
+      vac: safeNumber(forecastingSource.vac, metrics?.varianceAtCompletion),
+      tcpi: safeNumber(forecastingSource.tcpi, metrics?.toCompletePerformanceIndex),
     };
 
     const productivitySummary = productivitySnapshot?.summary || null;
@@ -201,12 +232,28 @@ export class CommentaryService {
       .sort((a: any, b: any) => (b.totalActualCost || 0) - (a.totalActualCost || 0))
       .slice(0, 3);
 
-    const stageContext = report.scope === 'Stage' || report.scope === 'Weekly'
-      ? `\nStage Context:\n- Stage ID: ${report.stageId ?? stageDetail.id ?? 'N/A'}\n- Stage Name: ${report.stageName ?? stageDetail.name ?? 'N/A'}`
-      : '';
+    // Build stage context for Stage/Weekly reports
+    let stageContext = '';
+    if (isStageScope) {
+      stageContext = `
+Stage Context:
+- Stage ID: ${report.stageId ?? stageDetail.id ?? 'N/A'}
+- Stage Name: ${report.stageName ?? stageDetail.name ?? 'N/A'}
+- Stage Progress: ${safeNumber(stageDetail.progress).toFixed(1)}%
+- Stage Estimated Effort: ${safeNumber(stageDetail.estimatedEffort).toFixed(2)} man-months
+- Stage Actual Effort: ${safeNumber(stageDetail.actualEffort).toFixed(2)} man-months
+- Stage Status: ${stageDetail.status || 'N/A'}`;
+    }
+
+    // Build scope-aware analysis instruction
+    const scopeInstruction = isStageScope
+      ? `Note: This is a ${report.scope}-level report. The metrics below are for the stage "${report.stageName ?? stageDetail.name ?? 'N/A'}", not the entire project. Focus your analysis on stage-level performance.`
+      : `Note: This is a Project-level report. The metrics below cover the entire project.`;
 
     return `
 Analyze this project report and provide insights:
+
+${scopeInstruction}
 
 Report Details:
 - Scope: ${report.scope}
@@ -214,17 +261,17 @@ Report Details:
 - Date: ${report.reportDate}
 - Week: ${report.weekNumber ? `${report.weekNumber}/${report.year}` : 'N/A'}${stageContext}
 
-Project Snapshot:
+Project Overview:
 - Project Name: ${projectSnapshot.name || 'N/A'}
-- Status: ${projectSnapshot.status || 'N/A'}
-- Progress: ${safeNumber(projectSnapshot.progress).toFixed(1)}%
+- Project Status: ${projectSnapshot.status || 'N/A'}
+- Project Progress: ${safeNumber(projectSnapshot.progress).toFixed(1)}%
 - Estimated Effort: ${safeNumber(projectSnapshot.estimatedEffort).toFixed(2)} man-months
 - Actual Effort: ${safeNumber(projectSnapshot.actualEffort).toFixed(2)} man-months
 - Start/End: ${projectSnapshot.startDate || 'N/A'} → ${projectSnapshot.endDate || 'N/A'}
 
-Schedule & Cost Metrics:
-- SPI: ${scheduleMetrics.spi.toFixed(2)}
-- CPI: ${scheduleMetrics.cpi.toFixed(2)}
+Schedule & Cost Metrics${isStageScope ? ' (Stage-level)' : ''}:
+- SPI (Schedule Performance Index): ${scheduleMetrics.spi.toFixed(2)}
+- CPI (Cost Performance Index): ${scheduleMetrics.cpi.toFixed(2)}
 - Delay Rate: ${scheduleMetrics.delayRate.toFixed(2)}%
 - Delay in Man-Months: ${scheduleMetrics.delayInManMonths.toFixed(2)}
 - Estimated vs Actual Ratio: ${scheduleMetrics.estimatedVsActual.toFixed(2)}
@@ -232,7 +279,7 @@ Schedule & Cost Metrics:
 - Earned Value (EV): ${scheduleMetrics.earnedValue.toFixed(2)}
 - Actual Cost (AC): ${scheduleMetrics.actualCost.toFixed(2)}
 
-Forecasting Metrics:
+Forecasting Metrics${isStageScope ? ' (Stage-level)' : ''}:
 - Budget at Completion (BAC): ${forecastingMetrics.bac.toFixed(2)}
 - Estimate at Completion (EAC): ${forecastingMetrics.eac.toFixed(2)}
 - Variance at Completion (VAC): ${forecastingMetrics.vac.toFixed(2)}
@@ -243,12 +290,12 @@ Productivity Snapshot:
 - Top Members by Efficiency: ${topMembers.length > 0 ? topMembers.map((m: any) => `${m.name} (${safeNumber(m.efficiency).toFixed(2)})`).join(', ') : 'N/A'}
 - Top Roles by Efficiency: ${topRoles.length > 0 ? topRoles.map((r: any) => `${r.role} (${safeNumber(r.efficiency).toFixed(2)})`).join(', ') : 'N/A'}
 
-    Member Cost Snapshot:
+Member Cost Snapshot:
 - Summary: ${memberCostTotals ? `Actual ${safeNumber(memberCostTotals.totalActualCost).toFixed(2)}, Estimated ${safeNumber(memberCostTotals.totalEstimatedCost).toFixed(2)}, Variance ${safeNumber(memberCostTotals.totalCostVariance).toFixed(2)}` : 'N/A'}
 - Top Cost Drivers: ${topCostMembers.length > 0 ? topCostMembers.map((m: any) => `${m.name} (${safeNumber(m.totalActualCost).toFixed(2)})`).join(', ') : 'N/A'}
 
 Please provide:
-1. Overall project health assessment
+1. Overall ${isStageScope ? 'stage' : 'project'} health assessment
 2. Key risks and concerns
 3. Specific improvement recommendations
 4. Areas performing well
@@ -260,9 +307,16 @@ Keep the response concise and actionable.
   private generateTemplateCommentary(report: any, metrics: any, language: string): string {
     const sections = [];
 
-    // Overall Assessment
-    const spi = metrics.schedulePerformanceIndex;
-    const cpi = metrics.costPerformanceIndex;
+    // Safely read metrics values with fallback to 0
+    const spi = typeof metrics?.schedulePerformanceIndex === 'number' && Number.isFinite(metrics.schedulePerformanceIndex)
+      ? metrics.schedulePerformanceIndex : 0;
+    const cpi = typeof metrics?.costPerformanceIndex === 'number' && Number.isFinite(metrics.costPerformanceIndex)
+      ? metrics.costPerformanceIndex : 0;
+    const delayInManMonths = typeof metrics?.delayInManMonths === 'number' && Number.isFinite(metrics.delayInManMonths)
+      ? metrics.delayInManMonths : 0;
+    const estimatedVsActual = typeof metrics?.estimatedVsActual === 'number' && Number.isFinite(metrics.estimatedVsActual)
+      ? metrics.estimatedVsActual : 0;
+
     const translations = this.getTranslations(language);
 
     let overallStatus: string;
@@ -278,12 +332,12 @@ Keep the response concise and actionable.
 
     // Schedule Analysis
     if (spi < 0.95) {
-      sections.push(`**${translations.scheduleConcern}**\n${translations.scheduleText(spi.toFixed(2), metrics.delayInManMonths.toFixed(2))}`);
+      sections.push(`**${translations.scheduleConcern}**\n${translations.scheduleText(spi.toFixed(2), delayInManMonths.toFixed(2))}`);
     }
 
     // Cost Analysis
     if (cpi < 0.95) {
-      sections.push(`**${translations.costConcern}**\n${translations.costText(cpi.toFixed(2), (metrics.estimatedVsActual * 100).toFixed(0))}`);
+      sections.push(`**${translations.costConcern}**\n${translations.costText(cpi.toFixed(2), (estimatedVsActual * 100).toFixed(0))}`);
     }
 
     // Recommendations

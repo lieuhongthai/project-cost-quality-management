@@ -226,8 +226,8 @@ export class ReportService {
       memberCost: memberCostAnalysis,
     };
 
-    // For stage-specific reports, add detailed stage data
-    if (scope === 'Stage' && stageId) {
+    // For stage-specific reports (Stage and Weekly), add detailed stage data
+    if ((scope === 'Stage' || scope === 'Weekly') && stageId) {
       const stage = stages.find(s => s.id === stageId);
       if (stage) {
         const stageScheduleMetrics = this.metricsService.calculateScheduleMetrics({
@@ -246,8 +246,18 @@ export class ReportService {
           schedule: {
             spi: stageScheduleMetrics.schedulePerformanceIndex,
             cpi: stageScheduleMetrics.costPerformanceIndex,
+            plannedValue: stageScheduleMetrics.plannedValue,
             earnedValue: stageScheduleMetrics.earnedValue,
             actualCost: stageScheduleMetrics.actualCost,
+            delayRate: stageScheduleMetrics.delayRate,
+            delayInManMonths: stageScheduleMetrics.delayInManMonths,
+            estimatedVsActual: stageScheduleMetrics.estimatedVsActual,
+          },
+          forecasting: {
+            bac: stageScheduleMetrics.budgetAtCompletion,
+            eac: stageScheduleMetrics.estimateAtCompletion,
+            vac: stageScheduleMetrics.varianceAtCompletion,
+            tcpi: stageScheduleMetrics.toCompletePerformanceIndex,
           },
           testing: {
             totalTestCases: 0,

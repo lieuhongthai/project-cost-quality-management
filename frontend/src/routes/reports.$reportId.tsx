@@ -149,25 +149,28 @@ function ReportDetail() {
   const getOverallHealth = () => {
     if (!metric) return { status: t('common.unknown'), color: 'bg-gray-500' };
 
+    const spi = metric.schedulePerformanceIndex;
     const cpi = metric.costPerformanceIndex;
 
     // Check for "At Risk" conditions
-    // CPI < 0.83 means > 20% over budget
+    // CPI < 0.83 means > 20% over budget, or SPI < 0.8 means severely behind schedule
     const hasBudgetRisk = cpi < 0.83;
+    const hasScheduleRisk = spi < 0.8;
 
-    if (hasBudgetRisk) {
+    if (hasBudgetRisk || hasScheduleRisk) {
       return { status: t('metrics.atRisk'), color: 'bg-red-500' };
     }
 
     // Check for "Warning" conditions
-    // CPI 0.83-1.0 means slightly over budget
+    // CPI 0.83-1.0 means slightly over budget, SPI 0.8-0.95 means slightly behind schedule
     const hasBudgetWarning = cpi >= 0.83 && cpi < 1.0;
+    const hasScheduleWarning = spi >= 0.8 && spi < 0.95;
 
-    if (hasBudgetWarning) {
+    if (hasBudgetWarning || hasScheduleWarning) {
       return { status: t('metrics.warning'), color: 'bg-yellow-500' };
     }
 
-    // Good: CPI >= 1.0 (efficient)
+    // Good: CPI >= 1.0 (efficient) and SPI >= 0.95 (on schedule)
     return { status: t('metrics.good'), color: 'bg-green-500' };
   };
 
