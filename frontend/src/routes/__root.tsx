@@ -38,7 +38,7 @@ function RootComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -119,9 +119,23 @@ function RootComponent() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-1 w-full">
         <Outlet />
       </main>
+
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-primary-600">PCQM</span>
+              <span className="text-sm text-gray-500">— {t('footer.description', 'Project Cost & Quality Management')}</span>
+            </div>
+            <p className="text-sm text-gray-400">
+              &copy; {new Date().getFullYear()} PCQM. {t('footer.rights', 'All rights reserved.')}
+            </p>
+          </div>
+        </div>
+      </footer>
 
       <TanStackRouterDevtools />
     </div>
