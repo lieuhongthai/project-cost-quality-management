@@ -43,6 +43,11 @@ export class CreateMemberDto {
   @IsOptional()
   @IsEnum(['Active', 'Inactive', 'On Leave'])
   status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  userId?: number;
 }
 
 export class UpdateMemberDto {
@@ -82,4 +87,9 @@ export class UpdateMemberDto {
   @IsOptional()
   @IsEnum(['Active', 'Inactive', 'On Leave'])
   status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  userId?: number;
 }

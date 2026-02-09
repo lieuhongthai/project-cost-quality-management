@@ -4,6 +4,12 @@ import { CreateMemberDto, UpdateMemberDto } from './member.dto';
 import { Op, literal } from 'sequelize';
 import { StepScreenFunctionMember } from '../task-workflow/step-screen-function-member.model';
 import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
+import { ScreenFunction } from '../screen-function/screen-function.model';
+import { WorkflowStep } from '../task-workflow/workflow-step.model';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
+import { User } from '../iam/user.model';
+import { Project } from '../project/project.model';
+import { IamService } from '../iam/iam.service';
 
 // Role priority order for sorting (lower number = higher priority)
 const ROLE_PRIORITY: Record<string, number> = {
@@ -23,6 +29,7 @@ export class MemberService {
   constructor(
     @Inject('MEMBER_REPOSITORY')
     private memberRepository: typeof Member,
+    private readonly iamService: IamService,
   ) {}
 
   /**
@@ -316,5 +323,154 @@ export class MemberService {
       skipped,
       members: copiedMembers,
     };
+  }
+
+  /**
+   * Link a member to a system user
+   */
+  async linkToUser(memberId: number, userId: number | null): Promise<Member> {
+    const member = await this.findOne(memberId);
+    if (userId !== null) {
+      const user = await User.findByPk(userId);
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+    }
+    await member.update({ userId });
+    return member;
+  }
+
+  /**
+   * Get all system users that have the member.read permission
+   * These are the users that can be linked to project members
+   */
+  async getUsersWithMemberPermission(): Promise<any[]> {
+    const allUsers = await User.findAll({
+      attributes: ['id', 'username', 'email'],
+    });
+
+    const result: any[] = [];
+    for (const user of allUsers) {
+      const permissions = await this.iamService.getUserPermissions(user.id);
+      if (permissions.includes('member.read') || permissions.includes('member.update')) {
+        result.push({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get projects for a specific user (where the user is linked as a member)
+   */
+  async getProjectsForUser(userId: number): Promise<any[]> {
+    const members = await this.memberRepository.findAll({
+      where: { userId },
+      include: [{ model: Project }],
+    });
+
+    return members.map((m) => ({
+      projectId: m.projectId,
+      memberId: m.id,
+      memberRole: m.role,
+      project: m.project,
+    }));
+  }
+
+  /**
+   * Get todo list for a user - all tasks assigned to them across all projects
+   */
+  async getTodoListForUser(userId: number): Promise<any[]> {
+    // Find all member records linked to this user
+    const members = await this.memberRepository.findAll({
+      where: { userId },
+      include: [{ model: Project }],
+    });
+
+    if (members.length === 0) return [];
+
+    const memberIds = members.map((m) => m.id);
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+
+    // Get all task assignments for these members
+    const assignments = await StepScreenFunctionMember.findAll({
+      where: { memberId: { [Op.in]: memberIds } },
+      include: [
+        {
+          model: StepScreenFunction,
+          as: 'stepScreenFunction',
+          include: [
+            { model: ScreenFunction, as: 'screenFunction' },
+            {
+              model: WorkflowStep,
+              as: 'step',
+              include: [{ model: WorkflowStage, as: 'stage' }],
+            },
+          ],
+        },
+      ],
+    });
+
+    return assignments.map((assignment) => {
+      const ssf = assignment.stepScreenFunction;
+      const member = memberMap.get(assignment.memberId);
+      return {
+        assignmentId: assignment.id,
+        memberId: assignment.memberId,
+        memberName: member?.name,
+        memberRole: member?.role,
+        projectId: member?.projectId,
+        projectName: member?.project?.name,
+        stepScreenFunctionId: ssf?.id,
+        screenFunctionId: ssf?.screenFunctionId,
+        screenFunctionName: ssf?.screenFunction?.name,
+        screenFunctionType: ssf?.screenFunction?.type,
+        stepId: ssf?.stepId,
+        stepName: ssf?.step?.name,
+        stageId: ssf?.step?.stage?.id,
+        stageName: ssf?.step?.stage?.name,
+        stageColor: ssf?.step?.stage?.color,
+        stageOrder: ssf?.step?.stage?.displayOrder ?? 0,
+        stepOrder: ssf?.step?.displayOrder ?? 0,
+        // Task-level data
+        taskStatus: ssf?.status,
+        taskEstimatedEffort: ssf?.estimatedEffort,
+        taskActualEffort: ssf?.actualEffort,
+        taskProgress: ssf?.progress,
+        taskNote: ssf?.note,
+        taskEstimatedStartDate: ssf?.estimatedStartDate,
+        taskEstimatedEndDate: ssf?.estimatedEndDate,
+        taskActualStartDate: ssf?.actualStartDate,
+        taskActualEndDate: ssf?.actualEndDate,
+        // Member assignment data
+        estimatedEffort: assignment.estimatedEffort,
+        actualEffort: assignment.actualEffort,
+        progress: assignment.progress,
+        estimatedStartDate: assignment.estimatedStartDate,
+        estimatedEndDate: assignment.estimatedEndDate,
+        actualStartDate: assignment.actualStartDate,
+        actualEndDate: assignment.actualEndDate,
+        note: assignment.note,
+      };
+    });
+  }
+
+  /**
+   * Find members by project with linked user info
+   */
+  async findByProjectWithUser(projectId: number): Promise<Member[]> {
+    const members = await this.memberRepository.findAll({
+      where: { projectId },
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'username', 'email'],
+        },
+      ],
+    });
+    return this.sortByRoleAndExperience(members);
   }
 }

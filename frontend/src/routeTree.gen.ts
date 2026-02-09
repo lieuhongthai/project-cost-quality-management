@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as MyTasksRouteImport } from './routes/my-tasks'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IamRouteImport } from './routes/iam'
 import { Route as ForceChangePasswordRouteImport } from './routes/force-change-password'
@@ -31,6 +32,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyTasksRoute = MyTasksRouteImport.update({
+  id: '/my-tasks',
+  path: '/my-tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/force-change-password': typeof ForceChangePasswordRoute
   '/iam': typeof IamRoute
   '/login': typeof LoginRoute
+  '/my-tasks': typeof MyTasksRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/force-change-password': typeof ForceChangePasswordRoute
   '/iam': typeof IamRoute
   '/login': typeof LoginRoute
+  '/my-tasks': typeof MyTasksRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/projects': typeof ProjectsIndexRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/force-change-password': typeof ForceChangePasswordRoute
   '/iam': typeof IamRoute
   '/login': typeof LoginRoute
+  '/my-tasks': typeof MyTasksRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reports': typeof ReportsRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/force-change-password'
     | '/iam'
     | '/login'
+    | '/my-tasks'
     | '/projects'
     | '/reports'
     | '/projects/$projectId'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/force-change-password'
     | '/iam'
     | '/login'
+    | '/my-tasks'
     | '/projects/$projectId'
     | '/reports/$reportId'
     | '/projects'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/force-change-password'
     | '/iam'
     | '/login'
+    | '/my-tasks'
     | '/projects'
     | '/reports'
     | '/projects/$projectId'
@@ -187,6 +199,7 @@ export interface RootRouteChildren {
   ForceChangePasswordRoute: typeof ForceChangePasswordRoute
   IamRoute: typeof IamRoute
   LoginRoute: typeof LoginRoute
+  MyTasksRoute: typeof MyTasksRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportsRoute: typeof ReportsRouteWithChildren
   ProjectsProjectIdTimelineInteractiveRoute: typeof ProjectsProjectIdTimelineInteractiveRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-tasks': {
+      id: '/my-tasks'
+      path: '/my-tasks'
+      fullPath: '/my-tasks'
+      preLoaderRoute: typeof MyTasksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForceChangePasswordRoute: ForceChangePasswordRoute,
   IamRoute: IamRoute,
   LoginRoute: LoginRoute,
+  MyTasksRoute: MyTasksRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportsRoute: ReportsRouteWithChildren,
   ProjectsProjectIdTimelineInteractiveRoute:

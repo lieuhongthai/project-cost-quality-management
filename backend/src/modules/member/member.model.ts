@@ -8,6 +8,7 @@ import {
   HasMany,
 } from 'sequelize-typescript';
 import { Project } from '../project/project.model';
+import { User } from '../iam/user.model';
 
 export enum MemberRole {
   PM = 'PM',
@@ -105,6 +106,16 @@ export class Member extends Model {
   })
   status: string;
 
+  @ForeignKey(() => User)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+  })
+  userId: number;
+
   @BelongsTo(() => Project)
   project: Project;
+
+  @BelongsTo(() => User)
+  user: User;
 }

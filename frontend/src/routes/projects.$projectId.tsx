@@ -66,6 +66,7 @@ function ProjectDetail() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [showCopyMembers, setShowCopyMembers] = useState(false);
+  const [linkingMemberId, setLinkingMemberId] = useState<number | null>(null);
   const [selectedSourceProject, setSelectedSourceProject] = useState<number | null>(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [sfFilter, setSfFilter] = useState<{ type: string; status: string; search: string }>({
@@ -149,7 +150,15 @@ function ProjectDetail() {
   const { data: members } = useQuery({
     queryKey: ['members', parseInt(projectId)],
     queryFn: async () => {
-      const response = await memberApi.getByProject(parseInt(projectId));
+      const response = await memberApi.getByProjectWithUser(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const { data: linkableUsers } = useQuery({
+    queryKey: ['linkableUsers'],
+    queryFn: async () => {
+      const response = await memberApi.getLinkableUsers();
       return response.data;
     },
   });
@@ -361,6 +370,15 @@ function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['members', parseInt(projectId)] });
       queryClient.invalidateQueries({ queryKey: ['memberSummary', parseInt(projectId)] });
       queryClient.invalidateQueries({ queryKey: ['projectWorkload', parseInt(projectId)] });
+    },
+  });
+
+  const linkUserMutation = useMutation({
+    mutationFn: (data: { memberId: number; userId: number | null }) =>
+      memberApi.linkToUser(data.memberId, data.userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members', parseInt(projectId)] });
+      setLinkingMemberId(null);
     },
   });
 
@@ -1359,6 +1377,7 @@ function ProjectDetail() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.status')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.availability')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.workload')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('member.linkedUser')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
@@ -1453,6 +1472,29 @@ function ProjectDetail() {
                                 </div>
                               ) : (
                                 <span className="text-gray-400">{t('member.noTasks')}</span>
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm">
+                              {member.userId && member.user ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                                    {member.user.username}
+                                  </span>
+                                  <button
+                                    className="text-gray-400 hover:text-red-500 text-xs"
+                                    title={t('member.unlinkUser')}
+                                    onClick={() => linkUserMutation.mutate({ memberId: member.id, userId: null })}
+                                  >
+                                    x
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                  onClick={() => setLinkingMemberId(member.id)}
+                                >
+                                  {t('member.linkUser')}
+                                </button>
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -2057,6 +2099,47 @@ function ProjectDetail() {
         }}
         existingHolidays={settingsForm.holidays}
       />
+
+      {/* Link User Modal */}
+      <Modal
+        isOpen={linkingMemberId !== null}
+        onClose={() => setLinkingMemberId(null)}
+        title={t('member.linkUser')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">{t('member.linkUserDescription')}</p>
+          <p className="text-xs text-gray-400">{t('member.onlyMemberPermission')}</p>
+          {linkableUsers && linkableUsers.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {linkableUsers.map((user) => {
+                const alreadyLinked = members?.some((m) => m.userId === user.id && m.id !== linkingMemberId);
+                return (
+                  <button
+                    key={user.id}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      alreadyLinked
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                    }`}
+                    disabled={alreadyLinked}
+                    onClick={() => {
+                      if (linkingMemberId && !alreadyLinked) {
+                        linkUserMutation.mutate({ memberId: linkingMemberId, userId: user.id });
+                      }
+                    }}
+                  >
+                    <p className="font-medium text-sm">{user.username}</p>
+                    {user.email && <p className="text-xs text-gray-500">{user.email}</p>}
+                    {alreadyLinked && <p className="text-xs text-gray-400 mt-1">{t('member.alreadyExists')}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">{t('common.noData')}</p>
+          )}
+        </div>
+      </Modal>
 
       {/* Copy Members Modal */}
       <Modal

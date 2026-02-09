@@ -74,7 +74,8 @@
     "reports": "Reports",
     "benchmarks": "Benchmarks",
     "settings": "Settings",
-    "accessControl": "Access Control"
+    "accessControl": "Access Control",
+    "myTasks": "My Tasks"
   },
   "iam": {
     "title": "Access control",
@@ -355,7 +356,14 @@
         "roleRequired": "Role is required",
         "emailInvalid": "Invalid email format"
       }
-    }
+    },
+    "linkUser": "Link User",
+    "unlinkUser": "Unlink User",
+    "linkedUser": "Linked User",
+    "noLinkedUser": "Not linked",
+    "selectUser": "Select a user to link",
+    "linkUserDescription": "Link this member to a system user to enable Todo List access",
+    "onlyMemberPermission": "Only users with Member permission are shown"
   },
   "report": {
     "title": "Reports",
@@ -924,6 +932,44 @@
       "noEstimateDates": "Add stages with start and end dates to see them on the timeline",
       "noActualDates": "No stages with actual dates found. Switch to Estimate mode or add actual dates to stages"
     }
+  },
+  "todo": {
+    "title": "My Tasks",
+    "subtitle": "Tasks assigned to you across all projects",
+    "noTasks": "No tasks assigned",
+    "noTasksDesc": "You don't have any tasks assigned yet. Contact your project manager to get started.",
+    "filterByProject": "All Projects",
+    "filterByStatus": "All Status",
+    "filterByStage": "All Stages",
+    "searchPlaceholder": "Search by screen name...",
+    "project": "Project",
+    "stage": "Stage",
+    "step": "Step",
+    "screen": "Screen/Function",
+    "status": "Status",
+    "effort": "Effort (Est/Act)",
+    "progress": "Progress",
+    "dates": "Dates",
+    "estimatedDates": "Estimated",
+    "actualDates": "Actual",
+    "note": "Note",
+    "editTask": "Edit Task",
+    "saveChanges": "Save Changes",
+    "actualStartDate": "Actual Start",
+    "actualEndDate": "Actual End",
+    "actualEffort": "Actual Effort",
+    "notePlaceholder": "Add notes...",
+    "taskUpdated": "Task updated successfully",
+    "statusNotStarted": "Not Started",
+    "statusInProgress": "In Progress",
+    "statusCompleted": "Completed",
+    "statusSkipped": "Skipped",
+    "summary": "Summary",
+    "totalTasks": "Total Tasks",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "pending": "Pending",
+    "copyOutput": "Copy output text"
   },
   "status": {
     "good": "Good",

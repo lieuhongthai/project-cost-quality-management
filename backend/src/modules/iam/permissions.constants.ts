@@ -20,4 +20,6 @@ export const PERMISSION_KEYS = [
   'user.manage',
   'role.manage',
   'position.manage',
+  'member.read',
+  'member.update',
 ];

@@ -10,6 +10,9 @@ import type {
   Member,
   MemberSummary,
   MemberWorkload,
+  LinkableUser,
+  MyProjectMember,
+  TodoItem,
   Permission,
   Position,
   Role,
@@ -138,6 +141,7 @@ export const screenFunctionApi = {
 export const memberApi = {
   getAll: () => api.get<Member[]>('/members'),
   getByProject: (projectId: number) => api.get<Member[]>(`/members/project/${projectId}`),
+  getByProjectWithUser: (projectId: number) => api.get<Member[]>(`/members/project/${projectId}/with-user`),
   getOne: (id: number) => api.get<Member>(`/members/${id}`),
   create: (data: Partial<Member>) => api.post<Member>('/members', data),
   update: (id: number, data: Partial<Member>) => api.put<Member>(`/members/${id}`, data),
@@ -147,6 +151,13 @@ export const memberApi = {
   getProjectWorkload: (projectId: number) => api.get<MemberWorkload[]>(`/members/project/${projectId}/workload`),
   copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; memberIds: number[] }) =>
     api.post<{ copied: number; skipped: number; members: Member[] }>('/members/copy', data),
+  // Member-User linking
+  getLinkableUsers: () => api.get<LinkableUser[]>('/members/linkable-users'),
+  linkToUser: (memberId: number, userId: number | null) =>
+    api.put<Member>(`/members/${memberId}/link-user`, { userId }),
+  // Todo list for current user
+  getMyProjects: () => api.get<MyProjectMember[]>('/members/my-projects'),
+  getMyTodoList: () => api.get<TodoItem[]>('/members/my-todo'),
 };
 
 // Task Workflow APIs
