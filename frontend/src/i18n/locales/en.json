@@ -967,5 +967,9 @@
     "good": "Good",
     "warning": "Warning",
     "atRisk": "At Risk"
+  },
+  "footer": {
+    "description": "Project Cost & Quality Management",
+    "rights": "All rights reserved."
   }
 }

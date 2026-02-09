@@ -1003,5 +1003,9 @@
     "good": "Tốt",
     "warning": "Cảnh báo",
     "atRisk": "Rủi ro"
+  },
+  "footer": {
+    "description": "Quản lý Chi phí & Chất lượng Dự án",
+    "rights": "Bản quyền được bảo lưu."
   }
 }
