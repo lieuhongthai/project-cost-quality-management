@@ -8,6 +8,9 @@ import { StepScreenFunction } from '../task-workflow/step-screen-function.model'
 import { StepScreenFunctionMember } from '../task-workflow/step-screen-function-member.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { Member } from '../member/member.model';
+import { TaskMemberMetric } from '../task-workflow/task-member-metric.model';
+import { MetricCategory } from '../task-workflow/metric-category.model';
+import { MetricType } from '../task-workflow/metric-type.model';
 import { Op } from 'sequelize';
 
 export interface ScheduleMetricsInput {
@@ -120,6 +123,110 @@ export class MetricsService {
     };
   }
 
+  /**
+   * Aggregate real testing data from TaskMemberMetric for given stage IDs.
+   * Only uses MetricType "Test Cases" with categories: "Total", "Passed", "Failed".
+   * Returns per-stage and project-level totals.
+   */
+  async getTestingDataForStages(stageIds: number[]): Promise<{
+    byStage: Map<number, { totalTestCases: number; passedTestCases: number; failedTestCases: number }>;
+    project: { totalTestCases: number; passedTestCases: number; failedTestCases: number };
+  }> {
+    const byStage = new Map<number, { totalTestCases: number; passedTestCases: number; failedTestCases: number }>();
+    const project = { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
+
+    if (stageIds.length === 0) return { byStage, project };
+
+    // Get all steps in the stages
+    const steps = await WorkflowStep.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+    });
+    const stepIds = steps.map(s => s.id);
+    if (stepIds.length === 0) return { byStage, project };
+
+    const stepToStageMap = new Map<number, number>();
+    for (const step of steps) {
+      stepToStageMap.set(step.id, step.stageId);
+    }
+
+    // Get all step-screen-functions
+    const ssfs = await StepScreenFunction.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+    const ssfIds = ssfs.map(s => s.id);
+    if (ssfIds.length === 0) return { byStage, project };
+
+    const ssfToStepMap = new Map<number, number>();
+    for (const ssf of ssfs) {
+      ssfToStepMap.set(ssf.id, ssf.stepId);
+    }
+
+    // Get all members
+    const members = await StepScreenFunctionMember.findAll({
+      where: { stepScreenFunctionId: { [Op.in]: ssfIds } },
+    });
+    const memberIds = members.map(m => m.id);
+    if (memberIds.length === 0) return { byStage, project };
+
+    const memberToSsfMap = new Map<number, number>();
+    for (const member of members) {
+      memberToSsfMap.set(member.id, member.stepScreenFunctionId);
+    }
+
+    // Get only "Test Cases" metrics with category and type
+    const metrics = await TaskMemberMetric.findAll({
+      where: { stepScreenFunctionMemberId: { [Op.in]: memberIds } },
+      include: [{
+        model: MetricCategory,
+        as: 'metricCategory',
+        include: [{
+          model: MetricType,
+          as: 'metricType',
+        }],
+      }],
+    });
+
+    // Initialize byStage
+    for (const stageId of stageIds) {
+      byStage.set(stageId, { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 });
+    }
+
+    // Aggregate only "Test Cases" metrics
+    for (const metric of metrics) {
+      const category = metric.metricCategory;
+      if (!category?.metricType) continue;
+
+      const typeName = category.metricType.name.trim().toLowerCase();
+      if (typeName !== 'test cases') continue;
+
+      const catName = category.name.trim().toLowerCase();
+
+      // Resolve stage
+      const ssfId = memberToSsfMap.get(metric.stepScreenFunctionMemberId);
+      if (!ssfId) continue;
+      const stepId = ssfToStepMap.get(ssfId);
+      if (!stepId) continue;
+      const stageId = stepToStageMap.get(stepId);
+      if (!stageId || !byStage.has(stageId)) continue;
+
+      const stageTotals = byStage.get(stageId)!;
+      const value = metric.value || 0;
+
+      if (catName === 'total') {
+        stageTotals.totalTestCases += value;
+        project.totalTestCases += value;
+      } else if (catName === 'passed') {
+        stageTotals.passedTestCases += value;
+        project.passedTestCases += value;
+      } else if (catName === 'failed') {
+        stageTotals.failedTestCases += value;
+        project.failedTestCases += value;
+      }
+    }
+
+    return { byStage, project };
+  }
+
   async calculateStageMetrics(stageId: number, reportId: number): Promise<Metrics> {
     const stage = await WorkflowStage.findByPk(stageId);
     if (!stage) {
@@ -133,9 +240,13 @@ export class MetricsService {
       progress: stage.progress || 0,
     });
 
+    // Get real testing data from TaskMemberMetric
+    const testingData = await this.getTestingDataForStages([stageId]);
+    const stageTestData = testingData.byStage.get(stageId) || { totalTestCases: 0, failedTestCases: 0 };
+
     const testingMetrics = this.calculateTestingMetrics({
-      totalTestCases: 0,
-      defectsDetected: 0,
+      totalTestCases: stageTestData.totalTestCases,
+      defectsDetected: stageTestData.failedTestCases,
     });
 
     return this.metricsRepository.create({
@@ -152,13 +263,9 @@ export class MetricsService {
       order: [['displayOrder', 'ASC']],
     });
 
-    let totalTestCases = 0;
-    let totalDefects = 0;
-
-    for (const stage of stages) {
-      totalTestCases += 0;
-      totalDefects += 0;
-    }
+    // Get real testing data from TaskMemberMetric across all stages
+    const stageIds = stages.map(s => s.id);
+    const testingData = await this.getTestingDataForStages(stageIds);
 
     // Use project's data directly (updated from stages)
     // This ensures consistency between what's displayed in the UI and what's in the report
@@ -169,8 +276,8 @@ export class MetricsService {
     });
 
     const testingMetrics = this.calculateTestingMetrics({
-      totalTestCases,
-      defectsDetected: totalDefects,
+      totalTestCases: testingData.project.totalTestCases,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Auto-update project status based on calculated metrics
@@ -208,14 +315,9 @@ export class MetricsService {
       order: [['displayOrder', 'ASC']],
     });
 
-    // Aggregate testing data from all stages
-    let totalTestCases = 0;
-    let totalDefects = 0;
-
-    for (const stage of stages) {
-      totalTestCases += 0;
-      totalDefects += 0;
-    }
+    // Get real testing data from TaskMemberMetric
+    const stageIds = stages.map(s => s.id);
+    const testingData = await this.getTestingDataForStages(stageIds);
 
     // Calculate schedule metrics
     const scheduleMetrics = this.calculateScheduleMetrics({
@@ -224,10 +326,10 @@ export class MetricsService {
       progress: project.progress || 0,
     });
 
-    // Calculate testing metrics
+    // Calculate testing metrics from real data
     const testingMetrics = this.calculateTestingMetrics({
-      totalTestCases,
-      defectsDetected: totalDefects,
+      totalTestCases: testingData.project.totalTestCases,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Evaluate status based on metrics

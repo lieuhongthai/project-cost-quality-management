@@ -18,10 +18,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     projectId: 0,
-    scope: 'Project' as 'Weekly' | 'Stage' | 'Project',
+    scope: 'Project' as 'Stage' | 'Project',
     stageId: 0,
-    weekNumber: 1,
-    year: new Date().getFullYear(),
     title: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -41,7 +39,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       const response = await taskWorkflowApi.getStages(formData.projectId);
       return response.data;
     },
-    enabled: !!formData.projectId && (formData.scope === 'Stage' || formData.scope === 'Weekly'),
+    enabled: !!formData.projectId && formData.scope === 'Stage',
   });
 
   // Auto-generate title based on selection
@@ -59,22 +57,12 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       if (stage) {
         title = t('report.form.titleStage', { project: project.name, stage: stage.name });
       }
-    } else if (formData.scope === 'Weekly' && formData.stageId) {
-      const stage = stages?.find(s => s.id === formData.stageId);
-      if (stage) {
-        title = t('report.form.titleWeekly', {
-          project: project.name,
-          stage: stage.name,
-          week: formData.weekNumber,
-          year: formData.year,
-        });
-      }
     }
 
     if (title) {
       setFormData(prev => ({ ...prev, title }));
     }
-  }, [formData.projectId, formData.scope, formData.stageId, formData.weekNumber, formData.year, projects, stages, t]);
+  }, [formData.projectId, formData.scope, formData.stageId, projects, stages, t]);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Report>) => reportApi.create(data),
@@ -95,17 +83,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       newErrors.title = t('report.validation.titleRequired');
     }
 
-    if ((formData.scope === 'Stage' || formData.scope === 'Weekly') && !formData.stageId) {
+    if (formData.scope === 'Stage' && !formData.stageId) {
       newErrors.stageId = t('report.validation.stageRequired');
-    }
-
-    if (formData.scope === 'Weekly') {
-      if (formData.weekNumber < 1 || formData.weekNumber > 53) {
-        newErrors.weekNumber = t('report.validation.weekRange');
-      }
-      if (formData.year < 2000) {
-        newErrors.year = t('report.validation.yearValid');
-      }
     }
 
     setErrors(newErrors);
@@ -126,14 +105,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       title: formData.title,
     };
 
-    if (formData.scope === 'Stage' || formData.scope === 'Weekly') {
+    if (formData.scope === 'Stage') {
       submitData.stageId = formData.stageId;
       submitData.stageName = stage?.name;
-    }
-
-    if (formData.scope === 'Weekly') {
-      submitData.weekNumber = formData.weekNumber;
-      submitData.year = formData.year;
     }
 
     createMutation.mutate(submitData);
@@ -143,7 +117,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     const { name, value } = e.target;
     let finalValue: any = value;
 
-    if (name === 'projectId' || name === 'stageId' || name === 'weekNumber' || name === 'year') {
+    if (name === 'projectId' || name === 'stageId') {
       finalValue = parseInt(value) || 0;
     }
 
@@ -158,7 +132,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   const scopeOptions = [
     { value: 'Project', label: t('report.scopeProjectReport') },
     { value: 'Stage', label: t('report.scopeStageReport') },
-    { value: 'Weekly', label: t('report.scopeWeeklyReport') },
   ];
 
   return (
@@ -185,7 +158,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
         disabled={isLoading}
       />
 
-      {(formData.scope === 'Stage' || formData.scope === 'Weekly') && formData.projectId > 0 && (
+      {formData.scope === 'Stage' && formData.projectId > 0 && (
         <Select
           label={t('stages.title')}
           name="stageId"
@@ -196,35 +169,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           required
           disabled={isLoading}
         />
-      )}
-
-      {formData.scope === 'Weekly' && (
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label={t('report.weekNumber')}
-            name="weekNumber"
-            type="number"
-            min="1"
-            max="53"
-            value={formData.weekNumber}
-            onChange={handleChange}
-            error={errors.weekNumber}
-            required
-            disabled={isLoading}
-          />
-
-          <Input
-            label={t('report.year')}
-            name="year"
-            type="number"
-            min="2000"
-            value={formData.year}
-            onChange={handleChange}
-            error={errors.year}
-            required
-            disabled={isLoading}
-          />
-        </div>
       )}
 
       <Input

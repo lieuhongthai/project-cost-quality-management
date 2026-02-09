@@ -43,7 +43,7 @@ function ReportDetail() {
 
       if (report.scope === 'Project') {
         return metricsApi.calculateProject(report.projectId, parseInt(reportId));
-      } else if ((report.scope === 'Stage' || report.scope === 'Weekly') && report.stageId) {
+      } else if (report.scope === 'Stage' && report.stageId) {
         return metricsApi.calculateStage(report.stageId, parseInt(reportId));
       }
       return null;
@@ -149,25 +149,28 @@ function ReportDetail() {
   const getOverallHealth = () => {
     if (!metric) return { status: t('common.unknown'), color: 'bg-gray-500' };
 
+    const spi = metric.schedulePerformanceIndex;
     const cpi = metric.costPerformanceIndex;
 
     // Check for "At Risk" conditions
-    // CPI < 0.83 means > 20% over budget
+    // CPI < 0.83 means > 20% over budget, or SPI < 0.8 means severely behind schedule
     const hasBudgetRisk = cpi < 0.83;
+    const hasScheduleRisk = spi < 0.8;
 
-    if (hasBudgetRisk) {
+    if (hasBudgetRisk || hasScheduleRisk) {
       return { status: t('metrics.atRisk'), color: 'bg-red-500' };
     }
 
     // Check for "Warning" conditions
-    // CPI 0.83-1.0 means slightly over budget
+    // CPI 0.83-1.0 means slightly over budget, SPI 0.8-0.95 means slightly behind schedule
     const hasBudgetWarning = cpi >= 0.83 && cpi < 1.0;
+    const hasScheduleWarning = spi >= 0.8 && spi < 0.95;
 
-    if (hasBudgetWarning) {
+    if (hasBudgetWarning || hasScheduleWarning) {
       return { status: t('metrics.warning'), color: 'bg-yellow-500' };
     }
 
-    // Good: CPI >= 1.0 (efficient)
+    // Good: CPI >= 1.0 (efficient) and SPI >= 0.95 (on schedule)
     return { status: t('metrics.good'), color: 'bg-green-500' };
   };
 
@@ -176,7 +179,6 @@ function ReportDetail() {
   const scopeReportLabels: Record<string, string> = {
     Project: t('report.scopeProjectReport'),
     Stage: t('report.scopeStageReport'),
-    Weekly: t('report.scopeWeeklyReport'),
   };
 
   return (
@@ -192,9 +194,6 @@ function ReportDetail() {
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span className="font-medium">{scopeReportLabels[report.scope]}</span>
               {report.stageName && <span>• {report.stageName}</span>}
-              {report.weekNumber && (
-                <span>• {t('report.detail.weekLabel', { week: report.weekNumber, year: report.year })}</span>
-              )}
               <span>• {format(new Date(report.reportDate), 'MMM dd, yyyy')}</span>
             </div>
             {/* Snapshot indicator */}

@@ -93,12 +93,6 @@ export class ReportService {
           createReportDto.stageId,
           report.id,
         );
-      } else if (createReportDto.scope === 'Weekly' && createReportDto.stageId) {
-        // For weekly reports, also calculate stage metrics if stageId is provided
-        await this.metricsService.calculateStageMetrics(
-          createReportDto.stageId,
-          report.id,
-        );
       }
     } catch (error) {
       // Log error but don't fail the report creation
@@ -121,9 +115,9 @@ export class ReportService {
     const project = await this.projectService.findOne(projectId);
     const stages = await this.taskWorkflowService.findAllStages(projectId);
 
-    // Collect testing data
-    let totalTestCases = 0;
-    let totalDefects = 0;
+    // Get real testing data from TaskMemberMetric
+    const stageIds = stages.map(s => s.id);
+    const testingData = await this.metricsService.getTestingDataForStages(stageIds);
 
     const stageSnapshots: Array<{
       id: number;
@@ -136,11 +130,13 @@ export class ReportService {
       endDate: string | null;
       testing: {
         totalTestCases: number;
-        totalDefects: number;
+        passedTestCases: number;
+        failedTestCases: number;
       };
     }> = [];
 
     for (const stage of stages) {
+      const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
       stageSnapshots.push({
         id: stage.id,
         name: stage.name,
@@ -151,8 +147,9 @@ export class ReportService {
         startDate: stage.startDate,
         endDate: stage.endDate,
         testing: {
-          totalTestCases: 0,
-          totalDefects: 0,
+          totalTestCases: stageTest.totalTestCases,
+          passedTestCases: stageTest.passedTestCases,
+          failedTestCases: stageTest.failedTestCases,
         },
       });
     }
@@ -164,10 +161,10 @@ export class ReportService {
       progress: project.progress || 0,
     });
 
-    // Calculate testing metrics
+    // Calculate testing metrics from real data (Test Cases only)
     const testingMetrics = this.metricsService.calculateTestingMetrics({
-      totalTestCases,
-      defectsDetected: totalDefects,
+      totalTestCases: testingData.project.totalTestCases,
+      defectsDetected: testingData.project.failedTestCases,
     });
 
     // Get productivity metrics
@@ -218,8 +215,9 @@ export class ReportService {
         tcpi: scheduleMetrics.toCompletePerformanceIndex,
       },
       testing: {
-        totalTestCases,
-        totalDefects,
+        totalTestCases: testingData.project.totalTestCases,
+        passedTestCases: testingData.project.passedTestCases,
+        failedTestCases: testingData.project.failedTestCases,
         defectRate: testingMetrics.defectRate,
       },
       productivity: productivityMetrics,
@@ -246,13 +244,27 @@ export class ReportService {
           schedule: {
             spi: stageScheduleMetrics.schedulePerformanceIndex,
             cpi: stageScheduleMetrics.costPerformanceIndex,
+            plannedValue: stageScheduleMetrics.plannedValue,
             earnedValue: stageScheduleMetrics.earnedValue,
             actualCost: stageScheduleMetrics.actualCost,
+            delayRate: stageScheduleMetrics.delayRate,
+            delayInManMonths: stageScheduleMetrics.delayInManMonths,
+            estimatedVsActual: stageScheduleMetrics.estimatedVsActual,
           },
-          testing: {
-            totalTestCases: 0,
-            totalDefects: 0,
+          forecasting: {
+            bac: stageScheduleMetrics.budgetAtCompletion,
+            eac: stageScheduleMetrics.estimateAtCompletion,
+            vac: stageScheduleMetrics.varianceAtCompletion,
+            tcpi: stageScheduleMetrics.toCompletePerformanceIndex,
           },
+          testing: (() => {
+            const stageTest = testingData.byStage.get(stage.id) || { totalTestCases: 0, passedTestCases: 0, failedTestCases: 0 };
+            return {
+              totalTestCases: stageTest.totalTestCases,
+              passedTestCases: stageTest.passedTestCases,
+              failedTestCases: stageTest.failedTestCases,
+            };
+          })(),
         };
       }
     }

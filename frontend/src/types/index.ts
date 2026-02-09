@@ -72,11 +72,9 @@ export const DEFAULT_NON_WORKING_DAYS = [0, 6]; // Sunday and Saturday
 export interface Report {
   id: number;
   projectId: number;
-  scope: 'Weekly' | 'Stage' | 'Project';
+  scope: 'Stage' | 'Project';
   stageId?: number;
   stageName?: string;
-  weekNumber?: number;
-  year?: number;
   reportDate: string;
   title: string;
   commentaries?: Commentary[];
