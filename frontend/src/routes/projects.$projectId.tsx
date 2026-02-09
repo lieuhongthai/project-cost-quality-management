@@ -330,6 +330,37 @@ function ProjectDetail() {
     return { icon: '📊', accent: 'bg-indigo-100 text-indigo-700' };
   };
 
+  // Calculate aggregated totals for each category in a metric type across filtered stages
+  const getMetricTypeCategoryTotals = (metricType: { categories: Array<{ id: number; name: string }> }) => {
+    if (!projectMetricTypeSummary) return { categoryTotals: [], grandTotal: 0 };
+    const stages = metricSummaryFilter.stageId
+      ? projectMetricTypeSummary.stages.filter((s) => s.stageId === Number(metricSummaryFilter.stageId))
+      : projectMetricTypeSummary.stages;
+
+    const totalsMap = new Map<number, number>();
+    for (const cat of metricType.categories) {
+      totalsMap.set(cat.id, 0);
+    }
+    for (const stage of stages) {
+      for (const step of stage.steps) {
+        for (const sf of step.screenFunctions) {
+          for (const metric of sf.metrics) {
+            if (totalsMap.has(metric.metricCategoryId)) {
+              totalsMap.set(metric.metricCategoryId, (totalsMap.get(metric.metricCategoryId) ?? 0) + metric.value);
+            }
+          }
+        }
+      }
+    }
+    const categoryTotals = metricType.categories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      total: totalsMap.get(cat.id) ?? 0,
+    }));
+    const grandTotal = categoryTotals.reduce((sum, cat) => sum + cat.total, 0);
+    return { categoryTotals, grandTotal };
+  };
+
   const getFilteredMetricStages = (metricType: { categories: Array<{ id: number }> }) => {
     if (!projectMetricTypeSummary) return [];
     const searchValue = normalizeSearchValue(metricSummaryFilter.search);
@@ -1648,6 +1679,8 @@ function ProjectDetail() {
                     {projectMetricTypeSummary.metricTypes.map((metricType, index) => {
                       const filteredStages = getFilteredMetricStages(metricType);
                       const metricVisual = getMetricTypeVisual(metricType.name);
+                      const { categoryTotals, grandTotal } = getMetricTypeCategoryTotals(metricType);
+                      const nonZeroCategories = categoryTotals.filter((cat) => cat.total > 0);
                       return (
                         <details
                           key={metricType.id}
@@ -1666,17 +1699,31 @@ function ProjectDetail() {
                                 <p className="text-xs text-gray-500">{t('metrics.metricTypesReportDesc')}</p>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              {metricType.categories.map((category, categoryIndex) => (
-                                <span
-                                  key={category.id}
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
-                                    categoryIndex % metricBadgeStyles.length
-                                  ]}`}
-                                >
-                                  {category.name}
-                                </span>
-                              ))}
+                            <div className="flex flex-col gap-1 min-w-[200px]">
+                              {nonZeroCategories.map((category) => {
+                                const originalIndex = metricType.categories.findIndex((c) => c.id === category.id);
+                                return (
+                                  <div key={category.id} className="flex items-center justify-between gap-4">
+                                    <span
+                                      className={`text-xs font-semibold ${metricBadgeStyles[
+                                        originalIndex % metricBadgeStyles.length
+                                      ].split(' ').filter((c: string) => c.startsWith('text-')).join(' ')}`}
+                                    >
+                                      {category.name}
+                                    </span>
+                                    <span className="text-xs font-bold text-gray-700">{category.total.toLocaleString()}</span>
+                                  </div>
+                                );
+                              })}
+                              {nonZeroCategories.length > 0 && (
+                                <div className="flex items-center justify-between gap-4 border-t border-gray-200 pt-1 mt-1">
+                                  <span className="text-xs font-bold text-gray-900">{t('common.total', 'Total')}</span>
+                                  <span className="text-xs font-bold text-gray-900">{grandTotal.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {nonZeroCategories.length === 0 && (
+                                <span className="text-xs text-gray-400">0</span>
+                              )}
                             </div>
                           </summary>
 
@@ -1719,21 +1766,47 @@ function ProjectDetail() {
                                               <span className="absolute left-2 top-4 h-full w-px bg-gray-200" />
                                               <span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-gray-300" />
                                               <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
-                                                <div className="text-sm font-semibold text-gray-900">
-                                                  {screenFunction.screenFunctionName}
-                                                </div>
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                  {metricType.categories.map((category, categoryIndex) => (
-                                                    <span
-                                                      key={category.id}
-                                                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${metricBadgeStyles[
-                                                        categoryIndex % metricBadgeStyles.length
-                                                      ]}`}
-                                                    >
-                                                      {category.name}:{' '}
-                                                      {getMetricCategoryValue(screenFunction.metrics, category.id).toLocaleString()}
-                                                    </span>
-                                                  ))}
+                                                <div className="flex items-start justify-between gap-4">
+                                                  <div className="text-sm font-semibold text-gray-900">
+                                                    {screenFunction.screenFunctionName}
+                                                  </div>
+                                                  <div className="flex flex-col gap-1 min-w-[180px] shrink-0">
+                                                    {(() => {
+                                                      const screenCategories = metricType.categories
+                                                        .map((category, categoryIndex) => ({
+                                                          ...category,
+                                                          value: getMetricCategoryValue(screenFunction.metrics, category.id),
+                                                          originalIndex: categoryIndex,
+                                                        }))
+                                                        .filter((cat) => cat.value > 0);
+                                                      const screenTotal = screenCategories.reduce((sum, cat) => sum + cat.value, 0);
+                                                      return (
+                                                        <>
+                                                          {screenCategories.map((category) => (
+                                                            <div key={category.id} className="flex items-center justify-between gap-4">
+                                                              <span
+                                                                className={`text-xs font-semibold ${metricBadgeStyles[
+                                                                  category.originalIndex % metricBadgeStyles.length
+                                                                ].split(' ').filter((c: string) => c.startsWith('text-')).join(' ')}`}
+                                                              >
+                                                                {category.name}
+                                                              </span>
+                                                              <span className="text-xs font-bold text-gray-700">{category.value.toLocaleString()}</span>
+                                                            </div>
+                                                          ))}
+                                                          {screenCategories.length > 0 && (
+                                                            <div className="flex items-center justify-between gap-4 border-t border-gray-200 pt-1 mt-1">
+                                                              <span className="text-xs font-bold text-gray-900">{t('common.total', 'Total')}</span>
+                                                              <span className="text-xs font-bold text-gray-900">{screenTotal.toLocaleString()}</span>
+                                                            </div>
+                                                          )}
+                                                          {screenCategories.length === 0 && (
+                                                            <span className="text-xs text-gray-400">0</span>
+                                                          )}
+                                                        </>
+                                                      );
+                                                    })()}
+                                                  </div>
                                                 </div>
                                               </div>
                                             </div>
