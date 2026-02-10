@@ -4,9 +4,29 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { projectApi } from '../services/api'
 import { format } from 'date-fns'
-import { Button, Modal, LoadingSpinner } from '../components/common'
 import { Can } from '@/ability'
 import { ProjectForm } from '../components/forms/ProjectForm'
+
+// MUI imports
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Paper from '@mui/material/Paper'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import IconButton from '@mui/material/IconButton'
+import CloseIcon from '@mui/icons-material/Close'
+import AddIcon from '@mui/icons-material/Add'
 
 export const Route = createFileRoute('/projects/')({
   component: ProjectsList,
@@ -33,136 +53,163 @@ function ProjectsList() {
     }
   }
 
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
+    switch (status) {
+      case 'Good': return 'success'
+      case 'Warning': return 'warning'
+      case 'At Risk': return 'error'
+      default: return 'default'
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">{t('project.title')}</h1>
-          <p className="mt-2 text-sm text-gray-700">
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            {t('project.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
             {t('project.list')}
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Can I="create" a="project">
-            <Button onClick={() => setShowAddProject(true)}>
-              {t('project.create')}
-            </Button>
-          </Can>
-        </div>
-      </div>
+          </Typography>
+        </Box>
+        <Can I="create" a="project">
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setShowAddProject(true)}
+          >
+            {t('project.create')}
+          </Button>
+        </Can>
+      </Box>
 
-      <div className="mt-8 flex flex-col">
-        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                      {t('common.name')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.status')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('common.progress')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.estimatedEffort')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.actualEffort')}
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      {t('project.startDate')}
-                    </th>
-                    <th className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                      <span className="sr-only">{t('common.actions')}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {projects?.map((project) => (
-                    <tr key={project.id}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id.toString() }}
-                          search={{ tab: 'overview' }}
-                          className="text-primary-600 hover:text-primary-900"
-                        >
-                          {project.name}
-                        </Link>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <span className={`status-${project.status.toLowerCase().replace(` `, `-`)}`}>
-                          {getStatusTranslation(project.status)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <div className="mr-2 w-16 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-primary-600 h-2 rounded-full"
-                              style={{ width: `${project.progress}%` }}
-                            />
-                          </div>
-                          <span>{project.progress.toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {project.estimatedEffort} {t('time.mm')}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {project.actualEffort} {t('time.mm')}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {format(new Date(project.startDate), 'MMM dd, yyyy')}
-                      </td>
-                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id.toString() }}
-                          search={{ tab: 'overview' }}
-                          className="text-primary-600 hover:text-primary-900"
-                        >
-                          {t('common.view')}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Table */}
+      <TableContainer component={Paper} elevation={1}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: 'grey.50' }}>
+              <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('common.status')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('common.progress')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('project.estimatedEffort')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('project.actualEffort')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('project.startDate')}</TableCell>
+              <TableCell align="right">{t('common.actions')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {projects?.map((project) => (
+              <TableRow key={project.id} hover>
+                <TableCell>
+                  <Link
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id.toString() }}
+                    search={{ tab: 'overview' }}
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >
+                    <Typography
+                      variant="body2"
+                      fontWeight={500}
+                      sx={{ color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                    >
+                      {project.name}
+                    </Typography>
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={getStatusTranslation(project.status)}
+                    color={getStatusColor(project.status)}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={project.progress}
+                      sx={{ width: 64, height: 6, borderRadius: 1 }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      {project.progress.toFixed(0)}%
+                    </Typography>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {project.estimatedEffort} {t('time.mm')}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {project.actualEffort} {t('time.mm')}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {format(new Date(project.startDate), 'MMM dd, yyyy')}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Link
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id.toString() }}
+                    search={{ tab: 'overview' }}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button
+                      size="small"
+                      color="primary"
+                    >
+                      {t('common.view')}
+                    </Button>
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {projects?.length === 0 && (
-        <div className="mt-8 text-center">
-          <p className="text-gray-500">{t('project.noProjects')}. {t('project.createFirst')}</p>
-        </div>
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {t('project.noProjects')}. {t('project.createFirst')}
+          </Typography>
+        </Box>
       )}
 
-      {/* Add Project Modal */}
-      <Modal
-        isOpen={showAddProject}
+      {/* Add Project Dialog */}
+      <Dialog
+        open={showAddProject}
         onClose={() => setShowAddProject(false)}
-        title={t('project.create')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        <ProjectForm
-          onSuccess={() => setShowAddProject(false)}
-          onCancel={() => setShowAddProject(false)}
-        />
-      </Modal>
-    </div>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {t('project.create')}
+          <IconButton size="small" onClick={() => setShowAddProject(false)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <ProjectForm
+            onSuccess={() => setShowAddProject(false)}
+            onCancel={() => setShowAddProject(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </Box>
   )
 }

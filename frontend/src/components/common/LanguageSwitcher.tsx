@@ -62,6 +62,7 @@ export function LanguageSwitcher() {
         onClose={handleClose}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        disableScrollLock
         slotProps={{
           paper: {
             sx: { minWidth: 160, mt: 1 },

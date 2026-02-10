@@ -3,8 +3,28 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { projectApi } from '@/services/api'
-import { Button, Card, EmptyState, LoadingSpinner, ProgressBar, StatusBadge } from '@/components/common'
 import type { Project } from '@/types'
+
+// MUI imports
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Typography from '@mui/material/Typography'
+import Grid from '@mui/material/Grid'
+import Chip from '@mui/material/Chip'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import LinearProgress from '@mui/material/LinearProgress'
+import CircularProgress from '@mui/material/CircularProgress'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Paper from '@mui/material/Paper'
 
 interface BenchmarkMetric {
   project: Project
@@ -41,6 +61,15 @@ const calculateBenchmark = (project: Project): BenchmarkMetric => {
     effortScore,
     statusScore,
     benchmarkScore,
+  }
+}
+
+const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
+  switch (status) {
+    case 'Good': return 'success'
+    case 'Warning': return 'warning'
+    case 'At Risk': return 'error'
+    default: return 'default'
   }
 }
 
@@ -94,225 +123,377 @@ function BenchmarksPage() {
     )
   }
 
+  const getStatusTranslation = (status: string) => {
+    switch (status) {
+      case 'Good': return t('project.statusGood')
+      case 'Warning': return t('project.statusWarning')
+      case 'At Risk': return t('project.statusAtRisk')
+      default: return status
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="py-12">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   if (!projects || projects.length === 0) {
     return (
-      <EmptyState
-        title={t('benchmark.noProjects')}
-        description={t('benchmark.noProjectsHint')}
-        action={(
-          <Link to="/projects" className="btn btn-primary">
-            {t('project.create')}
-          </Link>
-        )}
-      />
+      <Box sx={{ textAlign: 'center', py: 8 }}>
+        <Typography variant="h6" color="text.secondary" gutterBottom>
+          {t('benchmark.noProjects')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('benchmark.noProjectsHint')}
+        </Typography>
+        <Button component={Link} to="/projects" variant="contained">
+          {t('project.create')}
+        </Button>
+      </Box>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{t('benchmark.title')}</h1>
-          <p className="text-gray-500">{t('benchmark.subtitle')}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setSelectedIds(projects.map((p) => p.id))}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            {t('benchmark.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('benchmark.subtitle')}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" size="small" onClick={() => setSelectedIds(projects.map((p) => p.id))}>
             {t('benchmark.selectAll')}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setSelectedIds([])}>
+          <Button variant="outlined" size="small" onClick={() => setSelectedIds([])}>
             {t('benchmark.clearAll')}
           </Button>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <Card title={t('benchmark.explanationTitle')}>
-        <p className="text-sm text-gray-600">{t('benchmark.explanationBody')}</p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 p-4">
-            <p className="text-xs font-semibold uppercase text-gray-500">{t('benchmark.formulaLabel')}</p>
-            <p className="mt-2 text-sm text-gray-700">{t('benchmark.formulaDetail')}</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 p-4">
-            <p className="text-xs font-semibold uppercase text-gray-500">{t('benchmark.componentsLabel')}</p>
-            <ul className="mt-2 space-y-1 text-sm text-gray-700">
-              <li>• {t('benchmark.componentsProgress')}</li>
-              <li>• {t('benchmark.componentsEffort')}</li>
-              <li>• {t('benchmark.componentsStatus')}</li>
-            </ul>
-          </div>
-        </div>
+      {/* Explanation Card */}
+      <Card>
+        <CardHeader title={t('benchmark.explanationTitle')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+        <CardContent sx={{ pt: 0 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('benchmark.explanationBody')}
+          </Typography>
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                  {t('benchmark.formulaLabel')}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {t('benchmark.formulaDetail')}
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                  {t('benchmark.componentsLabel')}
+                </Typography>
+                <Box component="ul" sx={{ mt: 1, pl: 2, '& li': { typography: 'body2', mb: 0.5 } }}>
+                  <li>{t('benchmark.componentsProgress')}</li>
+                  <li>{t('benchmark.componentsEffort')}</li>
+                  <li>{t('benchmark.componentsStatus')}</li>
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        </CardContent>
       </Card>
 
-      <Card title={t('benchmark.selectTitle')}>
-        <p className="text-sm text-gray-500 mb-4">{t('benchmark.selectHint')}</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <label
-              key={project.id}
-              className={`flex items-start gap-3 rounded-lg border p-3 transition ${
-                selectedIds.includes(project.id) ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(project.id)}
-                onChange={() => toggleSelection(project.id)}
-                className="mt-1 h-4 w-4 text-primary-600"
-              />
-              <div>
-                <p className="font-medium text-gray-900">{project.name}</p>
-                <p className="text-xs text-gray-500 line-clamp-2">{project.description || t('benchmark.noDescription')}</p>
-              </div>
-            </label>
-          ))}
-        </div>
+      {/* Selection Card */}
+      <Card>
+        <CardHeader title={t('benchmark.selectTitle')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+        <CardContent sx={{ pt: 0 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('benchmark.selectHint')}
+          </Typography>
+          <Grid container spacing={2}>
+            {projects.map((project) => (
+              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={project.id}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    borderColor: selectedIds.includes(project.id) ? 'primary.main' : 'divider',
+                    bgcolor: selectedIds.includes(project.id) ? 'primary.50' : 'transparent',
+                    '&:hover': { borderColor: 'primary.main' },
+                  }}
+                  onClick={() => toggleSelection(project.id)}
+                >
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedIds.includes(project.id)}
+                        onChange={() => toggleSelection(project.id)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>
+                          {project.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {project.description || t('benchmark.noDescription')}
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: 'flex-start', m: 0, width: '100%' }}
+                  />
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
       </Card>
 
       {selectedProjects.length < 2 ? (
-        <EmptyState
-          title={t('benchmark.needMore')}
-          description={t('benchmark.needMoreHint')}
-        />
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            {t('benchmark.needMore')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('benchmark.needMoreHint')}
+          </Typography>
+        </Box>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card title={t('benchmark.topPerformer')}>
-              {topPerformer ? (
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold text-gray-900">{topPerformer.project.name}</p>
-                  <p className="text-sm text-gray-500">{t('benchmark.score')}</p>
-                  <p className="text-3xl font-bold text-primary-600">{topPerformer.benchmarkScore}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">{t('benchmark.noData')}</p>
-              )}
-            </Card>
-            <Card title={t('benchmark.highestRisk')}>
-              {highestRisk ? (
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold text-gray-900">{highestRisk.project.name}</p>
-                  <StatusBadge status={highestRisk.project.status} />
-                  <p className="text-sm text-gray-500">{t('benchmark.score')}</p>
-                  <p className="text-3xl font-bold text-red-600">{highestRisk.benchmarkScore}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">{t('benchmark.noData')}</p>
-              )}
-            </Card>
-            <Card title={t('benchmark.mostEfficient')}>
-              {mostEfficient ? (
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold text-gray-900">{mostEfficient.project.name}</p>
-                  <p className="text-sm text-gray-500">{t('benchmark.effortVariance')}</p>
-                  <p className="text-3xl font-bold text-green-600">{formatVariance(mostEfficient.effortVariance)}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">{t('benchmark.noData')}</p>
-              )}
-            </Card>
-          </div>
+          {/* Summary Cards */}
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card>
+                <CardHeader title={t('benchmark.topPerformer')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+                <CardContent sx={{ pt: 0 }}>
+                  {topPerformer ? (
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {topPerformer.project.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {t('benchmark.score')}
+                      </Typography>
+                      <Typography variant="h4" fontWeight={700} color="primary.main">
+                        {topPerformer.benchmarkScore}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">{t('benchmark.noData')}</Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card>
+                <CardHeader title={t('benchmark.highestRisk')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+                <CardContent sx={{ pt: 0 }}>
+                  {highestRisk ? (
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {highestRisk.project.name}
+                      </Typography>
+                      <Chip
+                        label={getStatusTranslation(highestRisk.project.status)}
+                        color={getStatusColor(highestRisk.project.status)}
+                        size="small"
+                        sx={{ my: 1 }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {t('benchmark.score')}
+                      </Typography>
+                      <Typography variant="h4" fontWeight={700} color="error.main">
+                        {highestRisk.benchmarkScore}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">{t('benchmark.noData')}</Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card>
+                <CardHeader title={t('benchmark.mostEfficient')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+                <CardContent sx={{ pt: 0 }}>
+                  {mostEfficient ? (
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {mostEfficient.project.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {t('benchmark.effortVariance')}
+                      </Typography>
+                      <Typography variant="h4" fontWeight={700} color="success.main">
+                        {formatVariance(mostEfficient.effortVariance)}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">{t('benchmark.noData')}</Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
 
-          <Card title={t('benchmark.summaryTitle')}>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('benchmark.rank')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('project.name')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('project.status')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('benchmark.progress')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('benchmark.effortVariance')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('benchmark.score')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {rankedMetrics.map((metric, index) => (
-                    <tr key={metric.project.id}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">#{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: metric.project.id.toString() }}
-                          search={{ tab: 'overview' }}
-                          className="font-semibold text-primary-600 hover:text-primary-700"
-                        >
-                          {metric.project.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <StatusBadge status={metric.project.status} />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        <div className="space-y-1">
-                          <ProgressBar progress={metric.project.progress} size="sm" />
-                          <span className="text-xs text-gray-500">{metric.project.progress.toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        <span className={metric.effortVariance > 0 ? 'text-red-600' : 'text-green-600'}>
-                          {formatVariance(metric.effortVariance)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-semibold text-gray-900">{metric.benchmarkScore}</span>
-                          <ProgressBar progress={metric.benchmarkScore} size="sm" color="success" className="w-20" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {/* Summary Table */}
+          <Card>
+            <CardHeader title={t('benchmark.summaryTitle')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+            <CardContent sx={{ pt: 0 }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.rank')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('project.name')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('project.status')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.progress')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.effortVariance')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.score')}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {rankedMetrics.map((metric, index) => (
+                      <TableRow key={metric.project.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>#{index + 1}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to="/projects/$projectId"
+                            params={{ projectId: metric.project.id.toString() }}
+                            search={{ tab: 'overview' }}
+                            style={{ textDecoration: 'none' }}
+                          >
+                            <Typography variant="body2" fontWeight={600} color="primary.main" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+                              {metric.project.name}
+                            </Typography>
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getStatusTranslation(metric.project.status)}
+                            color={getStatusColor(metric.project.status)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={metric.project.progress}
+                              sx={{ width: 60, height: 6, borderRadius: 1 }}
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              {metric.project.progress.toFixed(0)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: metric.effortVariance > 0 ? 'error.main' : 'success.main' }}
+                          >
+                            {formatVariance(metric.effortVariance)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              {metric.benchmarkScore}
+                            </Typography>
+                            <LinearProgress
+                              variant="determinate"
+                              value={metric.benchmarkScore}
+                              color="success"
+                              sx={{ width: 60, height: 6, borderRadius: 1 }}
+                            />
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
           </Card>
 
-          <Card title={t('benchmark.insightsTitle')}>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg border border-gray-200 p-4">
-                <p className="text-sm font-medium text-gray-500">{t('benchmark.insightLeadership')}</p>
-                <p className="mt-2 text-sm text-gray-700">
-                  {topPerformer
-                    ? t('benchmark.insightLeadershipDetail', {
-                        project: topPerformer.project.name,
-                        score: topPerformer.benchmarkScore,
-                      })
-                    : t('benchmark.noData')}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-4">
-                <p className="text-sm font-medium text-gray-500">{t('benchmark.insightRisk')}</p>
-                <p className="mt-2 text-sm text-gray-700">
-                  {highestRisk
-                    ? t('benchmark.insightRiskDetail', {
-                        project: highestRisk.project.name,
-                        status: t(`project.status${highestRisk.project.status.replace(' ', '')}`),
-                      })
-                    : t('benchmark.noData')}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-4">
-                <p className="text-sm font-medium text-gray-500">{t('benchmark.insightEfficiency')}</p>
-                <p className="mt-2 text-sm text-gray-700">
-                  {mostEfficient
-                    ? t('benchmark.insightEfficiencyDetail', {
-                        project: mostEfficient.project.name,
-                        variance: formatVariance(mostEfficient.effortVariance),
-                      })
-                    : t('benchmark.noData')}
-                </p>
-              </div>
-            </div>
+          {/* Insights Card */}
+          <Card>
+            <CardHeader title={t('benchmark.insightsTitle')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
+            <CardContent sx={{ pt: 0 }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="body2" fontWeight={500} color="text.secondary">
+                      {t('benchmark.insightLeadership')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {topPerformer
+                        ? t('benchmark.insightLeadershipDetail', {
+                            project: topPerformer.project.name,
+                            score: topPerformer.benchmarkScore,
+                          })
+                        : t('benchmark.noData')}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="body2" fontWeight={500} color="text.secondary">
+                      {t('benchmark.insightRisk')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {highestRisk
+                        ? t('benchmark.insightRiskDetail', {
+                            project: highestRisk.project.name,
+                            status: t(`project.status${highestRisk.project.status.replace(' ', '')}`),
+                          })
+                        : t('benchmark.noData')}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="body2" fontWeight={500} color="text.secondary">
+                      {t('benchmark.insightEfficiency')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {mostEfficient
+                        ? t('benchmark.insightEfficiencyDetail', {
+                            project: mostEfficient.project.name,
+                            variance: formatVariance(mostEfficient.effortVariance),
+                          })
+                        : t('benchmark.noData')}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </CardContent>
           </Card>
         </>
       )}
-    </div>
+    </Box>
   )
 }

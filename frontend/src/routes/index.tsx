@@ -2,7 +2,16 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { projectApi } from '../services/api'
-import { LoadingSpinner } from '../components/common'
+
+// MUI imports
+import Box from '@mui/material/Box'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Grid from '@mui/material/Grid'
+import LinearProgress from '@mui/material/LinearProgress'
+import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -28,113 +37,163 @@ function Dashboard() {
     }
   }
 
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
+    switch (status) {
+      case 'Good': return 'success'
+      case 'Warning': return 'warning'
+      case 'At Risk': return 'error'
+      default: return 'default'
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   const activeProjects = projects?.filter(p => !p.endDate) || []
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            {t('dashboard.overview')}
-          </p>
-        </div>
-      </div>
+    <Box>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          {t('dashboard.title')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t('dashboard.overview')}
+        </Typography>
+      </Box>
 
       {/* Statistics Cards */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="card">
-          <dt className="text-sm font-medium text-gray-500 truncate">
-            {t('common.total')} {t('nav.projects')}
-          </dt>
-          <dd className="mt-1 text-3xl font-semibold text-gray-900">
-            {projects?.length || 0}
-          </dd>
-        </div>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {t('common.total')} {t('nav.projects')}
+              </Typography>
+              <Typography variant="h4" fontWeight={600} sx={{ mt: 1 }}>
+                {projects?.length || 0}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        <div className="card">
-          <dt className="text-sm font-medium text-gray-500 truncate">
-            {t('project.statusGood')}
-          </dt>
-          <dd className="mt-1 text-3xl font-semibold text-primary-600">
-            {activeProjects.length}
-          </dd>
-        </div>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {t('project.statusGood')}
+              </Typography>
+              <Typography variant="h4" fontWeight={600} sx={{ mt: 1, color: 'success.main' }}>
+                {activeProjects.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        <div className="card">
-          <dt className="text-sm font-medium text-gray-500 truncate">
-            {t('project.statusWarning')}
-          </dt>
-          <dd className="mt-1 text-3xl font-semibold text-yellow-600">
-            {projects?.filter(p => p.status === 'Warning').length || 0}
-          </dd>
-        </div>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {t('project.statusWarning')}
+              </Typography>
+              <Typography variant="h4" fontWeight={600} sx={{ mt: 1, color: 'warning.main' }}>
+                {projects?.filter(p => p.status === 'Warning').length || 0}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        <div className="card">
-          <dt className="text-sm font-medium text-gray-500 truncate">
-            {t('project.statusAtRisk')}
-          </dt>
-          <dd className="mt-1 text-3xl font-semibold text-red-600">
-            {projects?.filter(p => p.status === 'At Risk').length || 0}
-          </dd>
-        </div>
-      </div>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {t('project.statusAtRisk')}
+              </Typography>
+              <Typography variant="h4" fontWeight={600} sx={{ mt: 1, color: 'error.main' }}>
+                {projects?.filter(p => p.status === 'At Risk').length || 0}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* All Projects */}
       {projects && projects.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">{t('project.list')}</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Box>
+          <Typography variant="h6" fontWeight={500} sx={{ mb: 2 }}>
+            {t('project.list')}
+          </Typography>
+          <Grid container spacing={2}>
             {projects.map((project) => (
-              <Link
-                key={project.id}
-                to="/projects/$projectId"
-                params={{ projectId: project.id.toString() }}
-                search={{ tab: 'overview' }}
-                className="card hover:shadow-lg transition-shadow cursor-pointer block"
-              >
-                <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                <p className="mt-1 text-sm text-gray-500">{project.description}</p>
+              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={project.id}>
+                <Link
+                  to="/projects/$projectId"
+                  params={{ projectId: project.id.toString() }}
+                  search={{ tab: 'overview' }}
+                  style={{ textDecoration: 'none', display: 'block', height: '100%' }}
+                >
+                  <Card
+                    sx={{
+                      height: '100%',
+                      transition: 'box-shadow 0.2s',
+                      '&:hover': { boxShadow: 4 },
+                    }}
+                  >
+                    <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      {project.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {project.description}
+                    </Typography>
 
-                <div className="mt-4 flex items-center justify-between">
-                  <span className={`status-${project.status.toLowerCase().replace(' ', '-')}`}>
-                    {getStatusTranslation(project.status)}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {project.progress.toFixed(0)}%
-                  </span>
-                </div>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Chip
+                        label={getStatusTranslation(project.status)}
+                        color={getStatusColor(project.status)}
+                        size="small"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {project.progress.toFixed(0)}%
+                      </Typography>
+                    </Box>
 
-                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-primary-600 h-2 rounded-full"
-                    style={{ width: `${project.progress}%` }}
-                  />
-                </div>
+                    <LinearProgress
+                      variant="determinate"
+                      value={project.progress}
+                      sx={{ height: 8, borderRadius: 1, mb: 2 }}
+                    />
 
-                <div className="mt-4 flex justify-between text-xs text-gray-500">
-                  <span>{t('project.estimatedEffort')}: {project.estimatedEffort} {t('time.mm')}</span>
-                  <span>{t('project.actualEffort')}: {project.actualEffort} {t('time.mm')}</span>
-                </div>
-              </Link>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('project.estimatedEffort')}: {project.estimatedEffort} {t('time.mm')}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('project.actualEffort')}: {project.actualEffort} {t('time.mm')}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                  </Card>
+                </Link>
+              </Grid>
             ))}
-          </div>
-        </div>
+          </Grid>
+        </Box>
       )}
 
       {projects?.length === 0 && (
-        <div className="mt-8 text-center">
-          <p className="text-gray-500">{t('project.noProjects')}. {t('project.createFirst')}</p>
-        </div>
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {t('project.noProjects')}. {t('project.createFirst')}
+          </Typography>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

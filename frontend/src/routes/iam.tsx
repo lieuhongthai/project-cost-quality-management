@@ -3,7 +3,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { iamApi } from '@/services/api'
-import { Button, Card, EmptyState, LoadingSpinner, Radio, IconButton, Select } from '@/components/common'
 import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role, User } from '@/types'
 import {
@@ -21,6 +20,36 @@ import {
   UserPlus,
   Key,
 } from 'lucide-react'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+import TextField from '@mui/material/TextField'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
+import Checkbox from '@mui/material/Checkbox'
+import IconButton from '@mui/material/IconButton'
+import Chip from '@mui/material/Chip'
+import Alert from '@mui/material/Alert'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Paper from '@mui/material/Paper'
+import Grid from '@mui/material/Grid'
+import Tooltip from '@mui/material/Tooltip'
 
 export const Route = createFileRoute('/iam')({
   component: IamPage,
@@ -414,18 +443,24 @@ function IamPage() {
 
   if (isLoading) {
     return (
-      <div className="py-12">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   if (!roles || roles.length === 0) {
     return (
-      <EmptyState
-        title={t('iam.noRoles')}
-        description={t('iam.noRolesHint')}
-      />
+      <Card>
+        <CardContent sx={{ textAlign: 'center', py: 6 }}>
+          <Typography variant="h6" color="text.secondary">
+            {t('iam.noRoles')}
+          </Typography>
+          <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+            {t('iam.noRolesHint')}
+          </Typography>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -437,874 +472,971 @@ function IamPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">{t('iam.title')}</h1>
-        <p className="text-gray-500">{t('iam.subtitle')}</p>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box>
+        <Typography variant="h5" fontWeight={600}>
+          {t('iam.title')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t('iam.subtitle')}
+        </Typography>
+      </Box>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition focus:outline-none focus:ring-0 ${
-                activeTab === id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              {label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        value={activeTab}
+        onChange={(_, newValue) => setActiveTab(newValue)}
+        sx={{ borderBottom: 1, borderColor: 'divider' }}
+      >
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <Tab
+            key={id}
+            value={id}
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Icon size={18} />
+                <span>{label}</span>
+              </Box>
+            }
+          />
+        ))}
+      </Tabs>
 
       {/* Tab Content */}
-      <div className="min-h-[500px]">
+      <Box sx={{ minHeight: 500 }}>
         {activeTab === 'roles' && (
-          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <Grid container spacing={3}>
             {/* Roles List */}
-            <Card
-              title={(
-                <div className="flex items-center gap-2">
-                  <UserCog className="h-5 w-5 text-gray-500" />
-                  <span>{t('iam.rolesTitle')}</span>
-                </div>
-              )}
-            >
-              <div className="space-y-2">
-                {roles.map((role: Role) => {
-                  const isSelected = role.id === selectedRoleId
-                  const isEditing = editingRoleId === role.id
-                  const canManage = ability.can('manage', 'role') && !role.isSystem
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card>
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <UserCog size={20} color="gray" />
+                      <Typography variant="subtitle1">{t('iam.rolesTitle')}</Typography>
+                    </Box>
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {roles.map((role: Role) => {
+                      const isSelected = role.id === selectedRoleId
+                      const isEditing = editingRoleId === role.id
+                      const canManage = ability.can('manage', 'role') && !role.isSystem
 
-                  return (
-                    <div
-                      key={role.id}
-                      className={`rounded-lg border transition ${
-                        isSelected
-                          ? 'border-primary-500 bg-primary-50 shadow-sm'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRoleId(role.id)}
-                        className="w-full px-3 py-2.5 text-left focus:outline-none focus:ring-0"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          {isEditing ? (
-                            <div className="flex flex-1 items-center gap-2">
-                              <input
-                                type="text"
-                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
-                                value={editingRoleName}
-                                onChange={(e) => setEditingRoleName(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                autoFocus
-                              />
-                              <IconButton
-                                variant="success"
-                                icon={<Check className="h-4 w-4" />}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleSaveRoleName()
-                                }}
-                                disabled={updateRoleNameMutation.isPending}
-                              />
-                              <IconButton
-                                variant="default"
-                                icon={<X className="h-4 w-4" />}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCancelEditRole()
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <span className={`font-medium ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>
-                                {role.name}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {role.isSystem && (
-                                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                                    System
-                                  </span>
-                                )}
-                                {canManage && (
-                                  <div className="flex items-center gap-1">
-                                    <IconButton
-                                      variant="primary"
-                                      icon={<Edit2 className="h-3.5 w-3.5" />}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleEditRole(role)
-                                      }}
-                                      className="hover:bg-white"
-                                    />
-                                    <IconButton
-                                      variant="danger"
-                                      icon={<Trash2 className="h-3.5 w-3.5" />}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDeleteRole(role.id, role.name)
-                                      }}
-                                      className="hover:bg-white"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        {!isEditing && (
-                          <p className={`mt-1 text-xs ${isSelected ? 'text-primary-600' : 'text-gray-500'}`}>
-                            {t('iam.permissionCount', { count: role.permissions.length })}
-                          </p>
-                        )}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
+                      return (
+                        <Paper
+                          key={role.id}
+                          variant="outlined"
+                          sx={{
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            bgcolor: isSelected ? 'primary.50' : 'transparent',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              borderColor: isSelected ? 'primary.main' : 'grey.400',
+                              bgcolor: isSelected ? 'primary.50' : 'grey.50',
+                            },
+                          }}
+                        >
+                          <Box
+                            onClick={() => setSelectedRoleId(role.id)}
+                            sx={{ px: 2, py: 1.5, cursor: 'pointer' }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                              {isEditing ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                                  <TextField
+                                    size="small"
+                                    value={editingRoleName}
+                                    onChange={(e) => setEditingRoleName(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    autoFocus
+                                    sx={{ flex: 1 }}
+                                  />
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleSaveRoleName()
+                                    }}
+                                    disabled={updateRoleNameMutation.isPending}
+                                  >
+                                    <Check size={16} />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCancelEditRole()
+                                    }}
+                                  >
+                                    <X size={16} />
+                                  </IconButton>
+                                </Box>
+                              ) : (
+                                <>
+                                  <Typography
+                                    fontWeight={500}
+                                    color={isSelected ? 'primary.main' : 'text.primary'}
+                                  >
+                                    {role.name}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {role.isSystem && (
+                                      <Chip label="System" size="small" variant="outlined" />
+                                    )}
+                                    {canManage && (
+                                      <>
+                                        <IconButton
+                                          size="small"
+                                          color="primary"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleEditRole(role)
+                                          }}
+                                        >
+                                          <Edit2 size={14} />
+                                        </IconButton>
+                                        <IconButton
+                                          size="small"
+                                          color="error"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleDeleteRole(role.id, role.name)
+                                          }}
+                                        >
+                                          <Trash2 size={14} />
+                                        </IconButton>
+                                      </>
+                                    )}
+                                  </Box>
+                                </>
+                              )}
+                            </Box>
+                            {!isEditing && (
+                              <Typography
+                                variant="caption"
+                                color={isSelected ? 'primary.main' : 'text.secondary'}
+                              >
+                                {t('iam.permissionCount', { count: role.permissions.length })}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Paper>
+                      )
+                    })}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
             {/* Permissions Editor */}
-            <Card
-              title={
-                selectedRole ? (
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-gray-500" />
-                    <span>{t('iam.permissionsTitle', { role: selectedRole.name })}</span>
-                  </div>
-                ) : (
-                  t('iam.permissions')
-                )
-              }
-              actions={
-                selectedRole && (
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={isReadOnly || updateRoleMutation.isPending}
-                  >
-                    {updateRoleMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
-                        {t('common.loading')}
-                      </div>
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <Card>
+                <CardHeader
+                  title={
+                    selectedRole ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Shield size={20} color="gray" />
+                        <Typography variant="subtitle1">
+                          {t('iam.permissionsTitle', { role: selectedRole.name })}
+                        </Typography>
+                      </Box>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        {t('iam.save')}
-                      </div>
-                    )}
-                  </Button>
-                )
-              }
-            >
-              {selectedRole ? (
-                <div className="space-y-6">
-                  {selectedRole.isSystem && (
-                    <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600" />
-                      <p className="text-sm text-amber-700">{t('iam.systemRoleHint')}</p>
-                    </div>
+                      <Typography variant="subtitle1">{t('iam.permissions')}</Typography>
+                    )
+                  }
+                  action={
+                    selectedRole && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleSave}
+                        disabled={isReadOnly || updateRoleMutation.isPending}
+                        startIcon={updateRoleMutation.isPending ? <CircularProgress size={16} /> : <CheckCircle2 size={16} />}
+                      >
+                        {updateRoleMutation.isPending ? t('common.loading') : t('iam.save')}
+                      </Button>
+                    )
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  {selectedRole ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {selectedRole.isSystem && (
+                        <Alert severity="warning" icon={<AlertCircle size={20} />}>
+                          {t('iam.systemRoleHint')}
+                        </Alert>
+                      )}
+                      {!ability.can('manage', 'role') && (
+                        <Alert severity="info" icon={<AlertCircle size={20} />}>
+                          {t('iam.readOnlyHint')}
+                        </Alert>
+                      )}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {groupedPermissions.map(({ subject, items }) => (
+                          <Box key={subject}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                              <Typography variant="overline" color="text.secondary">
+                                {subject}
+                              </Typography>
+                              <Typography variant="caption" color="text.disabled">
+                                ({items.filter(p => draftPermissionKeys.includes(p.key)).length}/{items.length})
+                              </Typography>
+                            </Box>
+                            <Grid container spacing={1.5}>
+                              {items.map((permission) => (
+                                <Grid size={{ xs: 12, sm: 6 }} key={permission.key}>
+                                  <Paper
+                                    variant="outlined"
+                                    onClick={() => !isReadOnly && togglePermission(permission.key)}
+                                    sx={{
+                                      px: 2,
+                                      py: 1.5,
+                                      cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                      opacity: isReadOnly ? 0.7 : 1,
+                                      borderColor: draftPermissionKeys.includes(permission.key) ? 'primary.main' : 'divider',
+                                      bgcolor: draftPermissionKeys.includes(permission.key) ? 'primary.50' : 'transparent',
+                                      '&:hover': {
+                                        borderColor: isReadOnly ? 'divider' : 'grey.400',
+                                      },
+                                    }}
+                                  >
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={draftPermissionKeys.includes(permission.key)}
+                                          disabled={isReadOnly}
+                                          size="small"
+                                          onChange={() => togglePermission(permission.key)}
+                                        />
+                                      }
+                                      label={
+                                        <Typography variant="body2">
+                                          {permission.key}
+                                        </Typography>
+                                      }
+                                      sx={{ m: 0, width: '100%' }}
+                                    />
+                                  </Paper>
+                                </Grid>
+                              ))}
+                            </Grid>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 6 }}>
+                      <Typography color="text.secondary">{t('iam.selectRole')}</Typography>
+                    </Box>
                   )}
-                  {!ability.can('manage', 'role') && (
-                    <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                      <AlertCircle className="h-5 w-5 flex-shrink-0 text-blue-600" />
-                      <p className="text-sm text-blue-700">{t('iam.readOnlyHint')}</p>
-                    </div>
-                  )}
-                  <div className="space-y-6">
-                    {groupedPermissions.map(({ subject, items }) => (
-                      <div key={subject}>
-                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase text-gray-500">
-                          {subject}
-                          <span className="text-xs font-normal text-gray-400">
-                            ({items.filter(p => draftPermissionKeys.includes(p.key)).length}/{items.length})
-                          </span>
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {items.map((permission) => (
-                            <label
-                              key={permission.key}
-                              className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
-                                draftPermissionKeys.includes(permission.key)
-                                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                              } ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
-                                checked={draftPermissionKeys.includes(permission.key)}
-                                disabled={isReadOnly}
-                                onChange={() => togglePermission(permission.key)}
-                              />
-                              <span className="flex-1">{permission.key}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <EmptyState title={t('iam.selectRole')} />
-              )}
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         )}
 
         {activeTab === 'positions' && (
-          <div className="space-y-6">
-            <Card
-              title={(
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-gray-500" />
-                  <span>{t('iam.positionsTitle')}</span>
-                </div>
-              )}
-            >
-              {positions && positions.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {positions.map((position: Position) => {
-                    const isEditingName = editingPositionId === position.id && !isEditingPositionRoles
-                    const canManage = ability.can('manage', 'position') && !position.isSystem
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Card>
+              <CardHeader
+                title={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Users size={20} color="gray" />
+                    <Typography variant="subtitle1">{t('iam.positionsTitle')}</Typography>
+                  </Box>
+                }
+              />
+              <CardContent sx={{ pt: 0 }}>
+                {positions && positions.length > 0 ? (
+                  <Grid container spacing={2}>
+                    {positions.map((position: Position) => {
+                      const isEditingName = editingPositionId === position.id && !isEditingPositionRoles
+                      const canManage = ability.can('manage', 'position') && !position.isSystem
 
-                    return (
-                      <div
-                        key={position.id}
-                        className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          {isEditingName ? (
-                            <div className="flex flex-1 items-center gap-2">
-                              <Briefcase className="h-5 w-5 text-gray-400" />
-                              <input
-                                type="text"
-                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
-                                value={editingPositionName}
-                                onChange={(e) => setEditingPositionName(e.target.value)}
-                                autoFocus
-                              />
-                              <IconButton
-                                variant="success"
-                                icon={<Check className="h-4 w-4" />}
-                                onClick={handleSavePositionName}
-                                disabled={updatePositionMutation.isPending}
-                              />
-                              <IconButton
-                                variant="default"
-                                icon={<X className="h-4 w-4" />}
-                                onClick={handleCancelEditPosition}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-2">
-                                <Briefcase className="h-5 w-5 text-gray-400" />
-                                <h3 className="font-semibold text-gray-900">{position.name}</h3>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {position.isSystem && (
-                                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                                    System
-                                  </span>
-                                )}
-                                {canManage && (
-                                  <div className="flex items-center gap-1">
-                                    <IconButton
-                                      variant="primary"
-                                      icon={<Edit2 className="h-3.5 w-3.5" />}
-                                      onClick={() => handleEditPosition(position)}
-                                      tooltip={t('iam.editPositionName')}
-                                    />
-                                    <IconButton
-                                      variant="danger"
-                                      icon={<Trash2 className="h-3.5 w-3.5" />}
-                                      onClick={() => handleDeletePosition(position.id, position.name)}
-                                      tooltip={t('iam.deletePosition')}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        {!isEditingName && (
-                          <>
-                            <div className="mt-2 flex items-center justify-between">
-                              <p className="text-xs text-gray-500">
-                                {t('iam.positionRoleCount', { count: position.roles.length })}
-                              </p>
-                              {canManage && (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  onClick={() => handleEditPositionRoles(position)}
-                                  className="text-primary-600 hover:text-primary-700 hover:underline hover:bg-transparent"
-                                >
-                                  {t('iam.editRoles')}
-                                </Button>
-                              )}
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {position.roles.length > 0 ? (
-                                position.roles.map((role) => (
-                                  <span
-                                    key={role.id}
-                                    className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700"
+                      return (
+                        <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={position.id}>
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              p: 2,
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                borderColor: 'grey.400',
+                                boxShadow: 1,
+                              },
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                              {isEditingName ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                                  <Briefcase size={20} color="gray" />
+                                  <TextField
+                                    size="small"
+                                    value={editingPositionName}
+                                    onChange={(e) => setEditingPositionName(e.target.value)}
+                                    autoFocus
+                                    sx={{ flex: 1 }}
+                                  />
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={handleSavePositionName}
+                                    disabled={updatePositionMutation.isPending}
                                   >
-                                    <Shield className="h-3 w-3" />
-                                    {role.name}
-                                  </span>
-                                ))
+                                    <Check size={16} />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={handleCancelEditPosition}
+                                  >
+                                    <X size={16} />
+                                  </IconButton>
+                                </Box>
                               ) : (
-                                <span className="text-xs text-gray-400">{t('iam.noRolesAssigned')}</span>
+                                <>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Briefcase size={20} color="gray" />
+                                    <Typography fontWeight={600}>{position.name}</Typography>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {position.isSystem && (
+                                      <Chip label="System" size="small" variant="outlined" />
+                                    )}
+                                    {canManage && (
+                                      <>
+                                        <Tooltip title={t('iam.editPositionName')}>
+                                          <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={() => handleEditPosition(position)}
+                                          >
+                                            <Edit2 size={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title={t('iam.deletePosition')}>
+                                          <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDeletePosition(position.id, position.name)}
+                                          >
+                                            <Trash2 size={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                  </Box>
+                                </>
                               )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <EmptyState
-                  title={t('iam.noPositions')}
-                  description={t('iam.noPositionsHint')}
-                />
-              )}
+                            </Box>
+                            {!isEditingName && (
+                              <>
+                                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {t('iam.positionRoleCount', { count: position.roles.length })}
+                                  </Typography>
+                                  {canManage && (
+                                    <Button
+                                      variant="text"
+                                      size="small"
+                                      onClick={() => handleEditPositionRoles(position)}
+                                    >
+                                      {t('iam.editRoles')}
+                                    </Button>
+                                  )}
+                                </Box>
+                                <Box sx={{ mt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                  {position.roles.length > 0 ? (
+                                    position.roles.map((role) => (
+                                      <Chip
+                                        key={role.id}
+                                        icon={<Shield size={12} />}
+                                        label={role.name}
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                      />
+                                    ))
+                                  ) : (
+                                    <Typography variant="caption" color="text.disabled">
+                                      {t('iam.noRolesAssigned')}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </>
+                            )}
+                          </Paper>
+                        </Grid>
+                      )
+                    })}
+                  </Grid>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography variant="h6" color="text.secondary">
+                      {t('iam.noPositions')}
+                    </Typography>
+                    <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+                      {t('iam.noPositionsHint')}
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
             </Card>
 
-            {/* Edit Position Roles Modal */}
+            {/* Edit Position Roles Card */}
             {isEditingPositionRoles && editingPositionId && (
-              <Card
-                title={(
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-gray-500" />
-                    <span>
-                      {t('iam.editPositionRoles', {
-                        name: positions?.find(p => p.id === editingPositionId)?.name,
-                      })}
-                    </span>
-                  </div>
-                )}
-                actions={(
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelEditPositionRoles}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSavePositionRoles}
-                      disabled={updatePositionRolesMutation.isPending || editingPositionRoleIds.length === 0}
-                    >
-                      {updatePositionRolesMutation.isPending ? (
-                        <div className="flex items-center gap-2">
-                          <LoadingSpinner size="sm" />
-                          {t('common.loading')}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4" />
-                          {t('iam.saveRoles')}
-                        </div>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              >
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600">{t('iam.selectRolesToAssign')}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {roles.map((role) => (
-                      <label
-                        key={`edit-position-role-${role.id}`}
-                        className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition cursor-pointer ${
-                          editingPositionRoleIds.includes(role.id)
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                        }`}
+              <Card>
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Shield size={20} color="gray" />
+                      <Typography variant="subtitle1">
+                        {t('iam.editPositionRoles', {
+                          name: positions?.find(p => p.id === editingPositionId)?.name,
+                        })}
+                      </Typography>
+                    </Box>
+                  }
+                  action={
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleCancelEditPositionRoles}
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
-                          checked={editingPositionRoleIds.includes(role.id)}
-                          onChange={() => togglePositionRole(role.id)}
-                        />
-                        <Shield className="h-4 w-4 text-gray-400" />
-                        <span className="flex-1">{role.name}</span>
-                        {role.isSystem && (
-                          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                            System
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                  {editingPositionRoleIds.length === 0 && (
-                    <p className="text-sm text-amber-600">{t('iam.atLeastOneRole')}</p>
-                  )}
-                </div>
+                        {t('common.cancel')}
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleSavePositionRoles}
+                        disabled={updatePositionRolesMutation.isPending || editingPositionRoleIds.length === 0}
+                        startIcon={updatePositionRolesMutation.isPending ? <CircularProgress size={16} /> : <CheckCircle2 size={16} />}
+                      >
+                        {updatePositionRolesMutation.isPending ? t('common.loading') : t('iam.saveRoles')}
+                      </Button>
+                    </Box>
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('iam.selectRolesToAssign')}
+                    </Typography>
+                    <Grid container spacing={1.5}>
+                      {roles.map((role) => (
+                        <Grid size={{ xs: 12, sm: 6 }} key={`edit-position-role-${role.id}`}>
+                          <Paper
+                            variant="outlined"
+                            onClick={() => togglePositionRole(role.id)}
+                            sx={{
+                              px: 2,
+                              py: 1.5,
+                              cursor: 'pointer',
+                              borderColor: editingPositionRoleIds.includes(role.id) ? 'primary.main' : 'divider',
+                              bgcolor: editingPositionRoleIds.includes(role.id) ? 'primary.50' : 'transparent',
+                              '&:hover': {
+                                borderColor: 'grey.400',
+                              },
+                            }}
+                          >
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={editingPositionRoleIds.includes(role.id)}
+                                  size="small"
+                                  onChange={() => togglePositionRole(role.id)}
+                                />
+                              }
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Shield size={16} color="gray" />
+                                  <Typography variant="body2">{role.name}</Typography>
+                                  {role.isSystem && (
+                                    <Chip label="System" size="small" variant="outlined" />
+                                  )}
+                                </Box>
+                              }
+                              sx={{ m: 0, width: '100%' }}
+                            />
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                    {editingPositionRoleIds.length === 0 && (
+                      <Typography variant="body2" color="warning.main">
+                        {t('iam.atLeastOneRole')}
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
               </Card>
             )}
-          </div>
+          </Box>
         )}
 
         {activeTab === 'users' && (
-          <Card
-            title={(
-              <div className="flex items-center gap-2">
-                <UserCog className="h-5 w-5 text-gray-500" />
-                <span>{t('iam.usersTitle')}</span>
-              </div>
-            )}
-          >
-            {users && users.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                        {t('iam.username')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                        {t('iam.email')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                        {t('iam.position')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                        {t('iam.mustChangePassword')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                        {t('common.created')}
-                      </th>
-                      {ability.can('manage', 'user') && (
-                        <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
-                          {t('common.actions')}
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {users.map((user) => {
-                      const isEditing = editingUserId === user.id
-                      const isSuperAdmin = user.username === 'super-admin'
-                      const canManage = ability.can('manage', 'user') && !isSuperAdmin
+          <Card>
+            <CardHeader
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <UserCog size={20} color="gray" />
+                  <Typography variant="subtitle1">{t('iam.usersTitle')}</Typography>
+                </Box>
+              }
+            />
+            <CardContent sx={{ pt: 0 }}>
+              {users && users.length > 0 ? (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('iam.username')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('iam.email')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('iam.position')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('iam.mustChangePassword')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.created')}</TableCell>
+                        {ability.can('manage', 'user') && (
+                          <TableCell sx={{ fontWeight: 600 }} align="right">{t('common.actions')}</TableCell>
+                        )}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {users.map((user) => {
+                        const isEditing = editingUserId === user.id
+                        const isSuperAdmin = user.username === 'super-admin'
+                        const canManage = ability.can('manage', 'user') && !isSuperAdmin
 
-                      return (
-                        <tr key={user.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
-                                value={editingUsername}
-                                onChange={(e) => setEditingUsername(e.target.value)}
-                                autoFocus
-                              />
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-900">{user.username}</span>
-                                {isSuperAdmin && (
-                                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-                                    Super Admin
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isEditing ? (
-                              <input
-                                type="email"
-                                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
-                                value={editingUserEmail}
-                                onChange={(e) => setEditingUserEmail(e.target.value)}
-                                placeholder={t('iam.emailPlaceholder')}
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-600">
-                                {user.email || '-'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isEditing ? (
-                              <Select
-                                value={editingUserPositionId || ''}
-                                onChange={(e) => setEditingUserPositionId(Number(e.target.value))}
-                                options={[
-                                  { value: '', label: t('iam.selectPosition') },
-                                  ...(positions?.map((position) => ({
-                                    value: position.id,
-                                    label: position.name,
-                                  })) || []),
-                                ]}
-                                size="small"
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-600">
-                                {user.position?.name || t('common.unknown')}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                              user.mustChangePassword
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-green-100 text-green-700'
-                            }`}>
-                              {user.mustChangePassword ? t('common.yes') : t('common.no')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {new Date(user.createdAt).toLocaleDateString()}
-                          </td>
-                          {ability.can('manage', 'user') && (
-                            <td className="px-4 py-3">
+                        return (
+                          <TableRow key={user.id} hover>
+                            <TableCell>
                               {isEditing ? (
-                                <div className="flex items-center justify-end gap-2">
-                                  <IconButton
-                                    variant="success"
-                                    icon={<Check className="h-4 w-4" />}
-                                    onClick={handleSaveUser}
-                                    disabled={updateUserMutation.isPending}
-                                  />
-                                  <IconButton
-                                    variant="default"
-                                    icon={<X className="h-4 w-4" />}
-                                    onClick={handleCancelEditUser}
-                                  />
-                                </div>
-                              ) : canManage ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <IconButton
-                                    variant="primary"
-                                    icon={<Edit2 className="h-4 w-4" />}
-                                    onClick={() => handleEditUser(user)}
-                                    tooltip={t('iam.editUser')}
-                                  />
-                                  <IconButton
-                                    variant="info"
-                                    icon={<Key className="h-4 w-4" />}
-                                    onClick={() => handleResetPassword(user.id, user.username)}
-                                    tooltip={t('iam.resetPassword')}
-                                  />
-                                  <IconButton
-                                    variant="danger"
-                                    icon={<Trash2 className="h-4 w-4" />}
-                                    onClick={() => handleDeleteUser(user.id, user.username)}
-                                    tooltip={t('iam.deleteUser')}
-                                  />
-                                </div>
-                              ) : null}
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState
-                title={t('iam.noUsers')}
-                description={t('iam.noUsersHint')}
-              />
-            )}
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={editingUsername}
+                                  onChange={(e) => setEditingUsername(e.target.value)}
+                                  autoFocus
+                                />
+                              ) : (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography fontWeight={500}>{user.username}</Typography>
+                                  {isSuperAdmin && (
+                                    <Chip
+                                      label="Super Admin"
+                                      size="small"
+                                      color="secondary"
+                                    />
+                                  )}
+                                </Box>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isEditing ? (
+                                <TextField
+                                  size="small"
+                                  type="email"
+                                  fullWidth
+                                  value={editingUserEmail}
+                                  onChange={(e) => setEditingUserEmail(e.target.value)}
+                                  placeholder={t('iam.emailPlaceholder')}
+                                />
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  {user.email || '-'}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isEditing ? (
+                                <FormControl size="small" sx={{ minWidth: 150 }}>
+                                  <Select
+                                    value={editingUserPositionId || ''}
+                                    onChange={(e) => setEditingUserPositionId(Number(e.target.value))}
+                                    MenuProps={{ disableScrollLock: true }}
+                                  >
+                                    <MenuItem value="">{t('iam.selectPosition')}</MenuItem>
+                                    {positions?.map((position) => (
+                                      <MenuItem key={position.id} value={position.id}>
+                                        {position.name}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  {user.position?.name || t('common.unknown')}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={user.mustChangePassword ? t('common.yes') : t('common.no')}
+                                size="small"
+                                color={user.mustChangePassword ? 'warning' : 'success'}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(user.createdAt).toLocaleDateString()}
+                              </Typography>
+                            </TableCell>
+                            {ability.can('manage', 'user') && (
+                              <TableCell align="right">
+                                {isEditing ? (
+                                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                                    <IconButton
+                                      size="small"
+                                      color="success"
+                                      onClick={handleSaveUser}
+                                      disabled={updateUserMutation.isPending}
+                                    >
+                                      <Check size={16} />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      onClick={handleCancelEditUser}
+                                    >
+                                      <X size={16} />
+                                    </IconButton>
+                                  </Box>
+                                ) : canManage ? (
+                                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                                    <Tooltip title={t('iam.editUser')}>
+                                      <IconButton
+                                        size="small"
+                                        color="primary"
+                                        onClick={() => handleEditUser(user)}
+                                      >
+                                        <Edit2 size={16} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title={t('iam.resetPassword')}>
+                                      <IconButton
+                                        size="small"
+                                        color="info"
+                                        onClick={() => handleResetPassword(user.id, user.username)}
+                                      >
+                                        <Key size={16} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title={t('iam.deleteUser')}>
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteUser(user.id, user.username)}
+                                      >
+                                        <Trash2 size={16} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Box>
+                                ) : null}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography variant="h6" color="text.secondary">
+                    {t('iam.noUsers')}
+                  </Typography>
+                  <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+                    {t('iam.noUsersHint')}
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
           </Card>
         )}
 
         {activeTab === 'create' && (
-          <div className="grid gap-6 lg:grid-cols-3">
+          <Grid container spacing={3}>
             {/* Create Role */}
-            <Card
-              title={(
-                <div className="flex items-center gap-2">
-                  <UserCog className="h-5 w-5 text-gray-500" />
-                  <span>{t('iam.createRoleTitle')}</span>
-                </div>
-              )}
-            >
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.roleName')}
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    value={newRoleName}
-                    onChange={(event) => setNewRoleName(event.target.value)}
-                    placeholder={t('iam.roleNamePlaceholder')}
-                    disabled={!ability.can('manage', 'role')}
-                  />
-                </div>
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-gray-700">
-                    {t('iam.assignPermissions')}
-                  </p>
-                  <div className="max-h-[500px] space-y-4 overflow-y-auto rounded-lg border border-gray-200 p-4">
-                    {groupedPermissions.map(({ subject, items }) => (
-                      <div key={subject}>
-                        <h4 className="mb-2 text-xs font-semibold uppercase text-gray-500">
-                          {subject}
-                        </h4>
-                        <div className="space-y-2">
-                          {items.map((permission) => (
-                            <label
-                              key={`new-${permission.key}`}
-                              className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition ${
-                                newRolePermissionKeys.includes(permission.key)
-                                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                  : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                              } ${ability.can('manage', 'role') ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
-                                checked={newRolePermissionKeys.includes(permission.key)}
-                                disabled={!ability.can('manage', 'role')}
-                                onChange={() => toggleNewRolePermission(permission.key)}
-                              />
-                              <span className="flex-1">{permission.key}</span>
-                            </label>
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card>
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <UserCog size={20} color="gray" />
+                      <Typography variant="subtitle1">{t('iam.createRoleTitle')}</Typography>
+                    </Box>
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label={t('iam.roleName')}
+                      value={newRoleName}
+                      onChange={(event) => setNewRoleName(event.target.value)}
+                      placeholder={t('iam.roleNamePlaceholder')}
+                      disabled={!ability.can('manage', 'role')}
+                      size="small"
+                      fullWidth
+                    />
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                        {t('iam.assignPermissions')}
+                      </Typography>
+                      <Paper
+                        variant="outlined"
+                        sx={{ maxHeight: 400, overflow: 'auto', p: 2 }}
+                      >
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {groupedPermissions.map(({ subject, items }) => (
+                            <Box key={subject}>
+                              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
+                                {subject}
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+                                {items.map((permission) => (
+                                  <Paper
+                                    key={`new-${permission.key}`}
+                                    variant="outlined"
+                                    onClick={() => ability.can('manage', 'role') && toggleNewRolePermission(permission.key)}
+                                    sx={{
+                                      px: 1.5,
+                                      py: 1,
+                                      cursor: ability.can('manage', 'role') ? 'pointer' : 'not-allowed',
+                                      opacity: ability.can('manage', 'role') ? 1 : 0.7,
+                                      borderColor: newRolePermissionKeys.includes(permission.key) ? 'primary.main' : 'divider',
+                                      bgcolor: newRolePermissionKeys.includes(permission.key) ? 'primary.50' : 'transparent',
+                                    }}
+                                  >
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          checked={newRolePermissionKeys.includes(permission.key)}
+                                          disabled={!ability.can('manage', 'role')}
+                                          size="small"
+                                          onChange={() => toggleNewRolePermission(permission.key)}
+                                        />
+                                      }
+                                      label={<Typography variant="body2">{permission.key}</Typography>}
+                                      sx={{ m: 0 }}
+                                    />
+                                  </Paper>
+                                ))}
+                              </Box>
+                            </Box>
                           ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-end pt-2">
-                  <Button
-                    onClick={handleCreateRole}
-                    disabled={
-                      !ability.can('manage', 'role')
-                      || !newRoleName.trim()
-                      || newRolePermissionKeys.length === 0
-                      || createRoleMutation.isPending
-                    }
-                  >
-                    {createRoleMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
-                        {t('common.loading')}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        {t('iam.createRole')}
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+                        </Box>
+                      </Paper>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleCreateRole}
+                        disabled={
+                          !ability.can('manage', 'role')
+                          || !newRoleName.trim()
+                          || newRolePermissionKeys.length === 0
+                          || createRoleMutation.isPending
+                        }
+                        startIcon={createRoleMutation.isPending ? <CircularProgress size={16} /> : <Plus size={16} />}
+                      >
+                        {createRoleMutation.isPending ? t('common.loading') : t('iam.createRole')}
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
             {/* Create Position */}
-            <Card
-              title={(
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-gray-500" />
-                  <span>{t('iam.createPositionTitle')}</span>
-                </div>
-              )}
-            >
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.positionName')}
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    value={newPositionName}
-                    onChange={(event) => setNewPositionName(event.target.value)}
-                    placeholder={t('iam.positionNamePlaceholder')}
-                    disabled={!ability.can('manage', 'position')}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    {t('iam.assignRoles')}
-                  </p>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-1">
-                    {roles.map((role) => (
-                      <label
-                        key={`position-role-${role.id}`}
-                        className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
-                          newPositionRoleIds.includes(role.id)
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                        } ${ability.can('manage', 'position') ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card>
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Briefcase size={20} color="gray" />
+                      <Typography variant="subtitle1">{t('iam.createPositionTitle')}</Typography>
+                    </Box>
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label={t('iam.positionName')}
+                      value={newPositionName}
+                      onChange={(event) => setNewPositionName(event.target.value)}
+                      placeholder={t('iam.positionNamePlaceholder')}
+                      disabled={!ability.can('manage', 'position')}
+                      size="small"
+                      fullWidth
+                    />
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                        {t('iam.assignRoles')}
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {roles.map((role) => (
+                          <Paper
+                            key={`position-role-${role.id}`}
+                            variant="outlined"
+                            onClick={() => ability.can('manage', 'position') && toggleNewPositionRole(role.id)}
+                            sx={{
+                              px: 2,
+                              py: 1.5,
+                              cursor: ability.can('manage', 'position') ? 'pointer' : 'not-allowed',
+                              opacity: ability.can('manage', 'position') ? 1 : 0.7,
+                              borderColor: newPositionRoleIds.includes(role.id) ? 'primary.main' : 'divider',
+                              bgcolor: newPositionRoleIds.includes(role.id) ? 'primary.50' : 'transparent',
+                            }}
+                          >
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={newPositionRoleIds.includes(role.id)}
+                                  disabled={!ability.can('manage', 'position')}
+                                  size="small"
+                                  onChange={() => toggleNewPositionRole(role.id)}
+                                />
+                              }
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Shield size={16} color="gray" />
+                                  <Typography variant="body2">{role.name}</Typography>
+                                  {role.isSystem && (
+                                    <Chip label="System" size="small" variant="outlined" />
+                                  )}
+                                </Box>
+                              }
+                              sx={{ m: 0 }}
+                            />
+                          </Paper>
+                        ))}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleCreatePosition}
+                        disabled={
+                          !ability.can('manage', 'position')
+                          || !newPositionName.trim()
+                          || newPositionRoleIds.length === 0
+                          || createPositionMutation.isPending
+                        }
+                        startIcon={createPositionMutation.isPending ? <CircularProgress size={16} /> : <Plus size={16} />}
                       >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded text-primary-600 focus:ring-0 focus:outline-none"
-                          checked={newPositionRoleIds.includes(role.id)}
-                          disabled={!ability.can('manage', 'position')}
-                          onChange={() => toggleNewPositionRole(role.id)}
-                        />
-                        <Shield className="h-4 w-4 text-gray-400" />
-                        <span className="flex-1">{role.name}</span>
-                        {role.isSystem && (
-                          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                            System
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-end pt-2">
-                  <Button
-                    onClick={handleCreatePosition}
-                    disabled={
-                      !ability.can('manage', 'position')
-                      || !newPositionName.trim()
-                      || newPositionRoleIds.length === 0
-                      || createPositionMutation.isPending
-                    }
-                  >
-                    {createPositionMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
-                        {t('common.loading')}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        {t('iam.createPosition')}
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+                        {createPositionMutation.isPending ? t('common.loading') : t('iam.createPosition')}
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
             {/* Create User */}
-            <Card
-              title={(
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-5 w-5 text-gray-500" />
-                  <span>{t('iam.createUserTitle')}</span>
-                </div>
-              )}
-            >
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.username')}
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    value={newUsername}
-                    onChange={(event) => setNewUsername(event.target.value)}
-                    placeholder={t('iam.usernamePlaceholder')}
-                    disabled={!ability.can('manage', 'user')}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.email')}
-                  </label>
-                  <input
-                    type="email"
-                    className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    value={newUserEmail}
-                    onChange={(event) => setNewUserEmail(event.target.value)}
-                    placeholder={t('iam.emailPlaceholder')}
-                    disabled={!ability.can('manage', 'user')}
-                  />
-                  {newUserPasswordMode === 'email' && !newUserEmail.trim() && (
-                    <p className="mt-1 text-xs text-amber-600">{t('iam.emailRequiredForEmailMode')}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.passwordMode')}
-                  </label>
-                  <div className="mt-2 space-y-2">
-                    <Radio
-                      name="passwordMode"
-                      checked={newUserPasswordMode === 'default'}
-                      onChange={() => setNewUserPasswordMode('default')}
-                      label={t('iam.passwordModeDefault')}
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Card>
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <UserPlus size={20} color="gray" />
+                      <Typography variant="subtitle1">{t('iam.createUserTitle')}</Typography>
+                    </Box>
+                  }
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label={t('iam.username')}
+                      value={newUsername}
+                      onChange={(event) => setNewUsername(event.target.value)}
+                      placeholder={t('iam.usernamePlaceholder')}
                       disabled={!ability.can('manage', 'user')}
+                      size="small"
+                      fullWidth
                     />
-                    <Radio
-                      name="passwordMode"
-                      checked={newUserPasswordMode === 'email'}
-                      onChange={() => setNewUserPasswordMode('email')}
-                      label={t('iam.passwordModeEmail')}
-                      disabled={!ability.can('manage', 'user')}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Select
-                    label={t('iam.position')}
-                    value={newUserPositionId || ''}
-                    onChange={(event) => setNewUserPositionId(Number(event.target.value))}
-                    disabled={!ability.can('manage', 'user')}
-                    options={[
-                      { value: '', label: t('iam.selectPosition') },
-                      ...(positions?.map((position) => ({
-                        value: position.id,
-                        label: position.name,
-                      })) || []),
-                    ]}
-                  />
-                </div>
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <p className="text-xs text-blue-700">{t('iam.userMustChangePasswordHint')}</p>
-                </div>
-                <div className="flex justify-end pt-2">
-                  <Button
-                    onClick={handleCreateUser}
-                    disabled={
-                      !ability.can('manage', 'user')
-                      || !newUsername.trim()
-                      || !newUserPositionId
-                      || (newUserPasswordMode === 'email' && !newUserEmail.trim())
-                      || createUserMutation.isPending
-                    }
-                  >
-                    {createUserMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" />
-                        {t('common.loading')}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <UserPlus className="h-4 w-4" />
-                        {t('iam.createUser')}
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
+                    <Box>
+                      <TextField
+                        label={t('iam.email')}
+                        type="email"
+                        value={newUserEmail}
+                        onChange={(event) => setNewUserEmail(event.target.value)}
+                        placeholder={t('iam.emailPlaceholder')}
+                        disabled={!ability.can('manage', 'user')}
+                        size="small"
+                        fullWidth
+                      />
+                      {newUserPasswordMode === 'email' && !newUserEmail.trim() && (
+                        <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
+                          {t('iam.emailRequiredForEmailMode')}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                        {t('iam.passwordMode')}
+                      </Typography>
+                      <RadioGroup
+                        value={newUserPasswordMode}
+                        onChange={(e) => setNewUserPasswordMode(e.target.value as 'default' | 'email')}
+                      >
+                        <FormControlLabel
+                          value="default"
+                          control={<Radio size="small" />}
+                          label={t('iam.passwordModeDefault')}
+                          disabled={!ability.can('manage', 'user')}
+                        />
+                        <FormControlLabel
+                          value="email"
+                          control={<Radio size="small" />}
+                          label={t('iam.passwordModeEmail')}
+                          disabled={!ability.can('manage', 'user')}
+                        />
+                      </RadioGroup>
+                    </Box>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>{t('iam.position')}</InputLabel>
+                      <Select
+                        value={newUserPositionId || ''}
+                        onChange={(event) => setNewUserPositionId(Number(event.target.value))}
+                        label={t('iam.position')}
+                        disabled={!ability.can('manage', 'user')}
+                        MenuProps={{ disableScrollLock: true }}
+                      >
+                        <MenuItem value="">{t('iam.selectPosition')}</MenuItem>
+                        {positions?.map((position) => (
+                          <MenuItem key={position.id} value={position.id}>
+                            {position.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Alert severity="info" sx={{ py: 0.5 }}>
+                      <Typography variant="caption">{t('iam.userMustChangePasswordHint')}</Typography>
+                    </Alert>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleCreateUser}
+                        disabled={
+                          !ability.can('manage', 'user')
+                          || !newUsername.trim()
+                          || !newUserPositionId
+                          || (newUserPasswordMode === 'email' && !newUserEmail.trim())
+                          || createUserMutation.isPending
+                        }
+                        startIcon={createUserMutation.isPending ? <CircularProgress size={16} /> : <UserPlus size={16} />}
+                      >
+                        {createUserMutation.isPending ? t('common.loading') : t('iam.createUser')}
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
