@@ -776,6 +776,9 @@ function ProjectDetail() {
                     <MetricsChart
                       spi={projectMetrics.schedule.spi}
                       cpi={projectMetrics.schedule.cpi}
+                      delayRate={projectMetrics.schedule.delayRate}
+                      tcpi={projectMetrics.forecasting.tcpi}
+                      progress={project.progress}
                     />
                     <p className="mt-3 text-xs text-gray-500">{t('metrics.evmDescription')}</p>
                   </div>
@@ -892,7 +895,7 @@ function ProjectDetail() {
                       <div className="mt-2 flex items-center gap-4">
                         <StatusBadge status={stage.status as any} />
                         <span className="text-sm text-gray-500">
-                          {displayEffort(stage.actualEffort || 0, 'man-month')}/{displayEffort(stage.estimatedEffort || 0, 'man-month')} {EFFORT_UNIT_LABELS[effortUnit]}
+                          {displayEffort(stage.actualEffort || 0, 'man-hour')}/{displayEffort(stage.estimatedEffort || 0, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </span>
                       </div>
                     </div>
