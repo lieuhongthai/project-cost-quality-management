@@ -776,6 +776,9 @@ function ProjectDetail() {
                     <MetricsChart
                       spi={projectMetrics.schedule.spi}
                       cpi={projectMetrics.schedule.cpi}
+                      delayRate={projectMetrics.schedule.delayRate}
+                      tcpi={projectMetrics.forecasting.tcpi}
+                      progress={project.progress}
                     />
                     <p className="mt-3 text-xs text-gray-500">{t('metrics.evmDescription')}</p>
                   </div>
