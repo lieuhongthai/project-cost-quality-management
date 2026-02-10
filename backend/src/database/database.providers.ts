@@ -21,6 +21,7 @@ import { StepScreenFunctionMember } from "../modules/task-workflow/step-screen-f
 import { MetricType } from "../modules/task-workflow/metric-type.model";
 import { MetricCategory } from "../modules/task-workflow/metric-category.model";
 import { TaskMemberMetric } from "../modules/task-workflow/task-member-metric.model";
+import { ScreenFunctionDefaultMember } from "../modules/screen-function/screen-function-default-member.model";
 
 export const databaseProviders = [
   {
@@ -71,6 +72,7 @@ export const databaseProviders = [
         MetricType,
         MetricCategory,
         TaskMemberMetric,
+        ScreenFunctionDefaultMember,
       ]);
 
       await sequelize.sync({alter: true });

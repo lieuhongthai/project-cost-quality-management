@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Op } from 'sequelize';
 import { ScreenFunction } from './screen-function.model';
+import { ScreenFunctionDefaultMember } from './screen-function-default-member.model';
 import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
+import { Member } from '../member/member.model';
 import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto } from './screen-function.dto';
 
 @Injectable()
@@ -9,6 +11,8 @@ export class ScreenFunctionService {
   constructor(
     @Inject('SCREEN_FUNCTION_REPOSITORY')
     private screenFunctionRepository: typeof ScreenFunction,
+    @Inject('SCREEN_FUNCTION_DEFAULT_MEMBER_REPOSITORY')
+    private defaultMemberRepository: typeof ScreenFunctionDefaultMember,
   ) {}
 
   async findAll(): Promise<ScreenFunction[]> {
@@ -211,5 +215,64 @@ export class ScreenFunctionService {
       byStatus,
       byPriority,
     };
+  }
+
+  // ===== Default Member Methods =====
+
+  async getDefaultMembers(screenFunctionId: number): Promise<ScreenFunctionDefaultMember[]> {
+    return this.defaultMemberRepository.findAll({
+      where: { screenFunctionId },
+      include: [{ model: Member, as: 'member' }],
+    });
+  }
+
+  async getDefaultMembersByProject(projectId: number): Promise<ScreenFunctionDefaultMember[]> {
+    const screenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId },
+      attributes: ['id'],
+    });
+    const sfIds = screenFunctions.map(sf => sf.id);
+    if (sfIds.length === 0) return [];
+
+    return this.defaultMemberRepository.findAll({
+      where: { screenFunctionId: { [Op.in]: sfIds } },
+      include: [{ model: Member, as: 'member' }],
+    });
+  }
+
+  async addDefaultMember(screenFunctionId: number, memberId: number): Promise<ScreenFunctionDefaultMember> {
+    const existing = await this.defaultMemberRepository.findOne({
+      where: { screenFunctionId, memberId },
+    });
+    if (existing) return existing;
+
+    return this.defaultMemberRepository.create({
+      screenFunctionId,
+      memberId,
+    } as any);
+  }
+
+  async removeDefaultMember(screenFunctionId: number, memberId: number): Promise<void> {
+    await this.defaultMemberRepository.destroy({
+      where: { screenFunctionId, memberId },
+    });
+  }
+
+  async setDefaultMembers(screenFunctionId: number, memberIds: number[]): Promise<ScreenFunctionDefaultMember[]> {
+    // Remove all existing default members
+    await this.defaultMemberRepository.destroy({
+      where: { screenFunctionId },
+    });
+
+    if (memberIds.length === 0) return [];
+
+    // Create new default members
+    const items = memberIds.map(memberId => ({
+      screenFunctionId,
+      memberId,
+    }));
+    await this.defaultMemberRepository.bulkCreate(items as any[]);
+
+    return this.getDefaultMembers(screenFunctionId);
   }
 }

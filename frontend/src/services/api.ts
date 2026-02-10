@@ -7,6 +7,7 @@ import type {
   Metrics,
   ScreenFunction,
   ScreenFunctionSummary,
+  ScreenFunctionDefaultMember,
   Member,
   MemberSummary,
   MemberWorkload,
@@ -134,6 +135,18 @@ export const screenFunctionApi = {
   reorder: (items: Array<{ id: number; displayOrder: number }>) =>
     api.put('/screen-functions/reorder', { items }),
   getSummary: (projectId: number) => api.get<ScreenFunctionSummary>(`/screen-functions/project/${projectId}/summary`),
+
+  // Default Members
+  getDefaultMembers: (screenFunctionId: number) =>
+    api.get<ScreenFunctionDefaultMember[]>(`/screen-functions/${screenFunctionId}/default-members`),
+  getDefaultMembersByProject: (projectId: number) =>
+    api.get<ScreenFunctionDefaultMember[]>(`/screen-functions/project/${projectId}/default-members`),
+  setDefaultMembers: (screenFunctionId: number, memberIds: number[]) =>
+    api.put<ScreenFunctionDefaultMember[]>(`/screen-functions/${screenFunctionId}/default-members`, { memberIds }),
+  addDefaultMember: (screenFunctionId: number, memberId: number) =>
+    api.post<ScreenFunctionDefaultMember>(`/screen-functions/${screenFunctionId}/default-members`, { memberId }),
+  removeDefaultMember: (screenFunctionId: number, memberId: number) =>
+    api.delete(`/screen-functions/${screenFunctionId}/default-members/${memberId}`),
 };
 
 
@@ -193,9 +206,9 @@ export const taskWorkflowApi = {
     api.get<StageOverviewData[]>(`/task-workflow/stages/overview/project/${projectId}`),
   getScreenFunctionStageStats: (projectId: number) =>
     api.get<StageSFStat[]>(`/task-workflow/stages/screen-function-stats/project/${projectId}`),
-  quickLinkByType: (stageId: number, type: string) =>
-    api.post<{ created: number; skipped: number; details: Array<{ stepId: number; stepName: string; linked: number }> }>(
-      `/task-workflow/stages/${stageId}/quick-link`, { type }
+  quickLinkByType: (stageId: number, type: string, assignMembers?: boolean) =>
+    api.post<{ created: number; skipped: number; membersAssigned: number; details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }> }>(
+      `/task-workflow/stages/${stageId}/quick-link`, { type, assignMembers }
     ),
 
   // Workflow Steps
