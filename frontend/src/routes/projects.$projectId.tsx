@@ -20,7 +20,7 @@ import { ProjectForm, ScreenFunctionForm, MemberForm } from '@/components/forms'
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
 import { MetricsDashboard } from '@/components/metrics';
 import { format } from 'date-fns';
-import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
+import type { ScreenFunction, ScreenFunctionDefaultMember, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
 import {
   convertEffort,
@@ -86,6 +86,7 @@ function ProjectDetail() {
     showOnlyWithMetrics: true,
   });
   const [metricReportView, setMetricReportView] = useState<'dashboard' | 'details'>('dashboard');
+  const [assigneeDropdownSfId, setAssigneeDropdownSfId] = useState<number | null>(null);
   const [memberFilter, setMemberFilter] = useState<{ role: string; status: string; search: string }>({
     role: '',
     status: '',
@@ -144,6 +145,22 @@ function ProjectDetail() {
     queryFn: async () => {
       const response = await screenFunctionApi.getSummary(parseInt(projectId));
       return response.data;
+    },
+  });
+
+  const { data: defaultMembers } = useQuery({
+    queryKey: ['sfDefaultMembers', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getDefaultMembersByProject(parseInt(projectId));
+      return response.data;
+    },
+  });
+
+  const setDefaultMembersMutation = useMutation({
+    mutationFn: (data: { screenFunctionId: number; memberIds: number[] }) =>
+      screenFunctionApi.setDefaultMembers(data.screenFunctionId, data.memberIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sfDefaultMembers', parseInt(projectId)] });
     },
   });
 
@@ -264,6 +281,14 @@ function ProjectDetail() {
       localStorage.setItem(`effortUnit.project.${projectId}`, effortUnit);
     }
   }, [effortUnit, effortUnitReady, projectId]);
+
+  // Close assignee dropdown on click outside
+  useEffect(() => {
+    if (assigneeDropdownSfId === null) return;
+    const handleClick = () => setAssigneeDropdownSfId(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [assigneeDropdownSfId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
@@ -1202,6 +1227,7 @@ function ProjectDetail() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.status')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.progress')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.effort')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.defaultAssignees', { defaultValue: 'Assignees' })}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
@@ -1256,6 +1282,75 @@ function ProjectDetail() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {displayEffort(sf.estimatedEffort, 'man-hour')} / {displayEffort(sf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                        </td>
+                        <td className="px-3 py-4 text-sm">
+                          {(() => {
+                            const sfDefaultMembers = defaultMembers?.filter(dm => dm.screenFunctionId === sf.id) || [];
+                            const sfMemberIds = sfDefaultMembers.map(dm => dm.memberId);
+                            const activeMembers = members?.filter(m => m.status === 'Active') || [];
+                            const isOpen = assigneeDropdownSfId === sf.id;
+                            return (
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAssigneeDropdownSfId(isOpen ? null : sf.id);
+                                  }}
+                                  className="flex flex-wrap gap-1 items-center min-w-[120px] max-w-[200px] px-2 py-1 border border-gray-300 rounded-md hover:border-gray-400 text-left cursor-pointer"
+                                >
+                                  {sfMemberIds.length > 0 ? (
+                                    sfDefaultMembers.map(dm => {
+                                      const member = members?.find(m => m.id === dm.memberId);
+                                      return member ? (
+                                        <span key={dm.memberId} className="inline-flex items-center px-1.5 py-0.5 text-xs rounded bg-indigo-100 text-indigo-800">
+                                          {member.name}
+                                        </span>
+                                      ) : null;
+                                    })
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">{t('screenFunction.selectAssignees', { defaultValue: 'Select...' })}</span>
+                                  )}
+                                </button>
+                                {isOpen && (
+                                  <div className="absolute z-50 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    {activeMembers.length > 0 ? (
+                                      activeMembers.map(member => {
+                                        const isChecked = sfMemberIds.includes(member.id);
+                                        return (
+                                          <label
+                                            key={member.id}
+                                            className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => {
+                                                const newIds = isChecked
+                                                  ? sfMemberIds.filter(id => id !== member.id)
+                                                  : [...sfMemberIds, member.id];
+                                                setDefaultMembersMutation.mutate({
+                                                  screenFunctionId: sf.id,
+                                                  memberIds: newIds,
+                                                });
+                                              }}
+                                              className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                                            />
+                                            <div>
+                                              <span className="text-sm text-gray-900">{member.name}</span>
+                                              <span className="ml-1 text-xs text-gray-500">({member.role})</span>
+                                            </div>
+                                          </label>
+                                        );
+                                      })
+                                    ) : (
+                                      <p className="px-3 py-2 text-sm text-gray-500">{t('screenFunction.noActiveMembers', { defaultValue: 'No active members' })}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <div className="flex gap-2">

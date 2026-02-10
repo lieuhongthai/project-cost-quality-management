@@ -137,6 +137,15 @@ export interface ScreenFunction {
 }
 
 
+export interface ScreenFunctionDefaultMember {
+  id: number;
+  screenFunctionId: number;
+  memberId: number;
+  member?: Member;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ScreenFunctionSummary {
   total: number;
   totalEstimated: number;
