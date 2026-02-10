@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { taskWorkflowApi, screenFunctionApi, memberApi } from '@/services/api';
+import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, Modal, EmptyState, ProgressBar } from '@/components/common';
 import { StageEditModal } from './StageEditModal';
 import type { StageOverviewData, StageStatus, EffortUnit, ProjectSettings, ScreenFunctionType } from '@/types';
@@ -357,12 +357,8 @@ export function StagesOverviewPanel({
 
               {/* Assign Members Option */}
               {(() => {
-                const sfWithMembers = defaultMembers?.filter(dm => {
-                  // Find screen functions of selected type that have default members
-                  return true; // We'll count below
-                }) || [];
                 // Count how many screen functions of the selected type have default members
-                const sfIdsWithMembers = new Set(defaultMembers?.map(dm => dm.screenFunctionId) || []);
+                const sfIdsWithMembers = new Set(defaultMembers?.map(item => item.screenFunctionId) || []);
                 const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
 
                 return (

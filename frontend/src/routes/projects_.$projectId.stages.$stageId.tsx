@@ -414,6 +414,7 @@ function StageDetail() {
           <Link
             to="/projects/$projectId"
             params={{ projectId }}
+            search={{ tab: 'overview' }}
             className="text-gray-500 hover:text-gray-700 transition-colors"
           >
             {project.name}
@@ -492,6 +493,7 @@ function StageDetail() {
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId }}
+                  search={{ tab: 'overview' }}
                   className="text-primary-600 hover:text-primary-700 font-medium"
                 >
                   {project.name}

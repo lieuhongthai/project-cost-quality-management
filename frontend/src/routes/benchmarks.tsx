@@ -241,6 +241,7 @@ function BenchmarksPage() {
                         <Link
                           to="/projects/$projectId"
                           params={{ projectId: metric.project.id.toString() }}
+                          search={{ tab: 'overview' }}
                           className="font-semibold text-primary-600 hover:text-primary-700"
                         >
                           {metric.project.name}

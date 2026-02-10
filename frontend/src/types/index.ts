@@ -311,9 +311,19 @@ export interface TaskWorkflowProgress {
   percentage: number;
 }
 
+export interface StepScreenFunctionItem {
+  id: number;
+  stepId: number;
+  screenFunctionId: number;
+  status: 'Not Started' | 'In Progress' | 'Completed' | 'Skipped';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectWorkflowData {
   stages: (WorkflowStage & { steps: WorkflowStep[] })[];
   screenFunctions: ScreenFunction[];
+  stepScreenFunctions: StepScreenFunctionItem[];
   taskWorkflows: TaskWorkflow[];
   progress: TaskWorkflowProgress;
 }

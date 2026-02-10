@@ -113,7 +113,7 @@ export const StageTimelineSvarGantt = ({ stages, projectId }: StageTimelineSvarG
       let end: Date;
 
       if (viewMode === 'estimate') {
-        start = parseISO(stage.startDate);
+        start = stage.startDate ? parseISO(stage.startDate) : new Date();
         end = stage.endDate ? parseISO(stage.endDate) : addDays(start, 1);
       } else {
         start = stage.actualStartDate ? parseISO(stage.actualStartDate) : new Date();

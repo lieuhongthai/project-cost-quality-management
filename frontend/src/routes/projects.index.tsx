@@ -96,6 +96,7 @@ function ProjectsList() {
                         <Link
                           to="/projects/$projectId"
                           params={{ projectId: project.id.toString() }}
+                          search={{ tab: 'overview' }}
                           className="text-primary-600 hover:text-primary-900"
                         >
                           {project.name}
@@ -130,6 +131,7 @@ function ProjectsList() {
                         <Link
                           to="/projects/$projectId"
                           params={{ projectId: project.id.toString() }}
+                          search={{ tab: 'overview' }}
                           className="text-primary-600 hover:text-primary-900"
                         >
                           {t('common.view')}

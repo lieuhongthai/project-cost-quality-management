@@ -98,6 +98,7 @@ function Dashboard() {
                 key={project.id}
                 to="/projects/$projectId"
                 params={{ projectId: project.id.toString() }}
+                search={{ tab: 'overview' }}
                 className="card hover:shadow-lg transition-shadow cursor-pointer block"
               >
                 <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
