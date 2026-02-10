@@ -474,9 +474,9 @@ export class TaskWorkflowController {
   @Post('stages/:stageId/quick-link')
   quickLinkByType(
     @Param('stageId', ParseIntPipe) stageId: number,
-    @Body() body: { type: string },
+    @Body() body: { type: string; assignMembers?: boolean },
   ) {
-    return this.taskWorkflowService.quickLinkByType(stageId, body.type);
+    return this.taskWorkflowService.quickLinkByType(stageId, body.type, body.assignMembers ?? false);
   }
 
   // ===== Step Screen Function Member Endpoints =====

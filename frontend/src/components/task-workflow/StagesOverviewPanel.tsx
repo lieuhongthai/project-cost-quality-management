@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
+import { taskWorkflowApi, screenFunctionApi, memberApi } from '@/services/api';
 import { Card, LoadingSpinner, Button, Modal, EmptyState, ProgressBar } from '@/components/common';
 import { StageEditModal } from './StageEditModal';
 import type { StageOverviewData, StageStatus, EffortUnit, ProjectSettings, ScreenFunctionType } from '@/types';
@@ -23,10 +23,12 @@ export function StagesOverviewPanel({
   const [editingStage, setEditingStage] = useState<StageOverviewData | null>(null);
   const [quickLinkStageId, setQuickLinkStageId] = useState<number | null>(null);
   const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
+  const [quickLinkAssignMembers, setQuickLinkAssignMembers] = useState(false);
   const [quickLinkResult, setQuickLinkResult] = useState<{
     created: number;
     skipped: number;
-    details: Array<{ stepId: number; stepName: string; linked: number }>;
+    membersAssigned: number;
+    details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }>;
   } | null>(null);
 
   // Fetch stages overview
@@ -48,10 +50,20 @@ export function StagesOverviewPanel({
     enabled: quickLinkStageId !== null,
   });
 
+  // Fetch default members to show count
+  const { data: defaultMembers } = useQuery({
+    queryKey: ['sfDefaultMembers', projectId],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getDefaultMembersByProject(projectId);
+      return response.data;
+    },
+    enabled: quickLinkStageId !== null,
+  });
+
   // Quick link mutation
   const quickLinkMutation = useMutation({
-    mutationFn: (data: { stageId: number; type: string }) =>
-      taskWorkflowApi.quickLinkByType(data.stageId, data.type),
+    mutationFn: (data: { stageId: number; type: string; assignMembers: boolean }) =>
+      taskWorkflowApi.quickLinkByType(data.stageId, data.type, data.assignMembers),
     onSuccess: (response) => {
       setQuickLinkResult(response.data);
       refetch();
@@ -64,6 +76,7 @@ export function StagesOverviewPanel({
     quickLinkMutation.mutate({
       stageId: quickLinkStageId,
       type: quickLinkType,
+      assignMembers: quickLinkAssignMembers,
     });
   };
 
@@ -71,6 +84,7 @@ export function StagesOverviewPanel({
     e.stopPropagation();
     setQuickLinkStageId(stageId);
     setQuickLinkType('Screen');
+    setQuickLinkAssignMembers(false);
     setQuickLinkResult(null);
   };
 
@@ -341,6 +355,50 @@ export function StagesOverviewPanel({
                 </div>
               )}
 
+              {/* Assign Members Option */}
+              {(() => {
+                const sfWithMembers = defaultMembers?.filter(dm => {
+                  // Find screen functions of selected type that have default members
+                  return true; // We'll count below
+                }) || [];
+                // Count how many screen functions of the selected type have default members
+                const sfIdsWithMembers = new Set(defaultMembers?.map(dm => dm.screenFunctionId) || []);
+                const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
+
+                return (
+                  <div className="border border-gray-200 rounded-lg p-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={quickLinkAssignMembers}
+                        onChange={(e) => setQuickLinkAssignMembers(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {t('stages.quickLinkAssignMembers', { defaultValue: 'Auto-assign default members' })}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {hasAnyDefaultMembers
+                            ? t('stages.quickLinkAssignMembersDesc', {
+                                defaultValue: 'Automatically assign default members configured in Screen/Functions tab to newly created tasks.',
+                              })
+                            : t('stages.quickLinkNoDefaultMembers', {
+                                defaultValue: 'No default members configured. Go to Screen/Functions tab to assign default members first.',
+                              })
+                          }
+                        </p>
+                        {hasAnyDefaultMembers && (
+                          <p className="text-xs text-indigo-600 mt-1">
+                            {sfIdsWithMembers.size} {t('stages.sfWithAssignees', { defaultValue: 'Screen/Function(s) with default assignees' })}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                );
+              })()}
+
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="secondary" onClick={closeQuickLink}>
                   {t('common.cancel')}
@@ -372,6 +430,14 @@ export function StagesOverviewPanel({
                     skipped: quickLinkResult.skipped,
                   })}
                 </p>
+                {quickLinkResult.membersAssigned > 0 && (
+                  <p className="text-sm text-indigo-600 mt-1">
+                    {t('stages.quickLinkMembersAssigned', {
+                      defaultValue: `${quickLinkResult.membersAssigned} member assignment(s) created`,
+                      count: quickLinkResult.membersAssigned,
+                    })}
+                  </p>
+                )}
               </div>
 
               {quickLinkResult.details.length > 0 && (
@@ -383,9 +449,16 @@ export function StagesOverviewPanel({
                     {quickLinkResult.details.map((d) => (
                       <div key={d.stepId} className="flex justify-between text-sm">
                         <span className="text-gray-700">{d.stepName}</span>
-                        <span className={d.linked > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
-                          +{d.linked}
-                        </span>
+                        <div className="flex gap-3">
+                          <span className={d.linked > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                            +{d.linked} {t('stages.tasks', { defaultValue: 'tasks' })}
+                          </span>
+                          {d.membersAssigned > 0 && (
+                            <span className="text-indigo-600 font-medium">
+                              +{d.membersAssigned} {t('stages.assignees', { defaultValue: 'assignees' })}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

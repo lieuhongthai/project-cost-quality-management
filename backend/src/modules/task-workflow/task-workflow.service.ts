@@ -8,6 +8,7 @@ import { MetricType, DEFAULT_METRIC_TYPES, DEFAULT_METRIC_CATEGORIES } from './m
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
+import { ScreenFunctionDefaultMember } from '../screen-function/screen-function-default-member.model';
 import { Member } from '../member/member.model';
 import { ProjectService } from '../project/project.service';
 import {
@@ -1277,10 +1278,11 @@ export class TaskWorkflowService {
 
   // ===== Quick Link: Auto-link all ScreenFunctions of a type to all steps of a stage =====
 
-  async quickLinkByType(stageId: number, screenFunctionType: string): Promise<{
+  async quickLinkByType(stageId: number, screenFunctionType: string, assignMembers: boolean = false): Promise<{
     created: number;
     skipped: number;
-    details: Array<{ stepId: number; stepName: string; linked: number }>;
+    membersAssigned: number;
+    details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }>;
   }> {
     const stage = await this.stageRepository.findByPk(stageId);
     if (!stage) {
@@ -1294,7 +1296,7 @@ export class TaskWorkflowService {
     });
 
     if (steps.length === 0) {
-      return { created: 0, skipped: 0, details: [] };
+      return { created: 0, skipped: 0, membersAssigned: 0, details: [] };
     }
 
     // Get all screen functions of the specified type for the project
@@ -1304,11 +1306,24 @@ export class TaskWorkflowService {
     });
 
     if (screenFunctions.length === 0) {
-      return { created: 0, skipped: 0, details: [] };
+      return { created: 0, skipped: 0, membersAssigned: 0, details: [] };
     }
 
     const stepIds = steps.map(s => s.id);
     const sfIds = screenFunctions.map(sf => sf.id);
+
+    // If assignMembers is true, load default members for all screen functions
+    let defaultMembersBySf = new Map<number, number[]>();
+    if (assignMembers) {
+      const defaultMembers = await ScreenFunctionDefaultMember.findAll({
+        where: { screenFunctionId: { [Op.in]: sfIds } },
+      });
+      for (const dm of defaultMembers) {
+        const existing = defaultMembersBySf.get(dm.screenFunctionId) || [];
+        existing.push(dm.memberId);
+        defaultMembersBySf.set(dm.screenFunctionId, existing);
+      }
+    }
 
     // Get all existing StepScreenFunction records for these steps
     const existingSSFs = await this.stepScreenFunctionRepository.findAll({
@@ -1325,7 +1340,8 @@ export class TaskWorkflowService {
 
     let totalCreated = 0;
     let totalSkipped = 0;
-    const details: Array<{ stepId: number; stepName: string; linked: number }> = [];
+    let totalMembersAssigned = 0;
+    const details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }> = [];
     const affectedScreenFunctionIds = new Set<number>();
 
     for (const step of steps) {
@@ -1345,15 +1361,37 @@ export class TaskWorkflowService {
         }
       }
 
+      let stepMembersAssigned = 0;
+
       if (newItems.length > 0) {
-        await this.stepScreenFunctionRepository.bulkCreate(newItems as any[]);
+        const createdSSFs = await this.stepScreenFunctionRepository.bulkCreate(newItems as any[]);
         totalCreated += newItems.length;
+
+        // Auto-assign default members if option is enabled
+        if (assignMembers) {
+          const memberItems: Array<{ stepScreenFunctionId: number; memberId: number }> = [];
+          for (const ssf of createdSSFs) {
+            const memberIds = defaultMembersBySf.get(ssf.screenFunctionId) || [];
+            for (const memberId of memberIds) {
+              memberItems.push({
+                stepScreenFunctionId: ssf.id,
+                memberId,
+              });
+            }
+          }
+          if (memberItems.length > 0) {
+            await this.stepScreenFunctionMemberRepository.bulkCreate(memberItems as any[]);
+            stepMembersAssigned = memberItems.length;
+            totalMembersAssigned += memberItems.length;
+          }
+        }
       }
 
       details.push({
         stepId: step.id,
         stepName: step.name,
         linked: newItems.length,
+        membersAssigned: stepMembersAssigned,
       });
     }
 
@@ -1367,7 +1405,7 @@ export class TaskWorkflowService {
       await this.recalculateScreenFunctionFromSteps(sfId);
     }
 
-    return { created: totalCreated, skipped: totalSkipped, details };
+    return { created: totalCreated, skipped: totalSkipped, membersAssigned: totalMembersAssigned, details };
   }
 
   // ===== Metric Type Methods =====

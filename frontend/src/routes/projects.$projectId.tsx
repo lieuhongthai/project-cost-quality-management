@@ -147,6 +147,14 @@ function ProjectDetail() {
     },
   });
 
+  const { data: defaultMembers } = useQuery({
+    queryKey: ['sfDefaultMembers', parseInt(projectId)],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getDefaultMembersByProject(parseInt(projectId));
+      return response.data;
+    },
+  });
+
   const { data: members } = useQuery({
     queryKey: ['members', parseInt(projectId)],
     queryFn: async () => {
@@ -1202,6 +1210,7 @@ function ProjectDetail() {
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.status')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.progress')}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.effort')}</th>
+                      <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('screenFunction.defaultAssignees', { defaultValue: 'Assignees' })}</th>
                       <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
                     </tr>
                   </thead>
@@ -1256,6 +1265,25 @@ function ProjectDetail() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {displayEffort(sf.estimatedEffort, 'man-hour')} / {displayEffort(sf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
+                        </td>
+                        <td className="px-3 py-4 text-sm">
+                          {(() => {
+                            const sfDefaultMembers = defaultMembers?.filter(dm => dm.screenFunctionId === sf.id) || [];
+                            return sfDefaultMembers.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {sfDefaultMembers.map(dm => {
+                                  const member = members?.find(m => m.id === dm.memberId);
+                                  return member ? (
+                                    <span key={dm.memberId} className="inline-flex items-center px-1.5 py-0.5 text-xs rounded bg-indigo-100 text-indigo-800">
+                                      {member.name}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <div className="flex gap-2">

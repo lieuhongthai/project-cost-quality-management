@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { screenFunctionApi } from '@/services/api';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { screenFunctionApi, memberApi } from '@/services/api';
 import { Button, Input, Select, TextArea } from '../common';
 import type { ScreenFunction, ScreenFunctionType, Priority, Complexity, EffortUnit, ProjectSettings } from '@/types';
 import { EFFORT_UNIT_FULL_LABELS, convertEffort } from '@/utils/effortUtils';
@@ -42,23 +42,59 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     estimatedEffort: initialEffort,
     displayOrder: screenFunction?.displayOrder ?? nextDisplayOrder,
   });
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch project members
+  const { data: members } = useQuery({
+    queryKey: ['members', projectId],
+    queryFn: async () => {
+      const response = await memberApi.getByProjectWithUser(projectId);
+      return response.data;
+    },
+  });
+
+  // Fetch existing default members when editing
+  const { data: existingDefaultMembers } = useQuery({
+    queryKey: ['sfDefaultMembers', screenFunction?.id],
+    queryFn: async () => {
+      const response = await screenFunctionApi.getDefaultMembers(screenFunction!.id);
+      return response.data;
+    },
+    enabled: !!screenFunction,
+  });
+
+  // Initialize selected members when editing
+  useEffect(() => {
+    if (existingDefaultMembers) {
+      setSelectedMemberIds(existingDefaultMembers.map(dm => dm.memberId));
+    }
+  }, [existingDefaultMembers]);
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<ScreenFunction>) => screenFunctionApi.create(data),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      const newSf = response.data;
+      // Save default members for the new screen function
+      if (selectedMemberIds.length > 0) {
+        await screenFunctionApi.setDefaultMembers(newSf.id, selectedMemberIds);
+      }
       queryClient.invalidateQueries({ queryKey: ['screenFunctions', projectId] });
       queryClient.invalidateQueries({ queryKey: ['screenFunctionSummary', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['sfDefaultMembers'] });
       onSuccess();
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<ScreenFunction>) => screenFunctionApi.update(screenFunction!.id, data),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Update default members
+      await screenFunctionApi.setDefaultMembers(screenFunction!.id, selectedMemberIds);
       queryClient.invalidateQueries({ queryKey: ['screenFunctions', projectId] });
       queryClient.invalidateQueries({ queryKey: ['screenFunction', screenFunction!.id] });
       queryClient.invalidateQueries({ queryKey: ['screenFunctionSummary', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['sfDefaultMembers'] });
       onSuccess();
     },
   });
@@ -113,7 +149,16 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     }
   };
 
+  const toggleMember = (memberId: number) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(memberId)
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
   const isLoading = createMutation.isPending || updateMutation.isPending;
+  const activeMembers = members?.filter(m => m.status === 'Active') || [];
 
   const typeOptions: { value: ScreenFunctionType; label: string }[] = [
     { value: 'Screen', label: t('screenFunction.typeScreen') },
@@ -207,6 +252,50 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
             {t('screenFunction.form.effortComputedFromSteps', {
               defaultValue: 'Note: Effort, progress, and status are automatically computed from linked Stage/Step tasks.',
             })}
+          </p>
+        )}
+      </div>
+
+      {/* Default Assignees */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {t('screenFunction.defaultAssignees', { defaultValue: 'Default Assignees' })}
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          {t('screenFunction.defaultAssigneesHint', { defaultValue: 'These members will be automatically assigned when using Quick Link.' })}
+        </p>
+        {activeMembers.length > 0 ? (
+          <div className="border border-gray-200 rounded-md max-h-48 overflow-y-auto">
+            {activeMembers.map(member => {
+              const isChecked = selectedMemberIds.includes(member.id);
+              return (
+                <label
+                  key={member.id}
+                  className={`flex items-center px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${isChecked ? 'bg-indigo-50' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleMember(member.id)}
+                    className="mr-3 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                    disabled={isLoading}
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-900">{member.name}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{member.role}</span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 italic">
+            {t('screenFunction.noActiveMembers', { defaultValue: 'No active members in this project.' })}
+          </p>
+        )}
+        {selectedMemberIds.length > 0 && (
+          <p className="text-xs text-indigo-600 mt-1">
+            {selectedMemberIds.length} {t('screenFunction.membersSelected', { defaultValue: 'member(s) selected' })}
           </p>
         )}
       </div>
