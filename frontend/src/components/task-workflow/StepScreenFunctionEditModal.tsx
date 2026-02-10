@@ -762,19 +762,18 @@ export function StepScreenFunctionEditModal({
 
               {/* Member Selection */}
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('member.name')}</label>
-                <select
-                  className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                <Select
+                  label={t('member.name')}
                   value={newMember.memberId}
                   onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
-                >
-                  <option value={0}>{t('stages.selectMember')}</option>
-                  {getAvailableMembers().map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} ({member.role})
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: 0, label: t('stages.selectMember') },
+                    ...getAvailableMembers().map((member) => ({
+                      value: member.id,
+                      label: `${member.name} (${member.role})`,
+                    })),
+                  ]}
+                />
               </div>
 
               {/* Effort and Progress */}

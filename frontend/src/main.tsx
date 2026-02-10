@@ -11,7 +11,6 @@ import muiCache from './emotionCache'
 import { ThemeProvider } from '@mui/material/styles'
 import { StyledEngineProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import GlobalStyles from '@mui/material/GlobalStyles'
 
 import theme from './theme'
 import { routeTree } from './routeTree.gen'
@@ -43,11 +42,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {/* CacheProvider: Quản lý Emotion cache cho MUI */}
     <CacheProvider value={muiCache}>
-      {/* StyledEngineProvider với enableCssLayer để hỗ trợ CSS Layer ordering */}
-      <StyledEngineProvider enableCssLayer>
+      {/* StyledEngineProvider với injectFirst để MUI styles được inject trước Tailwind */}
+      <StyledEngineProvider injectFirst>
         <ThemeProvider theme={theme}>
-          {/* GlobalStyles để định nghĩa thứ tự CSS layers */}
-          <GlobalStyles styles="@layer theme, base, mui, components, utilities;" />
           <CssBaseline />
           <QueryClientProvider client={queryClient}>
             <AuthProvider>

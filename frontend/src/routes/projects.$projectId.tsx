@@ -13,6 +13,7 @@ import {
   EmptyState,
   Input,
   HolidayImportDialog,
+  Select,
 } from '@/components/common';
 import { MetricsChart, StageTimelineGantt } from '@/components/charts';
 import { EffortUnitSelector, EffortUnitDropdown } from '@/components/common/EffortUnitSelector';
@@ -1174,26 +1175,28 @@ function ProjectDetail() {
                   onChange={(e) => setSfFilter({ ...sfFilter, search: e.target.value })}
                 />
               </div>
-              <select
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              <Select
                 value={sfFilter.type}
                 onChange={(e) => setSfFilter({ ...sfFilter, type: e.target.value })}
-              >
-                <option value="">{t('screenFunction.allTypes')}</option>
-                <option value="Screen">{t('screenFunction.typeScreen')}</option>
-                <option value="Function">{t('screenFunction.typeFunction')}</option>
-                <option value="Other">{t('screenFunction.typeOther', { defaultValue: 'Other' })}</option>
-              </select>
-              <select
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                options={[
+                  { value: '', label: t('screenFunction.allTypes') },
+                  { value: 'Screen', label: t('screenFunction.typeScreen') },
+                  { value: 'Function', label: t('screenFunction.typeFunction') },
+                  { value: 'Other', label: t('screenFunction.typeOther', { defaultValue: 'Other' }) },
+                ]}
+                fullWidth={false}
+              />
+              <Select
                 value={sfFilter.status}
                 onChange={(e) => setSfFilter({ ...sfFilter, status: e.target.value })}
-              >
-                <option value="">{t('screenFunction.allStatuses')}</option>
-                <option value="Not Started">{t('screenFunction.statusNotStarted')}</option>
-                <option value="In Progress">{t('screenFunction.statusInProgress')}</option>
-                <option value="Completed">{t('screenFunction.statusCompleted')}</option>
-              </select>
+                options={[
+                  { value: '', label: t('screenFunction.allStatuses') },
+                  { value: 'Not Started', label: t('screenFunction.statusNotStarted') },
+                  { value: 'In Progress', label: t('screenFunction.statusInProgress') },
+                  { value: 'Completed', label: t('screenFunction.statusCompleted') },
+                ]}
+                fullWidth={false}
+              />
             </div>
 
             {/* Table */}
@@ -1399,32 +1402,34 @@ function ProjectDetail() {
                   onChange={(e) => setMemberFilter({ ...memberFilter, search: e.target.value })}
                 />
               </div>
-              <select
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              <Select
                 value={memberFilter.role}
                 onChange={(e) => setMemberFilter({ ...memberFilter, role: e.target.value })}
-              >
-                <option value="">{t('member.allRoles')}</option>
-                <option value="PM">{t('member.rolePM')}</option>
-                <option value="TL">{t('member.roleTL')}</option>
-                <option value="BA">{t('member.roleBA')}</option>
-                <option value="DEV">{t('member.roleDEV')}</option>
-                <option value="QA">{t('member.roleQA')}</option>
-                <option value="Comtor">{t('member.roleComtor')}</option>
-                <option value="Designer">{t('member.roleDesigner')}</option>
-                <option value="DevOps">{t('member.roleDevOps')}</option>
-                <option value="Other">{t('member.roleOther')}</option>
-              </select>
-              <select
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                options={[
+                  { value: '', label: t('member.allRoles') },
+                  { value: 'PM', label: t('member.rolePM') },
+                  { value: 'TL', label: t('member.roleTL') },
+                  { value: 'BA', label: t('member.roleBA') },
+                  { value: 'DEV', label: t('member.roleDEV') },
+                  { value: 'QA', label: t('member.roleQA') },
+                  { value: 'Comtor', label: t('member.roleComtor') },
+                  { value: 'Designer', label: t('member.roleDesigner') },
+                  { value: 'DevOps', label: t('member.roleDevOps') },
+                  { value: 'Other', label: t('member.roleOther') },
+                ]}
+                fullWidth={false}
+              />
+              <Select
                 value={memberFilter.status}
                 onChange={(e) => setMemberFilter({ ...memberFilter, status: e.target.value })}
-              >
-                <option value="">{t('member.allStatuses')}</option>
-                <option value="Active">{t('member.statusActive')}</option>
-                <option value="Inactive">{t('member.statusInactive')}</option>
-                <option value="On Leave">{t('member.statusOnLeave')}</option>
-              </select>
+                options={[
+                  { value: '', label: t('member.allStatuses') },
+                  { value: 'Active', label: t('member.statusActive') },
+                  { value: 'Inactive', label: t('member.statusInactive') },
+                  { value: 'On Leave', label: t('member.statusOnLeave') },
+                ]}
+                fullWidth={false}
+              />
             </div>
 
             {/* Table - Grouped by Role */}
@@ -1655,20 +1660,20 @@ function ProjectDetail() {
                   </div>
 
                   {/* Stage Filter - visible in both views */}
-                  <select
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  <Select
                     value={metricSummaryFilter.stageId}
                     onChange={(event) =>
                       setMetricSummaryFilter((prev) => ({ ...prev, stageId: event.target.value }))
                     }
-                  >
-                    <option value="">{t('metrics.allStages')}</option>
-                    {projectMetricTypeSummary.stages.map((stage) => (
-                      <option key={stage.stageId} value={stage.stageId}>
-                        {stage.stageName}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: t('metrics.allStages') },
+                      ...projectMetricTypeSummary.stages.map((stage) => ({
+                        value: stage.stageId,
+                        label: stage.stageName,
+                      })),
+                    ]}
+                    fullWidth={false}
+                  />
                 </div>
 
                 {/* Dashboard View */}
@@ -2259,26 +2264,21 @@ function ProjectDetail() {
         <div className="space-y-4">
           {/* Project Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('member.selectSourceProject')}
-            </label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            <Select
+              label={t('member.selectSourceProject')}
               value={selectedSourceProject || ''}
               onChange={(e) => {
-                setSelectedSourceProject(e.target.value ? parseInt(e.target.value) : null);
+                setSelectedSourceProject(e.target.value ? parseInt(e.target.value as string) : null);
                 setSelectedMemberIds([]);
               }}
-            >
-              <option value="">{t('member.selectProject')}</option>
-              {allProjects
-                ?.filter((p) => p.id !== parseInt(projectId))
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: '', label: t('member.selectProject') },
+                ...(allProjects?.filter((p) => p.id !== parseInt(projectId)).map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                })) || []),
+              ]}
+            />
           </div>
 
           {/* Member Selection */}

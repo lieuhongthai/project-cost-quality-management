@@ -1,9 +1,14 @@
 import React from 'react';
+import TextField from '@mui/material/TextField';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string;
   error?: string;
   helperText?: string;
+  fullWidth?: boolean;
+  size?: 'small' | 'medium';
+  multiline?: boolean;
+  rows?: number;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -12,29 +17,42 @@ export const Input: React.FC<InputProps> = ({
   helperText,
   className = '',
   id,
+  fullWidth = true,
+  size = 'small',
+  type,
+  multiline,
+  rows,
   ...props
 }) => {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
-
   return (
-    <div className="w-full">
-      {label && (
-        <label htmlFor={inputId} className="label">
-          {label}
-          {props.required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-      <input
-        id={inputId}
-        className={`input ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
-        {...props}
-      />
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
-      )}
-    </div>
+    <TextField
+      id={id}
+      label={label}
+      error={!!error}
+      helperText={error || helperText}
+      fullWidth={fullWidth}
+      size={size}
+      type={type}
+      multiline={multiline}
+      rows={rows}
+      className={className}
+      required={props.required}
+      disabled={props.disabled}
+      placeholder={props.placeholder}
+      value={props.value}
+      defaultValue={props.defaultValue}
+      onChange={props.onChange as any}
+      onBlur={props.onBlur as any}
+      name={props.name}
+      slotProps={{
+        htmlInput: {
+          min: props.min,
+          max: props.max,
+          step: props.step,
+          maxLength: props.maxLength,
+          readOnly: props.readOnly,
+        },
+      }}
+    />
   );
 };

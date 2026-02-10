@@ -10,6 +10,7 @@ import {
   Modal,
   EmptyState,
   Tooltip,
+  Select,
 } from "@/components/common";
 import { StepScreenFunctionEditModal } from "@/components/task-workflow";
 import { useTranslation } from "react-i18next";
@@ -771,19 +772,20 @@ function StageDetail() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               {isQuickEditing ? (
-                                <select
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                <Select
                                   value={statusValue}
                                   onChange={(e) => setQuickEditDraft((prev) => prev ? ({
                                     ...prev,
                                     status: e.target.value as StepScreenFunctionStatus,
                                   }) : prev)}
-                                >
-                                  <option value="Not Started">{t('screenFunction.statusNotStarted')}</option>
-                                  <option value="In Progress">{t('screenFunction.statusInProgress')}</option>
-                                  <option value="Completed">{t('screenFunction.statusCompleted')}</option>
-                                  <option value="Skipped">{t('screenFunction.statusSkipped')}</option>
-                                </select>
+                                  options={[
+                                    { value: 'Not Started', label: t('screenFunction.statusNotStarted') },
+                                    { value: 'In Progress', label: t('screenFunction.statusInProgress') },
+                                    { value: 'Completed', label: t('screenFunction.statusCompleted') },
+                                    { value: 'Skipped', label: t('screenFunction.statusSkipped') },
+                                  ]}
+                                  size="small"
+                                />
                               ) : (
                                 <span className={`px-2 py-1 text-xs rounded ${
                                   statusValue === 'Completed' ? 'bg-green-100 text-green-800' :

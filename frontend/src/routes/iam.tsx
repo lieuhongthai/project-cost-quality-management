@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { iamApi } from '@/services/api'
-import { Button, Card, EmptyState, LoadingSpinner, Radio, IconButton } from '@/components/common'
+import { Button, Card, EmptyState, LoadingSpinner, Radio, IconButton, Select } from '@/components/common'
 import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role, User } from '@/types'
 import {
@@ -946,18 +946,18 @@ function IamPage() {
                           </td>
                           <td className="px-4 py-3">
                             {isEditing ? (
-                              <select
-                                className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
+                              <Select
                                 value={editingUserPositionId || ''}
                                 onChange={(e) => setEditingUserPositionId(Number(e.target.value))}
-                              >
-                                <option value="">{t('iam.selectPosition')}</option>
-                                {positions?.map((position) => (
-                                  <option key={position.id} value={position.id}>
-                                    {position.name}
-                                  </option>
-                                ))}
-                              </select>
+                                options={[
+                                  { value: '', label: t('iam.selectPosition') },
+                                  ...(positions?.map((position) => ({
+                                    value: position.id,
+                                    label: position.name,
+                                  })) || []),
+                                ]}
+                                size="small"
+                              />
                             ) : (
                               <span className="text-sm text-gray-600">
                                 {user.position?.name || t('common.unknown')}
@@ -1259,22 +1259,19 @@ function IamPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('iam.position')}
-                  </label>
-                  <select
-                    className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  <Select
+                    label={t('iam.position')}
                     value={newUserPositionId || ''}
                     onChange={(event) => setNewUserPositionId(Number(event.target.value))}
                     disabled={!ability.can('manage', 'user')}
-                  >
-                    <option value="">{t('iam.selectPosition')}</option>
-                    {positions?.map((position) => (
-                      <option key={position.id} value={position.id}>
-                        {position.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: t('iam.selectPosition') },
+                      ...(positions?.map((position) => ({
+                        value: position.id,
+                        label: position.name,
+                      })) || []),
+                    ]}
+                  />
                 </div>
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <p className="text-xs text-blue-700">{t('iam.userMustChangePasswordHint')}</p>

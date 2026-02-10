@@ -1,11 +1,50 @@
 import React from 'react';
+import MuiButton from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'outline' | 'ghost';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   loading?: boolean;
   children: React.ReactNode;
+  startIcon?: React.ReactNode;
+  endIcon?: React.ReactNode;
+  fullWidth?: boolean;
 }
+
+// Map custom variants to MUI variants and colors
+const getButtonProps = (variant: ButtonProps['variant']) => {
+  switch (variant) {
+    case 'primary':
+      return { muiVariant: 'contained' as const, color: 'primary' as const };
+    case 'secondary':
+      return { muiVariant: 'outlined' as const };
+    case 'danger':
+      return { muiVariant: 'contained' as const, color: 'error' as const };
+    case 'success':
+      return { muiVariant: 'contained' as const, color: 'success' as const };
+    case 'outline':
+      return { muiVariant: 'outlined' as const, color: 'primary' as const };
+    case 'ghost':
+      return { muiVariant: 'text' as const, color: 'inherit' as const };
+    default:
+      return { muiVariant: 'contained' as const, color: 'primary' as const };
+  }
+};
+
+// Map custom sizes to MUI sizes
+const getMuiSize = (size: ButtonProps['size']) => {
+  switch (size) {
+    case 'xs':
+    case 'sm':
+      return 'small' as const;
+    case 'lg':
+      return 'large' as const;
+    case 'md':
+    default:
+      return 'medium' as const;
+  }
+};
 
 export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
@@ -14,45 +53,33 @@ export const Button: React.FC<ButtonProps> = ({
   children,
   className = '',
   disabled,
+  startIcon,
+  endIcon,
+  fullWidth,
+  type = 'button',
   ...props
 }) => {
-  const baseClasses = 'btn font-medium transition-colors rounded-lg focus:outline-none focus:ring-0';
+  const { muiVariant, color } = getButtonProps(variant);
+  const muiSize = getMuiSize(size);
 
-  const variantClasses = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    danger: 'btn-danger',
-    success: 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50',
-    outline: 'border-2 border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50',
-    ghost: 'text-gray-700 hover:bg-gray-100 disabled:opacity-50',
-  };
-
-  const sizeClasses = {
-    xs: 'px-2 py-1 text-xs',
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
-  };
+  // Extra small size styling
+  const sxProps = size === 'xs' ? { fontSize: '0.75rem', py: 0.5, px: 1.5 } : {};
 
   return (
-    <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className} ${
-        disabled || loading ? 'opacity-50 cursor-not-allowed' : ''
-      }`}
+    <MuiButton
+      variant={muiVariant}
+      color={color}
+      size={muiSize}
       disabled={disabled || loading}
-      {...props}
+      startIcon={loading ? <CircularProgress size={16} color="inherit" /> : startIcon}
+      endIcon={endIcon}
+      fullWidth={fullWidth}
+      type={type}
+      className={className}
+      sx={sxProps}
+      {...(props as any)}
     >
-      {loading ? (
-        <div className="flex items-center">
-          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          Loading...
-        </div>
-      ) : (
-        children
-      )}
-    </button>
+      {loading ? 'Loading...' : children}
+    </MuiButton>
   );
 };

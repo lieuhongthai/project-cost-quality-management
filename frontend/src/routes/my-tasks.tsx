@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
-import { Button, Card, LoadingSpinner, Modal, Input, DateInput } from '@/components/common'
+import { Button, Card, LoadingSpinner, Modal, Input, DateInput, Select } from '@/components/common'
 import { Pencil, Copy, Check, ArrowLeft } from 'lucide-react'
 import type { TodoItem } from '@/types'
 
@@ -266,27 +266,27 @@ function MyTasksPage() {
             onChange={(e) => setFilter({ ...filter, search: e.target.value })}
           />
         </div>
-        <select
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        <Select
           value={filter.stage}
           onChange={(e) => setFilter({ ...filter, stage: e.target.value })}
-        >
-          <option value="">{t('todo.filterByStage')}</option>
-          {stages.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+          options={[
+            { value: '', label: t('todo.filterByStage') },
+            ...stages.map((s) => ({ value: s, label: s })),
+          ]}
+          fullWidth={false}
+        />
+        <Select
           value={filter.status}
           onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-        >
-          <option value="">{t('todo.filterByStatus')}</option>
-          <option value="Not Started">{t('todo.statusNotStarted')}</option>
-          <option value="In Progress">{t('todo.statusInProgress')}</option>
-          <option value="Completed">{t('todo.statusCompleted')}</option>
-          <option value="Skipped">{t('todo.statusSkipped')}</option>
-        </select>
+          options={[
+            { value: '', label: t('todo.filterByStatus') },
+            { value: 'Not Started', label: t('todo.statusNotStarted') },
+            { value: 'In Progress', label: t('todo.statusInProgress') },
+            { value: 'Completed', label: t('todo.statusCompleted') },
+            { value: 'Skipped', label: t('todo.statusSkipped') },
+          ]}
+          fullWidth={false}
+        />
       </div>
 
       {/* Task Table */}

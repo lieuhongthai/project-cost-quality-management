@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
-import { Card, LoadingSpinner, Button, Input, EmptyState, ProgressBar } from '@/components/common';
+import { Card, LoadingSpinner, Button, Input, EmptyState, ProgressBar, Select } from '@/components/common';
 import type { Member, StepScreenFunctionStatus } from '@/types';
 
 interface TaskWorkflowTableProps {
@@ -175,29 +175,30 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
             </div>
 
             {/* Stage Filter */}
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            <Select
               value={stageFilter || ''}
-              onChange={(e) => setStageFilter(e.target.value ? parseInt(e.target.value) : null)}
-            >
-              <option value="">{t('taskWorkflow.allStages')}</option>
-              {workflowData.stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.name}
-                </option>
-              ))}
-            </select>
+              onChange={(e) => setStageFilter(e.target.value ? parseInt(e.target.value as string) : null)}
+              options={[
+                { value: '', label: t('taskWorkflow.allStages') },
+                ...workflowData.stages.map((stage) => ({
+                  value: stage.id,
+                  label: stage.name,
+                })),
+              ]}
+              fullWidth={false}
+            />
 
             {/* Status Filter */}
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'incomplete')}
-            >
-              <option value="all">{t('taskWorkflow.allStatus')}</option>
-              <option value="completed">{t('taskWorkflow.completed')}</option>
-              <option value="incomplete">{t('taskWorkflow.incomplete')}</option>
-            </select>
+              options={[
+                { value: 'all', label: t('taskWorkflow.allStatus') },
+                { value: 'completed', label: t('taskWorkflow.completed') },
+                { value: 'incomplete', label: t('taskWorkflow.incomplete') },
+              ]}
+              fullWidth={false}
+            />
           </div>
 
           <div className="flex gap-2">

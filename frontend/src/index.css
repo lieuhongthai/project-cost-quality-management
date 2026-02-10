@@ -45,36 +45,8 @@ code {
   padding-bottom: 80px;
 }
 
-/* Legacy custom components - sẽ được thay thế bởi MUI dần dần */
+/* Legacy custom components - chỉ giữ status badges (chưa migrate) */
 @layer components {
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
-  }
-
-  .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
-  }
-
-  .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
-  }
-
-  .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
-  }
-
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500;
-  }
-
-  .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
-  }
-
   .status-good {
     @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
   }
@@ -93,5 +65,10 @@ code {
 
   .status-poor {
     @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* Card class for backward compatibility */
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
   }
 }
