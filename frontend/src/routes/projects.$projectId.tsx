@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { projectApi, screenFunctionApi, memberApi, metricsApi, taskWorkflowApi } from '@/services/api';
 import {
@@ -21,7 +20,7 @@ import { ProjectForm, ScreenFunctionForm, MemberForm } from '@/components/forms'
 import { TaskWorkflowTable, WorkflowConfigPanel, StagesOverviewPanel, MetricConfigPanel } from '@/components/task-workflow';
 import { MetricsDashboard } from '@/components/metrics';
 import { format } from 'date-fns';
-import type { ScreenFunction, ScreenFunctionDefaultMember, Member, EffortUnit, ProjectSettings } from '@/types';
+import type { ScreenFunction, Member, EffortUnit, ProjectSettings } from '@/types';
 import { DAYS_OF_WEEK, DEFAULT_NON_WORKING_DAYS } from '@/types';
 import {
   convertEffort,
@@ -42,109 +41,6 @@ const PROJECT_TABS = [
 ] as const;
 
 type ProjectTab = typeof PROJECT_TABS[number];
-
-// Assignee dropdown component using portal to avoid overflow/scroll issues
-function AssigneeDropdown({
-  screenFunctionId,
-  defaultMembers,
-  members,
-  isOpen,
-  onToggle,
-  onSetMembers,
-  t,
-}: {
-  screenFunctionId: number;
-  defaultMembers: import('@/types').ScreenFunctionDefaultMember[];
-  members: import('@/types').Member[];
-  isOpen: boolean;
-  onToggle: (id: number) => void;
-  onSetMembers: (sfId: number, memberIds: number[]) => void;
-  t: (key: string, opts?: Record<string, unknown>) => string;
-}) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const sfDefaultMembers = defaultMembers.filter(dm => dm.screenFunctionId === screenFunctionId);
-  const sfMemberIds = sfDefaultMembers.map(dm => dm.memberId);
-  const activeMembers = members.filter(m => m.status === 'Active');
-
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-
-  useEffect(() => {
-    if (isOpen && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      const dropdownHeight = 240; // max-h-60 = 15rem = 240px
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
-      setPos({
-        top: showAbove ? rect.top - dropdownHeight : rect.bottom + 4,
-        left: rect.left,
-      });
-    }
-  }, [isOpen]);
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(screenFunctionId);
-        }}
-        className="flex flex-wrap gap-1 items-center min-w-[120px] max-w-[200px] px-2 py-1 border border-gray-300 rounded-md hover:border-gray-400 text-left cursor-pointer"
-      >
-        {sfMemberIds.length > 0 ? (
-          sfDefaultMembers.map(dm => {
-            const member = members.find(m => m.id === dm.memberId);
-            return member ? (
-              <span key={dm.memberId} className="inline-flex items-center px-1.5 py-0.5 text-xs rounded bg-indigo-100 text-indigo-800">
-                {member.name}
-              </span>
-            ) : null;
-          })
-        ) : (
-          <span className="text-gray-400 text-xs">{t('screenFunction.selectAssignees', { defaultValue: 'Select...' })}</span>
-        )}
-      </button>
-      {isOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="w-56 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {activeMembers.length > 0 ? (
-            activeMembers.map(member => {
-              const isChecked = sfMemberIds.includes(member.id);
-              return (
-                <label
-                  key={member.id}
-                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => {
-                      const newIds = isChecked
-                        ? sfMemberIds.filter(id => id !== member.id)
-                        : [...sfMemberIds, member.id];
-                      onSetMembers(screenFunctionId, newIds);
-                    }}
-                    className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                  />
-                  <span className="text-sm text-gray-900">{member.name}</span>
-                  <span className="ml-1 text-xs text-gray-500">({member.role})</span>
-                </label>
-              );
-            })
-          ) : (
-            <p className="px-3 py-2 text-sm text-gray-500">{t('screenFunction.noActiveMembers', { defaultValue: 'No active members' })}</p>
-          )}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
 
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetail,
@@ -190,7 +86,6 @@ function ProjectDetail() {
     showOnlyWithMetrics: true,
   });
   const [metricReportView, setMetricReportView] = useState<'dashboard' | 'details'>('dashboard');
-  const [assigneeDropdownSfId, setAssigneeDropdownSfId] = useState<number | null>(null);
   const [memberFilter, setMemberFilter] = useState<{ role: string; status: string; search: string }>({
     role: '',
     status: '',
@@ -257,14 +152,6 @@ function ProjectDetail() {
     queryFn: async () => {
       const response = await screenFunctionApi.getDefaultMembersByProject(parseInt(projectId));
       return response.data;
-    },
-  });
-
-  const setDefaultMembersMutation = useMutation({
-    mutationFn: (data: { screenFunctionId: number; memberIds: number[] }) =>
-      screenFunctionApi.setDefaultMembers(data.screenFunctionId, data.memberIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sfDefaultMembers', parseInt(projectId)] });
     },
   });
 
@@ -385,14 +272,6 @@ function ProjectDetail() {
       localStorage.setItem(`effortUnit.project.${projectId}`, effortUnit);
     }
   }, [effortUnit, effortUnitReady, projectId]);
-
-  // Close assignee dropdown on click outside
-  useEffect(() => {
-    if (assigneeDropdownSfId === null) return;
-    const handleClick = () => setAssigneeDropdownSfId(null);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [assigneeDropdownSfId]);
 
   // Helper to convert effort to display unit
   const displayEffort = (value: number, sourceUnit: EffortUnit = 'man-hour') => {
@@ -1388,15 +1267,23 @@ function ProjectDetail() {
                           {displayEffort(sf.estimatedEffort, 'man-hour')} / {displayEffort(sf.actualEffort, 'man-hour')} {EFFORT_UNIT_LABELS[effortUnit]}
                         </td>
                         <td className="px-3 py-4 text-sm">
-                          <AssigneeDropdown
-                            screenFunctionId={sf.id}
-                            defaultMembers={defaultMembers || []}
-                            members={members || []}
-                            isOpen={assigneeDropdownSfId === sf.id}
-                            onToggle={(id) => setAssigneeDropdownSfId(assigneeDropdownSfId === id ? null : id)}
-                            onSetMembers={(sfId, memberIds) => setDefaultMembersMutation.mutate({ screenFunctionId: sfId, memberIds })}
-                            t={t}
-                          />
+                          {(() => {
+                            const sfDefaultMembers = defaultMembers?.filter(dm => dm.screenFunctionId === sf.id) || [];
+                            return sfDefaultMembers.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {sfDefaultMembers.map(dm => {
+                                  const member = members?.find(m => m.id === dm.memberId);
+                                  return member ? (
+                                    <span key={dm.memberId} className="inline-flex items-center px-1.5 py-0.5 text-xs rounded bg-indigo-100 text-indigo-800">
+                                      {member.name}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            );
+                          })()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <div className="flex gap-2">
