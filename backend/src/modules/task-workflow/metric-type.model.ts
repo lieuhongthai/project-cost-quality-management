@@ -84,9 +84,9 @@ export class MetricType extends Model {
   })
   isActive: boolean;
 
-  @BelongsTo(() => Project)
+  @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 
-  @HasMany(() => MetricCategory)
+  @HasMany(() => MetricCategory, { onDelete: 'CASCADE', hooks: true })
   categories: MetricCategory[];
 }

@@ -85,12 +85,12 @@ export class Report extends Model {
   })
   snapshotAt: Date; // Timestamp when the snapshot was taken
 
-  @BelongsTo(() => Project)
+  @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 
-  @HasMany(() => Commentary)
+  @HasMany(() => Commentary, { onDelete: 'CASCADE', hooks: true })
   commentaries: Commentary[];
 
-  @HasMany(() => Metrics)
+  @HasMany(() => Metrics, { onDelete: 'CASCADE', hooks: true })
   metrics: Metrics[];
 }
