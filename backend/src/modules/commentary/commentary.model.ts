@@ -55,6 +55,6 @@ export class Commentary extends Model {
   })
   author: string; // for manual commentaries
 
-  @BelongsTo(() => Report)
+  @BelongsTo(() => Report, { onDelete: 'CASCADE' })
   report: Report;
 }

@@ -109,6 +109,6 @@ export class Metrics extends Model {
   })
   defectRate: number;
 
-  @BelongsTo(() => Report)
+  @BelongsTo(() => Report, { onDelete: 'CASCADE' })
   report: Report;
 }

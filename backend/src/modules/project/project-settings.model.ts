@@ -82,6 +82,6 @@ export class ProjectSettings extends Model {
   })
   holidays: string[];
 
-  @BelongsTo(() => Project)
+  @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 }

@@ -8,6 +8,10 @@ import {
 } from 'sequelize-typescript';
 import { Report } from '../report/report.model';
 import { ProjectSettings } from './project-settings.model';
+import { MetricType } from '../task-workflow/metric-type.model';
+import { WorkflowStage } from '../task-workflow/workflow-stage.model';
+import { Member } from '../member/member.model';
+import { ScreenFunction } from '../screen-function/screen-function.model';
 
 @Table({
   tableName: 'projects',
@@ -68,9 +72,21 @@ export class Project extends Model {
   })
   status: string;
 
-  @HasMany(() => Report)
+  @HasMany(() => Report, { onDelete: 'CASCADE', hooks: true })
   reports: Report[];
 
-  @HasOne(() => ProjectSettings)
+  @HasOne(() => ProjectSettings, { onDelete: 'CASCADE', hooks: true })
   settings: ProjectSettings;
+
+  @HasMany(() => MetricType, { onDelete: 'CASCADE', hooks: true })
+  metricTypes: MetricType[];
+
+  @HasMany(() => WorkflowStage, { onDelete: 'CASCADE', hooks: true })
+  workflowStages: WorkflowStage[];
+
+  @HasMany(() => Member, { onDelete: 'CASCADE', hooks: true })
+  members: Member[];
+
+  @HasMany(() => ScreenFunction, { onDelete: 'CASCADE', hooks: true })
+  screenFunctions: ScreenFunction[];
 }

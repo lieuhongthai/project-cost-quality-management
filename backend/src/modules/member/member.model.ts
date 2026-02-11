@@ -113,7 +113,7 @@ export class Member extends Model {
   })
   userId: number;
 
-  @BelongsTo(() => Project)
+  @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 
   @BelongsTo(() => User)

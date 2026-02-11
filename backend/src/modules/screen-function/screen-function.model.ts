@@ -116,6 +116,6 @@ export class ScreenFunction extends Model {
   })
   displayOrder: number;
 
-  @BelongsTo(() => Project)
+  @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 }
