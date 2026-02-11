@@ -1,4 +1,17 @@
 import React, { ReactNode } from "react";
+import MuiCard from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
+import CircularProgress from "@mui/material/CircularProgress";
+import LinearProgress from "@mui/material/LinearProgress";
+import Chip from "@mui/material/Chip";
+import MuiCheckbox from "@mui/material/Checkbox";
+import MuiRadio from "@mui/material/Radio";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import MuiTooltip from "@mui/material/Tooltip";
+import MuiIconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 
 // Card Component
 interface CardProps {
@@ -6,6 +19,7 @@ interface CardProps {
   className?: string;
   title?: string | ReactNode;
   actions?: React.ReactNode;
+  elevation?: number;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -13,19 +27,22 @@ export const Card: React.FC<CardProps> = ({
   className = "",
   title,
   actions,
+  elevation = 1,
 }) => {
   return (
-    <div className={`card ${className}`}>
+    <MuiCard className={className} elevation={elevation} sx={{ p: 2 }}>
       {(title || actions) && (
-        <div className="flex items-center justify-between mb-4">
-          {title && (
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          )}
-          {actions && <div className="flex gap-2">{actions}</div>}
-        </div>
+        <CardHeader
+          title={title}
+          action={actions}
+          sx={{ p: 0, pb: 2 }}
+          titleTypographyProps={{ variant: "h6", fontWeight: 600 }}
+        />
       )}
-      {children}
-    </div>
+      <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
+        {children}
+      </CardContent>
+    </MuiCard>
   );
 };
 
@@ -33,35 +50,16 @@ export const Card: React.FC<CardProps> = ({
 export const LoadingSpinner: React.FC<{ size?: "sm" | "md" | "lg" }> = ({
   size = "md",
 }) => {
-  const sizeClasses = {
-    sm: "h-4 w-4",
-    md: "h-8 w-8",
-    lg: "h-12 w-12",
+  const sizeMap = {
+    sm: 20,
+    md: 40,
+    lg: 60,
   };
 
   return (
-    <div className="flex justify-center items-center">
-      <svg
-        className={`animate-spin ${sizeClasses[size]} text-primary-600`}
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        ></circle>
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        ></path>
-      </svg>
-    </div>
+    <Box display="flex" justifyContent="center" alignItems="center">
+      <CircularProgress size={sizeMap[size]} />
+    </Box>
   );
 };
 
@@ -80,12 +78,26 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   icon,
 }) => {
   return (
-    <div className="text-center py-12">
-      {icon && <div className="flex justify-center mb-4">{icon}</div>}
-      <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
-      {description && <p className="text-gray-500 mb-4">{description}</p>}
-      {action && <div className="flex justify-center">{action}</div>}
-    </div>
+    <Box textAlign="center" py={6}>
+      {icon && (
+        <Box display="flex" justifyContent="center" mb={2}>
+          {icon}
+        </Box>
+      )}
+      <Typography variant="h6" gutterBottom>
+        {title}
+      </Typography>
+      {description && (
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          {description}
+        </Typography>
+      )}
+      {action && (
+        <Box display="flex" justifyContent="center">
+          {action}
+        </Box>
+      )}
+    </Box>
   );
 };
 
@@ -94,16 +106,23 @@ interface StatusBadgeProps {
   status: "Good" | "Warning" | "At Risk" | "Acceptable" | "Poor";
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-  const statusClasses = {
-    Good: "status-good",
-    Warning: "status-warning",
-    "At Risk": "status-at-risk",
-    Acceptable: "status-acceptable",
-    Poor: "status-poor",
-  };
+const statusColorMap = {
+  Good: "success" as const,
+  Warning: "warning" as const,
+  "At Risk": "error" as const,
+  Acceptable: "info" as const,
+  Poor: "error" as const,
+};
 
-  return <span className={statusClasses[status]}>{status}</span>;
+export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
+  return (
+    <Chip
+      label={status}
+      color={statusColorMap[status]}
+      size="small"
+      variant="filled"
+    />
+  );
 };
 
 // Progress Bar Component
@@ -115,6 +134,13 @@ export interface ProgressBarProps {
   className?: string;
 }
 
+const colorMap = {
+  primary: "primary" as const,
+  success: "success" as const,
+  warning: "warning" as const,
+  danger: "error" as const,
+};
+
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   progress,
   showLabel = false,
@@ -122,35 +148,28 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   color = "primary",
   className = "",
 }) => {
-  const sizeClasses = {
-    sm: "h-1",
-    md: "h-2",
-    lg: "h-3",
-  };
-
-  const colorClasses = {
-    primary: "bg-primary-600",
-    success: "bg-green-600",
-    warning: "bg-yellow-600",
-    danger: "bg-red-600",
+  const heightMap = {
+    sm: 4,
+    md: 8,
+    lg: 12,
   };
 
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className={`w-full ${className}`}>
-      <div className={`w-full bg-gray-200 rounded-full ${sizeClasses[size]}`}>
-        <div
-          className={`${colorClasses[color]} ${sizeClasses[size]} rounded-full transition-all duration-300`}
-          style={{ width: `${clampedProgress}%` }}
-        />
-      </div>
+    <Box className={className} width="100%">
+      <LinearProgress
+        variant="determinate"
+        value={clampedProgress}
+        color={colorMap[color]}
+        sx={{ height: heightMap[size], borderRadius: 1 }}
+      />
       {showLabel && (
-        <span className="text-xs text-gray-600 mt-1 block">
+        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
           {clampedProgress.toFixed(0)}%
-        </span>
+        </Typography>
       )}
-    </div>
+    </Box>
   );
 };
 
@@ -172,22 +191,33 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   disabled = false,
   className = "",
 }) => {
-  return (
-    <label
-      className={`flex items-center gap-3 cursor-pointer ${
-        disabled ? "opacity-50 cursor-not-allowed" : ""
-      } ${className}`}
-    >
-      <input
-        type="checkbox"
-        id={id}
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        className="h-4 w-4 rounded border-gray-300 text-primary-600 transition-colors focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+  if (label) {
+    return (
+      <FormControlLabel
+        className={className}
+        control={
+          <MuiCheckbox
+            id={id}
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            disabled={disabled}
+            size="small"
+          />
+        }
+        label={<Typography variant="body2">{label}</Typography>}
       />
-      {label && <span className="text-sm text-gray-700 select-none">{label}</span>}
-    </label>
+    );
+  }
+
+  return (
+    <MuiCheckbox
+      id={id}
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      disabled={disabled}
+      size="small"
+      className={className}
+    />
   );
 };
 
@@ -211,89 +241,100 @@ export const Radio: React.FC<RadioProps> = ({
   disabled = false,
   className = "",
 }) => {
-  return (
-    <label
-      className={`flex items-center gap-2 cursor-pointer ${
-        disabled ? "opacity-50 cursor-not-allowed" : ""
-      } ${className}`}
-    >
-      <input
-        type="radio"
-        id={id}
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        className="h-4 w-4 border-gray-300 text-primary-600 transition-colors focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+  if (label) {
+    return (
+      <FormControlLabel
+        className={className}
+        control={
+          <MuiRadio
+            id={id}
+            name={name}
+            checked={checked}
+            onChange={onChange}
+            disabled={disabled}
+            size="small"
+          />
+        }
+        label={<Typography variant="body2">{label}</Typography>}
       />
-      {label && <span className="text-sm text-gray-700 select-none">{label}</span>}
-    </label>
+    );
+  }
+
+  return (
+    <MuiRadio
+      id={id}
+      name={name}
+      checked={checked}
+      onChange={onChange}
+      disabled={disabled}
+      size="small"
+      className={className}
+    />
   );
 };
 
 // Tooltip Component
 interface TooltipProps {
   content: string;
-  children: React.ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  children: React.ReactElement;
+  position?: "top" | "bottom" | "left" | "right";
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({
   content,
   children,
-  position = 'top',
+  position = "top",
 }) => {
-  const positionClasses = {
-    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-    left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-    right: 'left-full top-1/2 -translate-y-1/2 ml-2',
-  };
-
   return (
-    <div className="relative inline-block group">
+    <MuiTooltip title={content} placement={position} arrow>
       {children}
-      <div
-        className={`absolute ${positionClasses[position]} z-50 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none`}
-      >
-        {content}
-      </div>
-    </div>
+    </MuiTooltip>
   );
 };
 
 // IconButton Component
-interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'success' | 'danger' | 'primary' | 'info';
+interface IconButtonProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "color"> {
+  variant?: "default" | "success" | "danger" | "primary" | "info";
   icon: ReactNode;
   tooltip?: string;
 }
 
+const iconButtonColorMap = {
+  default: "default" as const,
+  success: "success" as const,
+  danger: "error" as const,
+  primary: "primary" as const,
+  info: "info" as const,
+};
+
 export const IconButton: React.FC<IconButtonProps> = ({
-  variant = 'default',
+  variant = "default",
   icon,
   tooltip,
-  className = '',
+  className = "",
   disabled,
-  ...props
+  onClick,
 }) => {
-  const variantClasses = {
-    default: 'text-gray-400 hover:bg-gray-100 hover:text-gray-600',
-    success: 'text-green-600 hover:bg-green-50',
-    danger: 'text-gray-400 hover:bg-gray-100 hover:text-red-600',
-    primary: 'text-gray-400 hover:bg-gray-100 hover:text-primary-600',
-    info: 'text-gray-400 hover:bg-gray-100 hover:text-blue-600',
-  };
-
-  return (
-    <button
-      type="button"
-      className={`rounded p-1 transition-colors focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${className}`}
+  const button = (
+    <MuiIconButton
+      color={iconButtonColorMap[variant]}
       disabled={disabled}
-      title={tooltip}
-      {...props}
+      onClick={onClick as any}
+      className={className}
+      size="small"
     >
       {icon}
-    </button>
+    </MuiIconButton>
   );
+
+  if (tooltip) {
+    return (
+      <MuiTooltip title={tooltip} arrow>
+        <span>{button}</span>
+      </MuiTooltip>
+    );
+  }
+
+  return button;
 };

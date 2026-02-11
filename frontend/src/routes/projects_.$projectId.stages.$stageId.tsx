@@ -10,6 +10,7 @@ import {
   Modal,
   EmptyState,
   Tooltip,
+  Select,
 } from "@/components/common";
 import { StepScreenFunctionEditModal } from "@/components/task-workflow";
 import { useTranslation } from "react-i18next";
@@ -414,6 +415,7 @@ function StageDetail() {
           <Link
             to="/projects/$projectId"
             params={{ projectId }}
+            search={{ tab: 'overview' }}
             className="text-gray-500 hover:text-gray-700 transition-colors"
           >
             {project.name}
@@ -433,7 +435,7 @@ function StageDetail() {
           to="/projects/$projectId"
           params={{ projectId }}
           search={{ tab: 'stages' }}
-          className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors group"
+          className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary-dark transition-colors group"
         >
           <svg
             className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform"
@@ -492,7 +494,8 @@ function StageDetail() {
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId }}
-                  className="text-primary-600 hover:text-primary-700 font-medium"
+                  search={{ tab: 'overview' }}
+                  className="text-primary hover:text-primary-dark font-medium"
                 >
                   {project.name}
                 </Link>
@@ -618,7 +621,7 @@ function StageDetail() {
                   onClick={() => setActiveStepId(step.id)}
                   className={`${
                     activeStepId === step.id
-                      ? "border-primary-500 text-primary-600"
+                      ? "border-primary text-primary"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2`}
                 >
@@ -769,19 +772,20 @@ function StageDetail() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               {isQuickEditing ? (
-                                <select
-                                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                                <Select
                                   value={statusValue}
                                   onChange={(e) => setQuickEditDraft((prev) => prev ? ({
                                     ...prev,
                                     status: e.target.value as StepScreenFunctionStatus,
                                   }) : prev)}
-                                >
-                                  <option value="Not Started">{t('screenFunction.statusNotStarted')}</option>
-                                  <option value="In Progress">{t('screenFunction.statusInProgress')}</option>
-                                  <option value="Completed">{t('screenFunction.statusCompleted')}</option>
-                                  <option value="Skipped">{t('screenFunction.statusSkipped')}</option>
-                                </select>
+                                  options={[
+                                    { value: 'Not Started', label: t('screenFunction.statusNotStarted') },
+                                    { value: 'In Progress', label: t('screenFunction.statusInProgress') },
+                                    { value: 'Completed', label: t('screenFunction.statusCompleted') },
+                                    { value: 'Skipped', label: t('screenFunction.statusSkipped') },
+                                  ]}
+                                  size="small"
+                                />
                               ) : (
                                 <span className={`px-2 py-1 text-xs rounded ${
                                   statusValue === 'Completed' ? 'bg-green-100 text-green-800' :
@@ -942,7 +946,7 @@ function StageDetail() {
                       type="checkbox"
                       checked={selectedSFIds.includes(sf.id)}
                       onChange={() => toggleSFSelection(sf.id)}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                      className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                     />
                     <div className="ml-3 flex-1">
                       <p className="font-medium text-gray-900">{sf.name}</p>

@@ -1,4 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface ModalProps {
   isOpen: boolean;
@@ -9,6 +15,22 @@ interface ModalProps {
   footer?: React.ReactNode;
 }
 
+// Map custom sizes to MUI maxWidth
+const getSizeMaxWidth = (size: ModalProps['size']) => {
+  switch (size) {
+    case 'sm':
+      return 'sm' as const;
+    case 'md':
+      return 'md' as const;
+    case 'lg':
+      return 'lg' as const;
+    case 'xl':
+      return 'xl' as const;
+    default:
+      return 'md' as const;
+  }
+};
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -17,63 +39,38 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   footer,
 }) => {
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-  };
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth={getSizeMaxWidth(size)}
+      fullWidth
+      scroll="paper"
+      disableScrollLock
+    >
+      <DialogTitle sx={{ m: 0, p: 2, pr: 6 }}>
+        {title}
+        <IconButton
+          aria-label="close"
           onClick={onClose}
-        />
-
-        {/* Modal */}
-        <div className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full`}>
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="px-6 py-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {children}
-          </div>
-
-          {/* Footer */}
-          {footer && (
-            <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-lg">
-              {footer}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers sx={{ maxHeight: 'calc(100vh - 200px)' }}>
+        {children}
+      </DialogContent>
+      {footer && (
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: 'grey.50' }}>
+          {footer}
+        </DialogActions>
+      )}
+    </Dialog>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from './Modal';
+import { Select } from './FormFields';
 
 interface Holiday {
   date: string;
@@ -201,36 +202,26 @@ export const HolidayImportDialog: React.FC<HolidayImportDialogProps> = ({
         {/* Filters */}
         <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quốc gia
-            </label>
-            <select
+            <Select
+              label="Quốc gia"
               value={selectedCountry}
               onChange={(e) => setSelectedCountry(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {countries.map((country) => (
-                <option key={country.code} value={country.code}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
+              options={countries.map((country) => ({
+                value: country.code,
+                label: country.name,
+              }))}
+            />
           </div>
           <div className="w-32">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Năm
-            </label>
-            <select
+            <Select
+              label="Năm"
               value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+              onChange={(e) => setSelectedYear(parseInt(e.target.value as string))}
+              options={years.map((year) => ({
+                value: year,
+                label: String(year),
+              }))}
+            />
           </div>
         </div>
 

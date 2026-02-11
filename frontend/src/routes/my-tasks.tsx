@@ -3,9 +3,37 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
-import { Button, Card, LoadingSpinner, Modal, Input, DateInput } from '@/components/common'
 import { Pencil, Copy, Check, ArrowLeft } from 'lucide-react'
 import type { TodoItem } from '@/types'
+
+// MUI imports
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Grid from '@mui/material/Grid'
+import TextField from '@mui/material/TextField'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Paper from '@mui/material/Paper'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import IconButton from '@mui/material/IconButton'
+import CloseIcon from '@mui/icons-material/Close'
 
 export const Route = createFileRoute('/my-tasks')({
   component: MyTasksPage,
@@ -125,12 +153,12 @@ function MyTasksPage() {
     })
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'success' | 'info' | 'default' | 'warning' => {
     switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800'
-      case 'In Progress': return 'bg-blue-100 text-blue-800'
-      case 'Skipped': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-yellow-100 text-yellow-800'
+      case 'Completed': return 'success'
+      case 'In Progress': return 'info'
+      case 'Skipped': return 'default'
+      default: return 'warning'
     }
   }
 
@@ -150,346 +178,431 @@ function MyTasksPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   // Project Selection View
   if (!selectedProject) {
     return (
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="sm:flex sm:items-center">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">{t('todo.title')}</h1>
-            <p className="mt-2 text-sm text-gray-700">{t('todo.subtitle')}</p>
-          </div>
-        </div>
+      <Box>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            {t('todo.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('todo.subtitle')}
+          </Typography>
+        </Box>
 
-        <div className="mt-6">
-          {projectGroups.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {projectGroups.map((group) => {
-                const stats = getProjectSummary(group.items)
-                return (
-                  <button
-                    key={group.projectName}
-                    type="button"
-                    className="text-left bg-white rounded-lg border border-gray-200 p-5 hover:border-primary-400 hover:shadow-md transition-all cursor-pointer"
+        {projectGroups.length > 0 ? (
+          <Grid container spacing={2}>
+            {projectGroups.map((group) => {
+              const stats = getProjectSummary(group.items)
+              return (
+                <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={group.projectName}>
+                  <Card
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                    }}
                     onClick={() => {
                       setSelectedProject(group.projectName)
                       setFilter({ status: '', stage: '', search: '' })
                     }}
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">{group.projectName}</h3>
-                    <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
-                      <span>{stats.total} {t('todo.totalTasks').toLowerCase()}</span>
-                      <span className="text-green-600">{stats.completed} {t('todo.completed').toLowerCase()}</span>
-                    </div>
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                        <span>{t('todo.progress')}</span>
-                        <span>{stats.progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-primary-600 h-2 rounded-full transition-all"
-                          style={{ width: `${stats.progress}%` }}
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight={600} noWrap>
+                        {group.projectName}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {stats.total} {t('todo.totalTasks').toLowerCase()}
+                        </Typography>
+                        <Typography variant="body2" color="success.main">
+                          {stats.completed} {t('todo.completed').toLowerCase()}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mt: 1.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {t('todo.progress')}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {stats.progress}%
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={stats.progress}
+                          sx={{ height: 6, borderRadius: 1 }}
                         />
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <Card>
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">{t('todo.noTasks')}</p>
-                <p className="text-gray-400 text-sm mt-2">{t('todo.noTasksDesc')}</p>
-              </div>
-            </Card>
-          )}
-        </div>
-      </div>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )
+            })}
+          </Grid>
+        ) : (
+          <Card>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <Typography variant="h6" color="text.secondary">
+                {t('todo.noTasks')}
+              </Typography>
+              <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+                {t('todo.noTasksDesc')}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
     )
   }
 
   // Task Table View (after project is selected)
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-              onClick={() => setSelectedProject(null)}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">{selectedProject}</h1>
-              <p className="mt-1 text-sm text-gray-700">{t('todo.subtitle')}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <IconButton onClick={() => setSelectedProject(null)} size="small">
+          <ArrowLeft size={20} />
+        </IconButton>
+        <Box>
+          <Typography variant="h5" fontWeight={600}>
+            {selectedProject}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('todo.subtitle')}
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Summary Cards */}
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <Card>
-          <p className="text-sm text-gray-500">{t('todo.totalTasks')}</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.total}</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-gray-500">{t('todo.completed')}</p>
-          <p className="mt-1 text-2xl font-semibold text-green-600">{summary.completed}</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-gray-500">{t('todo.inProgress')}</p>
-          <p className="mt-1 text-2xl font-semibold text-blue-600">{summary.inProgress}</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-gray-500">{t('todo.pending')}</p>
-          <p className="mt-1 text-2xl font-semibold text-yellow-600">{summary.pending}</p>
-        </Card>
-      </div>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Card>
+            <CardContent sx={{ py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('todo.totalTasks')}
+              </Typography>
+              <Typography variant="h5" fontWeight={600}>
+                {summary.total}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Card>
+            <CardContent sx={{ py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('todo.completed')}
+              </Typography>
+              <Typography variant="h5" fontWeight={600} color="success.main">
+                {summary.completed}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Card>
+            <CardContent sx={{ py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('todo.inProgress')}
+              </Typography>
+              <Typography variant="h5" fontWeight={600} color="info.main">
+                {summary.inProgress}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Card>
+            <CardContent sx={{ py: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('todo.pending')}
+              </Typography>
+              <Typography variant="h5" fontWeight={600} color="warning.main">
+                {summary.pending}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Filters */}
-      <div className="mt-6 flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <Input
-            placeholder={t('todo.searchPlaceholder')}
-            value={filter.search}
-            onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-          />
-        </div>
-        <select
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          value={filter.stage}
-          onChange={(e) => setFilter({ ...filter, stage: e.target.value })}
-        >
-          <option value="">{t('todo.filterByStage')}</option>
-          {stages.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          value={filter.status}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-        >
-          <option value="">{t('todo.filterByStatus')}</option>
-          <option value="Not Started">{t('todo.statusNotStarted')}</option>
-          <option value="In Progress">{t('todo.statusInProgress')}</option>
-          <option value="Completed">{t('todo.statusCompleted')}</option>
-          <option value="Skipped">{t('todo.statusSkipped')}</option>
-        </select>
-      </div>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <TextField
+          placeholder={t('todo.searchPlaceholder')}
+          value={filter.search}
+          onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+          size="small"
+          sx={{ minWidth: 200, flex: 1 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>{t('todo.filterByStage')}</InputLabel>
+          <Select
+            value={filter.stage}
+            onChange={(e) => setFilter({ ...filter, stage: e.target.value })}
+            label={t('todo.filterByStage')}
+            MenuProps={{ disableScrollLock: true }}
+          >
+            <MenuItem value="">{t('todo.filterByStage')}</MenuItem>
+            {stages.map((s) => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>{t('todo.filterByStatus')}</InputLabel>
+          <Select
+            value={filter.status}
+            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+            label={t('todo.filterByStatus')}
+            MenuProps={{ disableScrollLock: true }}
+          >
+            <MenuItem value="">{t('todo.filterByStatus')}</MenuItem>
+            <MenuItem value="Not Started">{t('todo.statusNotStarted')}</MenuItem>
+            <MenuItem value="In Progress">{t('todo.statusInProgress')}</MenuItem>
+            <MenuItem value="Completed">{t('todo.statusCompleted')}</MenuItem>
+            <MenuItem value="Skipped">{t('todo.statusSkipped')}</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
       {/* Task Table */}
-      <div className="mt-6">
+      {filteredItems.length > 0 ? (
+        <TableContainer component={Paper} elevation={1}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.stage')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.step')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.screen')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.status')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.effort')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.progress')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('todo.dates')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredItems.map((item) => (
+                <TableRow key={item.assignmentId} hover>
+                  <TableCell>
+                    <Chip
+                      label={item.stageName}
+                      size="small"
+                      sx={{
+                        bgcolor: item.stageColor ? `${item.stageColor}20` : 'grey.100',
+                        color: item.stageColor || 'text.primary',
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.stepName}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500}>
+                      {item.screenFunctionName}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      {item.screenFunctionType}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={item.taskStatus}
+                      size="small"
+                      color={getStatusColor(item.taskStatus)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      <Typography component="span" color="text.disabled">
+                        {item.estimatedEffort || 0}h
+                      </Typography>
+                      {' / '}
+                      <Typography component="span" fontWeight={500}>
+                        {item.actualEffort || 0}h
+                      </Typography>
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={item.progress || 0}
+                        sx={{ width: 60, height: 6, borderRadius: 1 }}
+                      />
+                      <Typography variant="caption">
+                        {(item.progress || 0).toFixed(0)}%
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.actualStartDate && (
+                        <span>{item.actualStartDate} - {item.actualEndDate || '...'}</span>
+                      )}
+                      {!item.actualStartDate && item.estimatedStartDate && (
+                        <span style={{ color: '#9ca3af' }}>
+                          {item.estimatedStartDate} - {item.estimatedEndDate || '...'}
+                        </span>
+                      )}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => openEditModal(item)}
+                        title={t('common.edit')}
+                      >
+                        <Pencil size={16} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => copyRowText(item)}
+                        title={t('todo.copyOutput')}
+                      >
+                        {copiedId === item.assignmentId ? (
+                          <Check size={16} color="green" />
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
         <Card>
-          {filteredItems.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead>
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">{t('todo.stage')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.step')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.screen')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.status')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.effort')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.progress')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('todo.dates')}</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredItems.map((item) => (
-                    <tr key={item.assignmentId} className="hover:bg-gray-50">
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
-                        <span
-                          className="px-2 py-1 text-xs rounded"
-                          style={{
-                            backgroundColor: item.stageColor ? `${item.stageColor}20` : '#f3f4f6',
-                            color: item.stageColor || '#374151',
-                          }}
-                        >
-                          {item.stageName}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {item.stepName}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <div>
-                          <p className="font-medium text-gray-900">{item.screenFunctionName}</p>
-                          <p className="text-xs text-gray-400">{item.screenFunctionType}</p>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(item.taskStatus)}`}>
-                          {item.taskStatus}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <span className="text-gray-400">{item.estimatedEffort || 0}h</span>
-                        {' / '}
-                        <span className="font-medium">{item.actualEffort || 0}h</span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <div className="flex items-center">
-                          <div className="mr-2 w-16 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-primary-600 h-2 rounded-full"
-                              style={{ width: `${item.progress || 0}%` }}
-                            />
-                          </div>
-                          <span className="text-xs">{(item.progress || 0).toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        <div className="text-xs">
-                          {item.actualStartDate && (
-                            <p>{item.actualStartDate} - {item.actualEndDate || '...'}</p>
-                          )}
-                          {!item.actualStartDate && item.estimatedStartDate && (
-                            <p className="text-gray-400">
-                              {item.estimatedStartDate} - {item.estimatedEndDate || '...'}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-md transition-colors"
-                            onClick={() => openEditModal(item)}
-                            title={t('common.edit')}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-md transition-colors"
-                            onClick={() => copyRowText(item)}
-                            title={t('todo.copyOutput')}
-                          >
-                            {copiedId === item.assignmentId ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">{t('todo.noTasks')}</p>
-              <p className="text-gray-400 text-sm mt-2">{t('todo.noTasksDesc')}</p>
-            </div>
-          )}
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <Typography variant="h6" color="text.secondary">
+              {t('todo.noTasks')}
+            </Typography>
+            <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+              {t('todo.noTasksDesc')}
+            </Typography>
+          </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* Edit Task Modal */}
-      <Modal
-        isOpen={editingTask !== null}
+      {/* Edit Task Dialog */}
+      <Dialog
+        open={editingTask !== null}
         onClose={() => setEditingTask(null)}
-        title={t('todo.editTask')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        {editingTask && (
-          <div className="space-y-4">
-            {/* Context Info */}
-            <div className="bg-gray-50 p-3 rounded-lg text-sm">
-              <p><strong>{t('todo.project')}:</strong> {editingTask.projectName}</p>
-              <p><strong>{t('todo.stage')}:</strong> {editingTask.stageName} &gt; {editingTask.stepName}</p>
-              <p><strong>{t('todo.screen')}:</strong> {editingTask.screenFunctionName}</p>
-            </div>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {t('todo.editTask')}
+          <IconButton size="small" onClick={() => setEditingTask(null)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {editingTask && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Context Info */}
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="body2">
+                  <strong>{t('todo.project')}:</strong> {editingTask.projectName}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>{t('todo.stage')}:</strong> {editingTask.stageName} &gt; {editingTask.stepName}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>{t('todo.screen')}:</strong> {editingTask.screenFunctionName}
+                </Typography>
+              </Paper>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('todo.actualEffort')} ({t('common.hours')})
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  value={editForm.actualEffort}
-                  onChange={(e) => setEditForm({ ...editForm, actualEffort: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('todo.progress')} (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  value={editForm.progress}
-                  onChange={(e) => setEditForm({ ...editForm, progress: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
+              <Grid container spacing={2}>
+                <Grid size={6}>
+                  <TextField
+                    label={`${t('todo.actualEffort')} (${t('common.hours')})`}
+                    type="number"
+                    value={editForm.actualEffort}
+                    onChange={(e) => setEditForm({ ...editForm, actualEffort: parseFloat(e.target.value) || 0 })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <TextField
+                    label={`${t('todo.progress')} (%)`}
+                    type="number"
+                    value={editForm.progress}
+                    onChange={(e) => setEditForm({ ...editForm, progress: parseFloat(e.target.value) || 0 })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                  />
+                </Grid>
+              </Grid>
 
-            <div className="grid grid-cols-2 gap-4">
-              <DateInput
-                label={t('todo.actualStartDate')}
-                name="actualStartDate"
-                value={editForm.actualStartDate}
-                onChange={(e) => setEditForm({ ...editForm, actualStartDate: e.target.value })}
-              />
-              <DateInput
-                label={t('todo.actualEndDate')}
-                name="actualEndDate"
-                value={editForm.actualEndDate}
-                onChange={(e) => setEditForm({ ...editForm, actualEndDate: e.target.value })}
-              />
-            </div>
+              <Grid container spacing={2}>
+                <Grid size={6}>
+                  <TextField
+                    label={t('todo.actualStartDate')}
+                    type="date"
+                    value={editForm.actualStartDate}
+                    onChange={(e) => setEditForm({ ...editForm, actualStartDate: e.target.value })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <TextField
+                    label={t('todo.actualEndDate')}
+                    type="date"
+                    value={editForm.actualEndDate}
+                    onChange={(e) => setEditForm({ ...editForm, actualEndDate: e.target.value })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+              </Grid>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('todo.note')}
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              <TextField
+                label={t('todo.note')}
+                multiline
                 rows={3}
                 placeholder={t('todo.notePlaceholder')}
                 value={editForm.note}
                 onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                fullWidth
+                size="small"
               />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="secondary"
-                onClick={() => setEditingTask(null)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                loading={updateTaskMutation.isPending}
-              >
-                {t('todo.saveChanges')}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingTask(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveEdit}
+            disabled={updateTaskMutation.isPending}
+          >
+            {updateTaskMutation.isPending ? <CircularProgress size={20} /> : t('todo.saveChanges')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   )
 }

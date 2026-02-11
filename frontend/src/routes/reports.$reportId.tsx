@@ -185,7 +185,7 @@ function ReportDetail() {
     <div className="px-4 sm:px-6 lg:px-8 pb-12">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block">
+        <Link to="/reports" className="text-sm text-primary hover:text-primary-dark mb-2 inline-block">
           ← {t('report.detail.backToReports')}
         </Link>
         <div className="flex items-start justify-between">

@@ -2,8 +2,22 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
-import { Modal, Button, Input, DateInput } from '@/components/common';
-import { Select, TextArea } from '@/components/common/FormFields';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Chip from '@mui/material/Chip';
 import type { StepScreenFunctionStatus, Member, ScreenFunction, StepScreenFunctionMember, TaskMemberMetric } from '@/types';
 
 interface StepScreenFunctionData {
@@ -434,536 +448,580 @@ export function StepScreenFunctionEditModal({
   ];
 
   return (
-    <Modal
-      isOpen
+    <Dialog
+      open
       onClose={() => onClose()}
-      title={t('stages.editScreenFunction')}
-      size="xl"
+      maxWidth="lg"
+      fullWidth
+      disableScrollLock
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Screen/Function Info (readonly) */}
-        <div className="bg-gray-50 -mx-6 -mt-2 px-6 py-4 border-b">
-          <h4 className="text-sm font-medium text-gray-500">{t('screenFunction.name')}</h4>
-          <p className="mt-1 text-lg font-medium text-gray-900">
-            {data.screenFunction?.name || t('common.unknown')}
-          </p>
-          <span className={`inline-flex mt-2 px-2 py-0.5 text-xs rounded ${
-            data.screenFunction?.type === 'Screen'
-              ? 'bg-purple-100 text-purple-800'
-              : 'bg-blue-100 text-blue-800'
-          }`}>
-            {data.screenFunction?.type || '-'}
-          </span>
-        </div>
+      <DialogTitle>{t('stages.editScreenFunction')}</DialogTitle>
+      <DialogContent>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Screen/Function Info (readonly) */}
+          <Box sx={{ bgcolor: 'grey.50', mx: -3, mt: -1, px: 3, py: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary">{t('screenFunction.name')}</Typography>
+            <Typography variant="h6" fontWeight={500}>
+              {data.screenFunction?.name || t('common.unknown')}
+            </Typography>
+            <Chip
+              label={data.screenFunction?.type || '-'}
+              size="small"
+              color={data.screenFunction?.type === 'Screen' ? 'secondary' : 'primary'}
+              sx={{ mt: 1 }}
+            />
+          </Box>
 
-        {/* Status */}
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label={t('screenFunction.status')}
-            value={formData.status}
-            onChange={(e) => handleChange('status', e.target.value)}
-            options={statusOptions}
-          />
-          <div>
-            {/* Summary info */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('stages.summary')}
-            </label>
-            <div className="text-sm text-gray-600 bg-gray-50 rounded-md px-3 py-2">
-              <div>{t('screenFunction.estimatedEffort')}: <span className="font-medium">{totalEstimatedEffort}h</span></div>
-              <div>{t('screenFunction.actualEffort')}: <span className="font-medium">{totalActualEffort}h</span></div>
-              <div>{t('screenFunction.progress')}: <span className="font-medium">{avgProgress}%</span></div>
-            </div>
-          </div>
-        </div>
+          {/* Status */}
+          <Grid container spacing={2}>
+            <Grid size={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('screenFunction.status')}</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  label={t('screenFunction.status')}
+                  MenuProps={{ disableScrollLock: true }}
+                >
+                  {statusOptions.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={6}>
+              {/* Summary info */}
+              <Typography variant="body2" fontWeight={500} sx={{ mb: 0.5 }}>{t('stages.summary')}</Typography>
+              <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, px: 1.5, py: 1 }}>
+                <Typography variant="body2">{t('screenFunction.estimatedEffort')}: <strong>{totalEstimatedEffort}h</strong></Typography>
+                <Typography variant="body2">{t('screenFunction.actualEffort')}: <strong>{totalActualEffort}h</strong></Typography>
+                <Typography variant="body2">{t('screenFunction.progress')}: <strong>{avgProgress}%</strong></Typography>
+              </Box>
+            </Grid>
+          </Grid>
 
-        {/* Members Section */}
-        <div className="border-t pt-4">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="text-sm font-medium text-gray-900">{t('stages.assignedMembers')}</h4>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowAddMember(true)}
-              disabled={getAvailableMembers().length === 0}
-            >
-              + {t('stages.addMember')}
-            </Button>
-          </div>
+          {/* Members Section */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+              <Typography variant="subtitle2" fontWeight={500}>{t('stages.assignedMembers')}</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowAddMember(true)}
+                disabled={getAvailableMembers().length === 0}
+              >
+                + {t('stages.addMember')}
+              </Button>
+            </Box>
 
-          {/* Members Table */}
-          {membersList.length > 0 ? (
-            <div className="space-y-2">
-              {membersList.map((member) => (
-                <div key={member.id} className={`border rounded-lg ${member.isEditing ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
-                  {/* Member Header Row */}
-                  <div className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-900">{getMemberName(member.memberId)}</span>
-                      <div className="text-xs text-gray-500 mt-1 flex gap-4">
-                        <span>{t('screenFunction.estimatedEffort')}: {member.estimatedEffort}h</span>
-                        <span>{t('screenFunction.actualEffort')}: {member.actualEffort}h</span>
-                        <span>{t('screenFunction.progress')}: {member.progress}%</span>
-                        {member.estimatedStartDate && (
-                          <span>{t('stages.dates')}: {member.estimatedStartDate} → {member.estimatedEndDate || '?'}</span>
-                        )}
-                        {member.note && (
-                          <span className="truncate max-w-[150px]" title={member.note}>📝 {member.note}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {!member.isEditing ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => toggleEditMember(member.id!)}
-                          >
-                            {t('common.edit')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDeleteMember(member.id!)}
-                            disabled={deleteMemberMutation.isPending}
-                          >
-                            {t('common.delete')}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handleUpdateMember(member)}
-                            disabled={updateMemberMutation.isPending}
-                          >
-                            {t('common.save')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => toggleEditMember(member.id!)}
-                          >
-                            {t('common.cancel')}
-                          </Button>
+            {/* Members Table */}
+            {membersList.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {membersList.map((member) => (
+                  <Box key={member.id} sx={{ border: 1, borderRadius: 1, borderColor: member.isEditing ? 'primary.main' : 'divider', bgcolor: member.isEditing ? 'primary.light' : 'background.paper' }}>
+                    {/* Member Header Row */}
+                    <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={500}>{getMemberName(member.memberId)}</Typography>
+                        <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" color="text.secondary">{t('screenFunction.estimatedEffort')}: {member.estimatedEffort}h</Typography>
+                          <Typography variant="caption" color="text.secondary">{t('screenFunction.actualEffort')}: {member.actualEffort}h</Typography>
+                          <Typography variant="caption" color="text.secondary">{t('screenFunction.progress')}: {member.progress}%</Typography>
+                          {member.estimatedStartDate && (
+                            <Typography variant="caption" color="text.secondary">{t('stages.dates')}: {member.estimatedStartDate} → {member.estimatedEndDate || '?'}</Typography>
+                          )}
+                          {member.note && (
+                            <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={member.note}>📝 {member.note}</Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {!member.isEditing ? (
+                          <>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => toggleEditMember(member.id!)}
+                            >
+                              {t('common.edit')}
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              onClick={() => handleDeleteMember(member.id!)}
+                              disabled={deleteMemberMutation.isPending}
+                            >
+                              {t('common.delete')}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => handleUpdateMember(member)}
+                              disabled={updateMemberMutation.isPending}
+                            >
+                              {t('common.save')}
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => toggleEditMember(member.id!)}
+                            >
+                              {t('common.cancel')}
+                            </Button>
                         </>
                       )}
-                    </div>
-                  </div>
+                      </Box>
+                    </Box>
 
                   {/* Expanded Edit Form */}
                   {member.isEditing && (
-                    <div className="border-t border-blue-200">
+                    <Box sx={{ borderTop: 1, borderColor: 'primary.light' }}>
                       {/* Tabs */}
-                      <div className="flex border-b border-blue-200 bg-blue-50/50">
-                        <button
-                          type="button"
-                          onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'details' }))}
-                          className={`px-4 py-2 text-sm font-medium transition-colors ${
-                            getMemberTab(member.id!) === 'details'
-                              ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
-                              : 'text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          {t('metrics.detailsTab')}
-                        </button>
+                      <Tabs
+                        value={getMemberTab(member.id!) === 'metrics' ? 1 : 0}
+                        onChange={(_, newValue) => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: newValue === 1 ? 'metrics' : 'details' }))}
+                        sx={{ bgcolor: 'primary.light', minHeight: 40 }}
+                      >
+                        <Tab label={t('metrics.detailsTab')} sx={{ minHeight: 40 }} />
                         {hasMemberMetrics(member.id!) && (
-                          <button
-                            type="button"
-                            onClick={() => setMemberActiveTab((prev) => ({ ...prev, [member.id!]: 'metrics' }))}
-                            className={`px-4 py-2 text-sm font-medium transition-colors ${
-                              getMemberTab(member.id!) === 'metrics'
-                                ? 'text-blue-700 border-b-2 border-blue-500 bg-white'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                          <Tab label={`${t('metrics.metricsTab')} (${getEnabledMetricTypes(member.id!).length})`} sx={{ minHeight: 40 }} />
+                        )}
+                      </Tabs>
+                      {/* Add Metric Type Dropdown */}
+                      {metricTypes.length > 0 && getAvailableMetricTypes(member.id!).length > 0 && (
+                        <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                          <Button
+                            size="small"
+                            color="success"
+                            onClick={() => setShowAddMetricDropdown((prev) => ({ ...prev, [member.id!]: !prev[member.id!] }))}
+                            sx={{ mx: 1 }}
                           >
-                            {t('metrics.metricsTab')} ({getEnabledMetricTypes(member.id!).length})
-                          </button>
-                        )}
-                        {/* Add Metric Type Dropdown */}
-                        {metricTypes.length > 0 && getAvailableMetricTypes(member.id!).length > 0 && (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setShowAddMetricDropdown((prev) => ({ ...prev, [member.id!]: !prev[member.id!] }))}
-                              className="px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors flex items-center gap-1"
-                            >
-                              <span>+</span> {t('metrics.addMetricType')}
-                            </button>
-                            {showAddMetricDropdown[member.id!] && (
-                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
-                                {getAvailableMetricTypes(member.id!).map((type) => (
-                                  <button
-                                    key={type.id}
-                                    type="button"
-                                    onClick={() => addMetricTypeForMember(member.id!, type.id)}
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <span className="text-green-500">+</span>
-                                    {type.name}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                            + {t('metrics.addMetricType')}
+                          </Button>
+                          {showAddMetricDropdown[member.id!] && (
+                            <Box sx={{ position: 'absolute', top: '100%', left: 8, mt: 0.5, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, boxShadow: 2, zIndex: 10, minWidth: 200 }}>
+                              {getAvailableMetricTypes(member.id!).map((type) => (
+                                <Box
+                                  key={type.id}
+                                  onClick={() => addMetricTypeForMember(member.id!, type.id)}
+                                  sx={{ px: 2, py: 1, cursor: 'pointer', '&:hover': { bgcolor: 'grey.50' }, display: 'flex', alignItems: 'center', gap: 1 }}
+                                >
+                                  <Typography variant="body2" color="success.main">+</Typography>
+                                  <Typography variant="body2">{type.name}</Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+                      )}
 
                       {/* Tab Content */}
-                      <div className="px-4 pb-4 pt-3">
+                      <Box sx={{ px: 2, pb: 2, pt: 1.5 }}>
                         {/* Details Tab */}
                         {getMemberTab(member.id!) === 'details' && (
-                          <div className="space-y-3">
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             {/* Effort and Progress Row */}
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
-                                <Input
+                            <Grid container spacing={2}>
+                              <Grid size={4}>
+                                <TextField
+                                  label={`${t('screenFunction.estimatedEffort')} (h)`}
                                   type="number"
-                                  min={0}
-                                  step="any"
+                                  size="small"
+                                  fullWidth
                                   value={member.estimatedEffort}
                                   onChange={(e) => updateMemberField(member.id!, 'estimatedEffort', Number(e.target.value))}
+                                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
                                 />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
-                                <Input
+                              </Grid>
+                              <Grid size={4}>
+                                <TextField
+                                  label={`${t('screenFunction.actualEffort')} (h)`}
                                   type="number"
-                                  min={0}
-                                  step="any"
+                                  size="small"
+                                  fullWidth
                                   value={member.actualEffort}
                                   onChange={(e) => updateMemberField(member.id!, 'actualEffort', Number(e.target.value))}
+                                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
                                 />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
-                                <Input
+                              </Grid>
+                              <Grid size={4}>
+                                <TextField
+                                  label={`${t('screenFunction.progress')} (%)`}
                                   type="number"
-                                  min={0}
-                                  max={100}
+                                  size="small"
+                                  fullWidth
                                   value={member.progress}
                                   onChange={(e) => updateMemberField(member.id!, 'progress', Number(e.target.value))}
+                                  slotProps={{ htmlInput: { min: 0, max: 100 } }}
                                 />
-                              </div>
-                            </div>
+                              </Grid>
+                            </Grid>
 
                             {/* Estimated Dates Row */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
-                              <div className="grid grid-cols-2 gap-4">
-                                <DateInput
-                                  label={t('stages.startDate')}
-                                  name={`estimatedStartDate-${member.id}`}
-                                  value={member.estimatedStartDate}
-                                  onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
-                                />
-                                <DateInput
-                                  label={t('stages.endDate')}
-                                  name={`estimatedEndDate-${member.id}`}
-                                  value={member.estimatedEndDate}
-                                  onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
-                                />
-                              </div>
-                            </div>
+                            <Box>
+                              <Typography variant="caption" fontWeight={500} sx={{ mb: 0.5 }}>{t('stages.estimatedSchedule')}</Typography>
+                              <Grid container spacing={2}>
+                                <Grid size={6}>
+                                  <TextField
+                                    label={t('stages.startDate')}
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    value={member.estimatedStartDate}
+                                    onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                  />
+                                </Grid>
+                                <Grid size={6}>
+                                  <TextField
+                                    label={t('stages.endDate')}
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    value={member.estimatedEndDate}
+                                    onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                  />
+                                </Grid>
+                              </Grid>
+                            </Box>
 
                             {/* Actual Dates Row */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
-                              <div className="grid grid-cols-2 gap-4">
-                                <DateInput
-                                  label={t('stages.startDate')}
-                                  name={`actualStartDate-${member.id}`}
-                                  value={member.actualStartDate}
-                                  onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
-                                />
-                                <DateInput
-                                  label={t('stages.endDate')}
-                                  name={`actualEndDate-${member.id}`}
-                                  value={member.actualEndDate}
-                                  onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
-                                />
-                              </div>
-                            </div>
+                            <Box>
+                              <Typography variant="caption" fontWeight={500} sx={{ mb: 0.5 }}>{t('stages.actualSchedule')}</Typography>
+                              <Grid container spacing={2}>
+                                <Grid size={6}>
+                                  <TextField
+                                    label={t('stages.startDate')}
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    value={member.actualStartDate}
+                                    onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                  />
+                                </Grid>
+                                <Grid size={6}>
+                                  <TextField
+                                    label={t('stages.endDate')}
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    value={member.actualEndDate}
+                                    onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                  />
+                                </Grid>
+                              </Grid>
+                            </Box>
 
                             {/* Note Row */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
-                              <TextArea
-                                value={member.note}
-                                onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
-                                rows={2}
-                                placeholder={t('stages.memberNotePlaceholder')}
-                              />
-                            </div>
-                          </div>
+                            <TextField
+                              label={t('common.note')}
+                              multiline
+                              rows={2}
+                              size="small"
+                              fullWidth
+                              value={member.note}
+                              onChange={(e) => updateMemberField(member.id!, 'note', e.target.value)}
+                              placeholder={t('stages.memberNotePlaceholder')}
+                            />
+                          </Box>
                         )}
 
                         {/* Metrics Tab */}
                         {getMemberTab(member.id!) === 'metrics' && hasMemberMetrics(member.id!) && (
-                          <div className="space-y-3">
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             {getEnabledMetricTypes(member.id!).map((metricType) => (
-                              <div key={metricType.id} className="bg-gray-50 rounded-lg p-3">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="text-sm font-medium text-gray-700">{metricType.name}</div>
-                                  <button
-                                    type="button"
+                              <Box key={metricType.id} sx={{ bgcolor: 'grey.50', borderRadius: 1, p: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                  <Typography variant="body2" fontWeight={500}>{metricType.name}</Typography>
+                                  <Button
+                                    size="small"
+                                    color="error"
                                     onClick={() => removeMetricTypeForMember(member.id!, metricType.id)}
-                                    className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
                                   >
                                     {t('common.delete')}
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
+                                  </Button>
+                                </Box>
+                                <Grid container spacing={1.5}>
                                   {metricType.categories?.map((category) => (
-                                    <div key={category.id}>
-                                      <label className="block text-xs text-gray-500 mb-1">{category.name}</label>
-                                      <Input
+                                    <Grid key={category.id} size={4}>
+                                      <TextField
+                                        label={category.name}
                                         type="number"
-                                        min={0}
+                                        size="small"
+                                        fullWidth
                                         value={memberMetrics[member.id!]?.[category.id] || 0}
                                         onChange={(e) => updateMetricValue(member.id!, category.id, Number(e.target.value))}
+                                        slotProps={{ htmlInput: { min: 0 } }}
                                       />
-                                    </div>
+                                    </Grid>
                                   ))}
-                                </div>
-                              </div>
+                                </Grid>
+                              </Box>
                             ))}
                             {getEnabledMetricTypes(member.id!).length === 0 && (
-                              <div className="text-center py-4 text-gray-500">
-                                {t('metrics.noMetricsSelected')}
-                              </div>
+                              <Box sx={{ textAlign: 'center', py: 2 }}>
+                                <Typography variant="body2" color="text.secondary">{t('metrics.noMetricsSelected')}</Typography>
+                              </Box>
                             )}
-                          </div>
+                          </Box>
                         )}
-                      </div>
-                    </div>
+                      </Box>
+                    </Box>
                   )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-md">
-              {t('stages.noMembersAssigned')}
-            </div>
-          )}
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="body2" color="text.secondary">{t('stages.noMembersAssigned')}</Typography>
+              </Box>
+            )}
 
-          {/* Add Member Form */}
-          {showAddMember && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
-              <h5 className="text-sm font-medium text-blue-800 mb-3">{t('stages.addNewMember')}</h5>
+            {/* Add Member Form */}
+            {showAddMember && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'primary.light', borderRadius: 1, border: 1, borderColor: 'primary.main' }}>
+                <Typography variant="subtitle2" color="primary.dark" sx={{ mb: 1.5 }}>{t('stages.addNewMember')}</Typography>
 
-              {/* Member Selection */}
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('member.name')}</label>
-                <select
-                  className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  value={newMember.memberId}
-                  onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
-                >
-                  <option value={0}>{t('stages.selectMember')}</option>
-                  {getAvailableMembers().map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} ({member.role})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Member Selection */}
+                <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
+                  <InputLabel>{t('member.name')}</InputLabel>
+                  <Select
+                    value={newMember.memberId}
+                    onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
+                    label={t('member.name')}
+                    MenuProps={{ disableScrollLock: true }}
+                  >
+                    <MenuItem value={0}>{t('stages.selectMember')}</MenuItem>
+                    {getAvailableMembers().map((member) => (
+                      <MenuItem key={member.id} value={member.id}>{member.name} ({member.role})</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-              {/* Effort and Progress */}
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.estimatedEffort')} (h)</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={newMember.estimatedEffort}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEffort: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.actualEffort')} (h)</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={newMember.actualEffort}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualEffort: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('screenFunction.progress')} (%)</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={newMember.progress}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, progress: Number(e.target.value) }))}
-                  />
-                </div>
-              </div>
+                {/* Effort and Progress */}
+                <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+                  <Grid size={4}>
+                    <TextField
+                      label={`${t('screenFunction.estimatedEffort')} (h)`}
+                      type="number"
+                      size="small"
+                      fullWidth
+                      value={newMember.estimatedEffort}
+                      onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEffort: Number(e.target.value) }))}
+                      slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                    />
+                  </Grid>
+                  <Grid size={4}>
+                    <TextField
+                      label={`${t('screenFunction.actualEffort')} (h)`}
+                      type="number"
+                      size="small"
+                      fullWidth
+                      value={newMember.actualEffort}
+                      onChange={(e) => setNewMember((prev) => ({ ...prev, actualEffort: Number(e.target.value) }))}
+                      slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                    />
+                  </Grid>
+                  <Grid size={4}>
+                    <TextField
+                      label={`${t('screenFunction.progress')} (%)`}
+                      type="number"
+                      size="small"
+                      fullWidth
+                      value={newMember.progress}
+                      onChange={(e) => setNewMember((prev) => ({ ...prev, progress: Number(e.target.value) }))}
+                      slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                    />
+                  </Grid>
+                </Grid>
 
-              {/* Estimated Dates */}
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.estimatedSchedule')}</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <DateInput
-                    label={t('stages.startDate')}
-                    name="newMemberEstimatedStartDate"
-                    value={newMember.estimatedStartDate}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedStartDate: e.target.value }))}
-                  />
-                  <DateInput
-                    label={t('stages.endDate')}
-                    name="newMemberEstimatedEndDate"
-                    value={newMember.estimatedEndDate}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEndDate: e.target.value }))}
-                  />
-                </div>
-              </div>
+                {/* Estimated Dates */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" fontWeight={500}>{t('stages.estimatedSchedule')}</Typography>
+                  <Grid container spacing={1.5}>
+                    <Grid size={6}>
+                      <TextField
+                        label={t('stages.startDate')}
+                        type="date"
+                        size="small"
+                        fullWidth
+                        value={newMember.estimatedStartDate}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedStartDate: e.target.value }))}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    </Grid>
+                    <Grid size={6}>
+                      <TextField
+                        label={t('stages.endDate')}
+                        type="date"
+                        size="small"
+                        fullWidth
+                        value={newMember.estimatedEndDate}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEndDate: e.target.value }))}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
 
-              {/* Actual Dates */}
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('stages.actualSchedule')}</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <DateInput
-                    label={t('stages.startDate')}
-                    name="newMemberActualStartDate"
-                    value={newMember.actualStartDate}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualStartDate: e.target.value }))}
-                  />
-                  <DateInput
-                    label={t('stages.endDate')}
-                    name="newMemberActualEndDate"
-                    value={newMember.actualEndDate}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, actualEndDate: e.target.value }))}
-                  />
-                </div>
-              </div>
+                {/* Actual Dates */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" fontWeight={500}>{t('stages.actualSchedule')}</Typography>
+                  <Grid container spacing={1.5}>
+                    <Grid size={6}>
+                      <TextField
+                        label={t('stages.startDate')}
+                        type="date"
+                        size="small"
+                        fullWidth
+                        value={newMember.actualStartDate}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, actualStartDate: e.target.value }))}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    </Grid>
+                    <Grid size={6}>
+                      <TextField
+                        label={t('stages.endDate')}
+                        type="date"
+                        size="small"
+                        fullWidth
+                        value={newMember.actualEndDate}
+                        onChange={(e) => setNewMember((prev) => ({ ...prev, actualEndDate: e.target.value }))}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
 
-              {/* Note */}
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('common.note')}</label>
-                <TextArea
+                {/* Note */}
+                <TextField
+                  label={t('common.note')}
+                  multiline
+                  rows={2}
+                  size="small"
+                  fullWidth
                   value={newMember.note}
                   onChange={(e) => setNewMember((prev) => ({ ...prev, note: e.target.value }))}
-                  rows={2}
                   placeholder={t('stages.memberNotePlaceholder')}
+                  sx={{ mb: 1.5 }}
                 />
-              </div>
 
-              <div className="flex justify-end gap-2 mt-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowAddMember(false)}
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={handleAddMember}
-                  disabled={newMember.memberId === 0 || createMemberMutation.isPending}
-                >
-                  {createMemberMutation.isPending ? t('common.saving') : t('common.add')}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setShowAddMember(false)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleAddMember}
+                    disabled={newMember.memberId === 0 || createMemberMutation.isPending}
+                  >
+                    {createMemberMutation.isPending ? t('common.saving') : t('common.add')}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
 
-        {/* SSF-level Dates */}
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.estimatedSchedule')}</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <DateInput
-              label={t('stages.estimatedStartDate')}
-              name="estimatedStartDate"
-              value={formData.estimatedStartDate}
-              onChange={handleDateChange('estimatedStartDate')}
+          {/* SSF-level Dates */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.estimatedSchedule')}</Typography>
+            <Grid container spacing={2}>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.estimatedStartDate')}
+                  type="date"
+                  size="small"
+                  fullWidth
+                  value={formData.estimatedStartDate}
+                  onChange={handleDateChange('estimatedStartDate')}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.estimatedEndDate')}
+                  type="date"
+                  size="small"
+                  fullWidth
+                  value={formData.estimatedEndDate}
+                  onChange={handleDateChange('estimatedEndDate')}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.actualSchedule')}</Typography>
+            {membersList.length > 0 ? (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>{t('stages.actualDatesAutoCalculated')}</Typography>
+                <Grid container spacing={2}>
+                  <Grid size={6}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{t('stages.actualStartDate')}</Typography>
+                    <Box sx={{ px: 1.5, py: 1, bgcolor: 'grey.100', border: 1, borderColor: 'grey.300', borderRadius: 1 }}>
+                      <Typography variant="body2">{calculatedActualStartDate || '-'}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid size={6}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{t('stages.actualEndDate')}</Typography>
+                    <Box sx={{ px: 1.5, py: 1, bgcolor: 'grey.100', border: 1, borderColor: 'grey.300', borderRadius: 1 }}>
+                      <Typography variant="body2">{calculatedActualEndDate || '-'}</Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </>
+            ) : (
+              <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, px: 1.5, py: 1 }}>
+                <Typography variant="body2" color="text.secondary">{t('stages.actualDatesNoMembers')}</Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Note */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <TextField
+              label={t('common.note')}
+              multiline
+              rows={3}
+              size="small"
+              fullWidth
+              value={formData.note}
+              onChange={(e) => handleChange('note', e.target.value)}
+              placeholder={t('stages.notePlaceholder')}
             />
-            <DateInput
-              label={t('stages.estimatedEndDate')}
-              name="estimatedEndDate"
-              value={formData.estimatedEndDate}
-              onChange={handleDateChange('estimatedEndDate')}
-            />
-          </div>
-        </div>
+          </Box>
 
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.actualSchedule')}</h4>
-          {membersList.length > 0 ? (
-            <>
-              <p className="text-xs text-gray-500 mb-2">{t('stages.actualDatesAutoCalculated')}</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualStartDate')}</label>
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
-                    {calculatedActualStartDate || '-'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('stages.actualEndDate')}</label>
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
-                    {calculatedActualEndDate || '-'}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500 bg-gray-50 rounded-md px-3 py-2">{t('stages.actualDatesNoMembers')}</p>
+          {/* Actions */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Button variant="outlined" onClick={() => onClose()}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" variant="contained" disabled={updateSSFMutation.isPending}>
+              {updateSSFMutation.isPending ? t('common.saving') : t('common.save')}
+            </Button>
+          </Box>
+
+          {/* Error display */}
+          {(updateSSFMutation.isError || createMemberMutation.isError || updateMemberMutation.isError || deleteMemberMutation.isError) && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {t('common.error')}: {(updateSSFMutation.error as Error)?.message || (createMemberMutation.error as Error)?.message || (updateMemberMutation.error as Error)?.message || (deleteMemberMutation.error as Error)?.message}
+            </Alert>
           )}
-        </div>
-
-        {/* Note */}
-        <div className="border-t pt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('common.note')}
-          </label>
-          <TextArea
-            value={formData.note}
-            onChange={(e) => handleChange('note', e.target.value)}
-            rows={3}
-            placeholder={t('stages.notePlaceholder')}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onClose()}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            type="submit"
-            disabled={updateSSFMutation.isPending}
-          >
-            {updateSSFMutation.isPending ? t('common.saving') : t('common.save')}
-          </Button>
-        </div>
-
-        {/* Error display */}
-        {(updateSSFMutation.isError || createMemberMutation.isError || updateMemberMutation.isError || deleteMemberMutation.isError) && (
-          <div className="text-red-600 text-sm mt-2">
-            {t('common.error')}: {(updateSSFMutation.error as Error)?.message || (createMemberMutation.error as Error)?.message || (updateMemberMutation.error as Error)?.message || (deleteMemberMutation.error as Error)?.message}
-          </div>
-        )}
-      </form>
-    </Modal>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,10 +1,18 @@
 import React from 'react';
+import TextField from '@mui/material/TextField';
+import MuiSelect from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import FormHelperText from '@mui/material/FormHelperText';
 
-// TextArea Component
-interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+// TextArea Component - Using MUI TextField with multiline
+interface TextAreaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   label?: string;
   error?: string;
   helperText?: string;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  rows?: number;
 }
 
 export const TextArea: React.FC<TextAreaProps> = ({
@@ -13,40 +21,48 @@ export const TextArea: React.FC<TextAreaProps> = ({
   helperText,
   className = '',
   id,
+  rows = 4,
+  onChange,
   ...props
 }) => {
-  const inputId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
-
   return (
-    <div className="w-full">
-      {label && (
-        <label htmlFor={inputId} className="label">
-          {label}
-          {props.required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-      <textarea
-        id={inputId}
-        className={`input resize-none ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
-        rows={4}
-        {...props}
-      />
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
-      )}
-    </div>
+    <TextField
+      id={id}
+      label={label}
+      error={!!error}
+      helperText={error || helperText}
+      fullWidth
+      size="small"
+      multiline
+      rows={rows}
+      className={className}
+      required={props.required}
+      disabled={props.disabled}
+      placeholder={props.placeholder}
+      value={props.value}
+      defaultValue={props.defaultValue}
+      onChange={onChange as any}
+      name={props.name}
+    />
   );
 };
 
 // Select Component
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps {
   label?: string;
   error?: string;
   helperText?: string;
   options: { value: string | number; label: string }[];
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  fullWidth?: boolean;
+  size?: 'small' | 'medium';
+  value?: string | number;
+  defaultValue?: string | number;
+  name?: string;
+  id?: string;
+  required?: boolean;
+  disabled?: boolean;
+  className?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -56,36 +72,57 @@ export const Select: React.FC<SelectProps> = ({
   options,
   className = '',
   id,
+  fullWidth = true,
+  size = 'small',
+  onChange,
   ...props
 }) => {
-  const inputId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
+  const labelId = `${id || 'select'}-label`;
 
   return (
-    <div className="w-full">
-      {label && (
-        <label htmlFor={inputId} className="label">
-          {label}
-          {props.required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-      <select
-        id={inputId}
-        className={`input ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
-        {...props}
+    <FormControl
+      fullWidth={fullWidth}
+      size={size}
+      error={!!error}
+      className={className}
+      required={props.required}
+      disabled={props.disabled}
+      sx={!fullWidth ? { minWidth: 140 } : undefined}
+    >
+      {label && <InputLabel id={labelId}>{label}</InputLabel>}
+      <MuiSelect
+        id={id}
+        labelId={labelId}
+        label={label}
+        value={props.value || ''}
+        defaultValue={props.defaultValue}
+        onChange={(e) => {
+          if (onChange) {
+            // Create synthetic event for compatibility
+            const syntheticEvent = {
+              target: {
+                name: props.name,
+                value: e.target.value,
+              },
+            } as React.ChangeEvent<HTMLSelectElement>;
+            onChange(syntheticEvent);
+          }
+        }}
+        name={props.name}
+        MenuProps={{
+          disableScrollLock: true,
+        }}
+        displayEmpty
       >
-        <option value="">Select an option</option>
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <MenuItem key={option.value} value={option.value}>
             {option.label}
-          </option>
+          </MenuItem>
         ))}
-      </select>
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
+      </MuiSelect>
+      {(error || helperText) && (
+        <FormHelperText>{error || helperText}</FormHelperText>
       )}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
-      )}
-    </div>
+    </FormControl>
   );
 };

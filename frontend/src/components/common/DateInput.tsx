@@ -1,4 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 interface DateInputProps {
   label?: string;
@@ -12,6 +16,8 @@ interface DateInputProps {
   className?: string;
   id?: string;
   placeholder?: string;
+  size?: 'small' | 'medium';
+  fullWidth?: boolean;
 }
 
 /**
@@ -33,8 +39,9 @@ export const DateInput: React.FC<DateInputProps> = ({
   className = '',
   id,
   placeholder = 'yyyy/mm/dd',
+  size = 'small',
+  fullWidth = true,
 }) => {
-  const inputId = id || `date-input-${Math.random().toString(36).substr(2, 9)}`;
   const datePickerRef = useRef<HTMLInputElement | null>(null);
 
   // Convert ISO date (yyyy-mm-dd) to display format (yyyy/mm/dd)
@@ -173,54 +180,58 @@ export const DateInput: React.FC<DateInputProps> = ({
   }, [disabled]);
 
   return (
-    <div className="w-full">
-      {label && (
-        <label htmlFor={inputId} className="label">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-      <div className="relative">
-        <input
-          id={inputId}
-          type="text"
-          name={name}
-          value={displayValue}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-          disabled={disabled}
-          required={required}
-          className={`input pr-10 ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
-          maxLength={10} // yyyy/mm/dd = 10 characters
-        />
-        <button
-          type="button"
-          onClick={openDatePicker}
-          disabled={disabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
-          aria-label="Open calendar"
-        >
-          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M6 2a1 1 0 01 1 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm0 6a1 1 0 100 2h8a1 1 0 100-2H6z" />
-          </svg>
-        </button>
-        <input
-          ref={datePickerRef}
-          type="date"
-          value={value || ''}
-          onChange={handleCalendarChange}
-          className="absolute inset-0 opacity-0 pointer-events-none"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      </div>
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
-      )}
+    <div className={`relative ${fullWidth ? 'w-full' : ''}`}>
+      <TextField
+        id={id}
+        label={label}
+        value={displayValue}
+        onChange={handleInputChange}
+        onBlur={handleBlur}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        error={!!error}
+        helperText={error || helperText}
+        fullWidth={fullWidth}
+        size={size}
+        className={className}
+        slotProps={{
+          htmlInput: {
+            maxLength: 10, // yyyy/mm/dd = 10 characters
+          },
+          input: {
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={openDatePicker}
+                  disabled={disabled}
+                  edge="end"
+                  size="small"
+                  aria-label="Open calendar"
+                >
+                  <CalendarTodayIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
+      {/* Hidden native date picker for calendar functionality */}
+      <input
+        ref={datePickerRef}
+        type="date"
+        value={value || ''}
+        onChange={handleCalendarChange}
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          width: 0,
+          height: 0,
+          pointerEvents: 'none',
+        }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
     </div>
   );
 };

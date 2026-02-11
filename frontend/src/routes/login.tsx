@@ -1,8 +1,17 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Input, Button } from '@/components/common'
 import { useAuth } from '@/context/AuthContext'
+
+// MUI imports
+import Box from '@mui/material/Box'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -42,32 +51,64 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold text-gray-900">{t('auth.loginTitle')}</h1>
-          <p className="text-sm text-gray-500">{t('auth.loginSubtitle')}</p>
-        </div>
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input
-            label={t('auth.username')}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-          />
-          <Input
-            label={t('auth.password')}
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? t('common.loading') : t('auth.login')}
-          </Button>
-        </form>
-      </div>
-    </div>
+    <Box
+      sx={{
+        minHeight: '70vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        px: 2,
+      }}
+    >
+      <Card sx={{ width: '100%', maxWidth: 400, borderRadius: 3 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h5" fontWeight={600} gutterBottom>
+              {t('auth.loginTitle')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('auth.loginSubtitle')}
+            </Typography>
+          </Box>
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label={t('auth.username')}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              required
+              fullWidth
+              size="small"
+              autoFocus
+            />
+            <TextField
+              label={t('auth.password')}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              fullWidth
+              size="small"
+            />
+
+            {error && (
+              <Alert severity="error" sx={{ py: 0.5 }}>
+                {error}
+              </Alert>
+            )}
+
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={isSubmitting}
+              sx={{ mt: 1 }}
+            >
+              {isSubmitting ? <CircularProgress size={20} color="inherit" /> : t('auth.login')}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   )
 }

@@ -2,7 +2,21 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
-import { Card, Button, Modal, Input } from '@/components/common';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { MetricType, MetricCategory } from '@/types';
 
 interface MetricConfigPanelProps {
@@ -179,259 +193,268 @@ export function MetricConfigPanel({ projectId }: MetricConfigPanelProps) {
 
   if (isLoading) {
     return (
-      <Card title={t('metrics.configTitle')}>
-        <div className="text-center py-8 text-gray-500">{t('common.loading')}</div>
+      <Card>
+        <CardHeader title={t('metrics.configTitle')} />
+        <CardContent>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography color="text.secondary">{t('common.loading')}</Typography>
+          </Box>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card title={t('metrics.configTitle')}>
-      <p className="text-sm text-gray-500 mb-4">{t('metrics.configDescription')}</p>
+    <Card>
+      <CardHeader title={t('metrics.configTitle')} />
+      <CardContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{t('metrics.configDescription')}</Typography>
 
-      {/* Initialize Button if no types exist */}
-      {metricTypes.length === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-blue-800 mb-2">{t('metrics.initializeDefaultsDesc')}</p>
-          <Button
-            onClick={() => initializeMutation.mutate()}
-            disabled={initializeMutation.isPending}
-          >
-            {initializeMutation.isPending ? t('common.saving') : t('metrics.initializeDefaults')}
+        {/* Initialize Button if no types exist */}
+        {metricTypes.length === 0 && (
+          <Box sx={{ bgcolor: 'primary.light', border: 1, borderColor: 'primary.main', borderRadius: 1, p: 2, mb: 2 }}>
+            <Typography variant="body2" color="primary.dark" sx={{ mb: 1 }}>{t('metrics.initializeDefaultsDesc')}</Typography>
+            <Button
+              variant="contained"
+              onClick={() => initializeMutation.mutate()}
+              disabled={initializeMutation.isPending}
+            >
+              {initializeMutation.isPending ? t('common.saving') : t('metrics.initializeDefaults')}
+            </Button>
+          </Box>
+        )}
+
+        {/* Add Type Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="outlined" onClick={handleAddType}>
+            + {t('metrics.addType')}
           </Button>
-        </div>
-      )}
+        </Box>
 
-      {/* Add Type Button */}
-      <div className="flex justify-end mb-4">
-        <Button variant="secondary" onClick={handleAddType}>
-          + {t('metrics.addType')}
-        </Button>
-      </div>
+        {/* Metric Types List */}
+        {metricTypes.length > 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {metricTypes.map((type) => {
+              const isProtectedType = type.name.trim().toLowerCase() === protectedTypeName;
+              return (
+                <Box key={type.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                  {/* Type Header */}
+                  <Box
+                    sx={{ px: 2, py: 1.5, bgcolor: 'grey.50', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                    onClick={() => toggleExpand(type.id)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton size="small">
+                        {expandedTypes.includes(type.id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                      <Typography fontWeight={500}>{type.name}</Typography>
+                      {type.description && (
+                        <Typography variant="body2" color="text.secondary">- {type.description}</Typography>
+                      )}
+                      <Chip label={`${type.categories?.length || 0} ${t('metrics.categories').toLowerCase()}`} size="small" />
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                      {isProtectedType ? (
+                        <Chip label={t('metrics.protectedType')} size="small" color="primary" />
+                      ) : (
+                        <>
+                          <Button variant="outlined" size="small" onClick={() => handleEditType(type)}>
+                            {t('common.edit')}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => handleDeleteType(type)}
+                            disabled={deleteTypeMutation.isPending}
+                          >
+                            {t('common.delete')}
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
 
-      {/* Metric Types List */}
-      {metricTypes.length > 0 ? (
-        <div className="space-y-3">
-          {metricTypes.map((type) => {
-            const isProtectedType = type.name.trim().toLowerCase() === protectedTypeName;
-            return (
-              <div key={type.id} className="border rounded-lg">
-                {/* Type Header */}
-                <div
-                  className="px-4 py-3 bg-gray-50 flex items-center justify-between cursor-pointer"
-                  onClick={() => toggleExpand(type.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">
-                      {expandedTypes.includes(type.id) ? '▼' : '▶'}
-                    </span>
-                    <span className="font-medium">{type.name}</span>
-                    {type.description && (
-                      <span className="text-sm text-gray-500">- {type.description}</span>
-                    )}
-                    <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
-                      {type.categories?.length || 0} {t('metrics.categories').toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {isProtectedType ? (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
-                        {t('metrics.protectedType')}
-                      </span>
-                    ) : (
-                      <>
-                        <Button variant="secondary" size="sm" onClick={() => handleEditType(type)}>
-                          {t('common.edit')}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleDeleteType(type)}
-                          disabled={deleteTypeMutation.isPending}
-                        >
-                          {t('common.delete')}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Categories (Expanded) */}
-                {expandedTypes.includes(type.id) && (
-                  <div className="p-4 border-t">
-                    {type.categories && type.categories.length > 0 ? (
-                      <div className="space-y-2">
-                        {type.categories.map((category) => {
-                          const isProtectedCategory = isProtectedType
-                            && protectedCategoryNames.has(category.name.trim().toLowerCase());
-                          return (
-                            <div
-                              key={category.id}
-                              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
-                            >
-                              <div>
-                                <span className="font-medium">{category.name}</span>
-                                {category.description && (
-                                  <span className="text-sm text-gray-500 ml-2">
-                                    - {category.description}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {isProtectedCategory ? (
-                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded font-medium">
-                                    {t('metrics.protectedCategory')}
-                                  </span>
-                                ) : (
-                                  <>
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      onClick={() => handleEditCategory(category)}
-                                    >
-                                      {t('common.edit')}
-                                    </Button>
-                                    <Button
-                                      variant="danger"
-                                      size="sm"
-                                      onClick={() => handleDeleteCategory(category, type.name)}
-                                      disabled={deleteCategoryMutation.isPending}
-                                    >
-                                      {t('common.delete')}
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">{t('metrics.noCategories')}</p>
-                    )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() => handleAddCategory(type.id)}
-                    >
-                      + {t('metrics.addCategory')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        !initializeMutation.isPending && (
-          <p className="text-center py-4 text-gray-500">{t('metrics.noMetricTypes')}</p>
-        )
-      )}
+                  {/* Categories (Expanded) */}
+                  <Collapse in={expandedTypes.includes(type.id)}>
+                    <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+                      {type.categories && type.categories.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {type.categories.map((category) => {
+                            const isProtectedCategory = isProtectedType
+                              && protectedCategoryNames.has(category.name.trim().toLowerCase());
+                            return (
+                              <Box
+                                key={category.id}
+                                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1, px: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}
+                              >
+                                <Box>
+                                  <Typography variant="body2" fontWeight={500}>{category.name}</Typography>
+                                  {category.description && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      - {category.description}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  {isProtectedCategory ? (
+                                    <Chip label={t('metrics.protectedCategory')} size="small" />
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => handleEditCategory(category)}
+                                      >
+                                        {t('common.edit')}
+                                      </Button>
+                                      <Button
+                                        variant="outlined"
+                                        color="error"
+                                        size="small"
+                                        onClick={() => handleDeleteCategory(category, type.name)}
+                                        disabled={deleteCategoryMutation.isPending}
+                                      >
+                                        {t('common.delete')}
+                                      </Button>
+                                    </>
+                                  )}
+                                </Box>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">{t('metrics.noCategories')}</Typography>
+                      )}
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ mt: 1.5 }}
+                        onClick={() => handleAddCategory(type.id)}
+                      >
+                        + {t('metrics.addCategory')}
+                      </Button>
+                    </Box>
+                  </Collapse>
+                </Box>
+              );
+            })}
+          </Box>
+        ) : (
+          !initializeMutation.isPending && (
+            <Typography sx={{ textAlign: 'center', py: 2 }} color="text.secondary">{t('metrics.noMetricTypes')}</Typography>
+          )
+        )}
+      </CardContent>
 
       {/* Add/Edit Type Modal */}
-      <Modal
-        isOpen={showAddType || !!editingType}
+      <Dialog
+        open={showAddType || !!editingType}
         onClose={() => {
           setShowAddType(false);
           setEditingType(null);
         }}
-        title={editingType ? t('metrics.editType') : t('metrics.addType')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        <form onSubmit={handleSubmitType} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('metrics.typeName')} *
-            </label>
-            <Input
+        <DialogTitle>{editingType ? t('metrics.editType') : t('metrics.addType')}</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmitType} sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label={`${t('metrics.typeName')} *`}
               value={typeForm.name}
               onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
               required
+              size="small"
+              fullWidth
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('common.description')}
-            </label>
-            <Input
+            <TextField
+              label={t('common.description')}
               value={typeForm.description}
               onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })}
+              size="small"
+              fullWidth
             />
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShowAddType(false);
-                setEditingType(null);
-              }}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={createTypeMutation.isPending || updateTypeMutation.isPending}
-            >
-              {createTypeMutation.isPending || updateTypeMutation.isPending
-                ? t('common.saving')
-                : t('common.save')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, pt: 2 }}>
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() => {
+                  setShowAddType(false);
+                  setEditingType(null);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={createTypeMutation.isPending || updateTypeMutation.isPending}
+              >
+                {createTypeMutation.isPending || updateTypeMutation.isPending
+                  ? t('common.saving')
+                  : t('common.save')}
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Category Modal */}
-      <Modal
-        isOpen={!!showAddCategory || !!editingCategory}
+      <Dialog
+        open={!!showAddCategory || !!editingCategory}
         onClose={() => {
           setShowAddCategory(null);
           setEditingCategory(null);
         }}
-        title={editingCategory ? t('metrics.editCategory') : t('metrics.addCategory')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        <form onSubmit={handleSubmitCategory} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('metrics.categoryName')} *
-            </label>
-            <Input
+        <DialogTitle>{editingCategory ? t('metrics.editCategory') : t('metrics.addCategory')}</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmitCategory} sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label={`${t('metrics.categoryName')} *`}
               value={categoryForm.name}
               onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
               required
+              size="small"
+              fullWidth
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('common.description')}
-            </label>
-            <Input
+            <TextField
+              label={t('common.description')}
               value={categoryForm.description}
               onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+              size="small"
+              fullWidth
             />
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShowAddCategory(null);
-                setEditingCategory(null);
-              }}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
-            >
-              {createCategoryMutation.isPending || updateCategoryMutation.isPending
-                ? t('common.saving')
-                : t('common.save')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, pt: 2 }}>
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() => {
+                  setShowAddCategory(null);
+                  setEditingCategory(null);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+              >
+                {createCategoryMutation.isPending || updateCategoryMutation.isPending
+                  ? t('common.saving')
+                  : t('common.save')}
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
