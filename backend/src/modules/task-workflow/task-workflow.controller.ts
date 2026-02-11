@@ -12,6 +12,13 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { TaskWorkflowService } from './task-workflow.service';
+import { AISchedulingService } from './ai-scheduling.service';
+import {
+  AIEstimateEffortDto,
+  AIGenerateScheduleDto,
+  ApplyAIEstimationDto,
+  ApplyAIScheduleDto,
+} from './ai-scheduling.dto';
 import {
   CreateWorkflowStageDto,
   UpdateWorkflowStageDto,
@@ -45,7 +52,10 @@ import * as ExcelJS from 'exceljs';
 
 @Controller('task-workflow')
 export class TaskWorkflowController {
-  constructor(private readonly taskWorkflowService: TaskWorkflowService) {}
+  constructor(
+    private readonly taskWorkflowService: TaskWorkflowService,
+    private readonly aiSchedulingService: AISchedulingService,
+  ) {}
 
   // ===== Workflow Stage Endpoints =====
 
@@ -626,5 +636,27 @@ export class TaskWorkflowController {
   @Post('task-member-metrics/bulk-upsert')
   bulkUpsertTaskMemberMetrics(@Body() dto: BulkUpsertTaskMemberMetricDto) {
     return this.taskWorkflowService.bulkUpsertTaskMemberMetrics(dto);
+  }
+
+  // ===== AI Scheduling Endpoints =====
+
+  @Post('ai/estimate-effort')
+  estimateEffort(@Body() dto: AIEstimateEffortDto) {
+    return this.aiSchedulingService.estimateEffort(dto);
+  }
+
+  @Post('ai/generate-schedule')
+  generateSchedule(@Body() dto: AIGenerateScheduleDto) {
+    return this.aiSchedulingService.generateSchedule(dto);
+  }
+
+  @Post('ai/apply-estimation')
+  applyEstimation(@Body() dto: ApplyAIEstimationDto) {
+    return this.aiSchedulingService.applyEstimation(dto);
+  }
+
+  @Post('ai/apply-schedule')
+  applySchedule(@Body() dto: ApplyAIScheduleDto) {
+    return this.aiSchedulingService.applySchedule(dto);
   }
 }

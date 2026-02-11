@@ -90,6 +90,8 @@ export const reportApi = {
   getByScope: (projectId: number, scope: string) => 
     api.get<Report[]>(`/reports/project/${projectId}/scope/${scope}`),
   getOne: (id: number) => api.get<Report>(`/reports/${id}`),
+  exportExcel: (id: number) => api.get(`/reports/${id}/export/excel`, { responseType: 'blob' }),
+  exportPdf: (id: number) => api.get(`/reports/${id}/export/pdf`, { responseType: 'blob' }),
   create: (data: Partial<Report>) => api.post<Report>('/reports', data),
   update: (id: number, data: Partial<Report>) => api.put<Report>(`/reports/${id}`, data),
   delete: (id: number) => api.delete(`/reports/${id}`),
@@ -394,6 +396,16 @@ export const taskWorkflowApi = {
     metrics: Array<{ metricCategoryId: number; value?: number; note?: string }>;
   }) =>
     api.post<TaskMemberMetric[]>('/task-workflow/task-member-metrics/bulk-upsert', data),
+
+  // ===== AI Scheduling =====
+  aiEstimateEffort: (data: { projectId: number; screenFunctionIds?: number[]; stageId?: number; language?: string }) =>
+    api.post('/task-workflow/ai/estimate-effort', data),
+  aiGenerateSchedule: (data: { projectId: number; stageId: number; language?: string }) =>
+    api.post('/task-workflow/ai/generate-schedule', data),
+  aiApplyEstimation: (data: { projectId: number; estimates: Array<{ screenFunctionId: number; estimatedEffortHours: number }> }) =>
+    api.post('/task-workflow/ai/apply-estimation', data),
+  aiApplySchedule: (data: { assignments: Array<{ stepScreenFunctionId: number; memberId: number; estimatedEffort: number; estimatedStartDate: string; estimatedEndDate: string }> }) =>
+    api.post('/task-workflow/ai/apply-schedule', data),
 };
 
 export const iamApi = {

@@ -38,6 +38,7 @@ import {
   MetricConfigPanel,
 } from "@/components/task-workflow";
 import { MetricsDashboard } from "@/components/metrics";
+import { AISchedulingDialog } from "@/components/ai/AISchedulingDialog";
 import { format } from "date-fns";
 import type {
   ScreenFunction,
@@ -107,6 +108,7 @@ function ProjectDetail() {
     search: "",
   });
   const [expandedStages, setExpandedStages] = useState<number | null>(null);
+  const [showAIScheduling, setShowAIScheduling] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [metricSummaryFilter, setMetricSummaryFilter] = useState<{
     search: string;
@@ -2251,11 +2253,18 @@ function ProjectDetail() {
       )}
 
       {activeTab === "stages" && (
-        <StagesOverviewPanel
-          projectId={parseInt(projectId)}
-          effortUnit={effortUnit}
-          workSettings={settingsForm}
-        />
+        <div>
+          <div className="flex justify-end mb-4">
+            <Button variant="secondary" onClick={() => setShowAIScheduling(true)}>
+              {t('ai.title')}
+            </Button>
+          </div>
+          <StagesOverviewPanel
+            projectId={parseInt(projectId)}
+            effortUnit={effortUnit}
+            workSettings={settingsForm}
+          />
+        </div>
       )}
 
       {activeTab === "task-workflow" && (
@@ -3378,6 +3387,14 @@ function ProjectDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* AI Scheduling Dialog */}
+      <AISchedulingDialog
+        open={showAIScheduling}
+        onClose={() => setShowAIScheduling(false)}
+        projectId={parseInt(projectId)}
+        stages={(stagesOverview || []).map((s: any) => ({ id: s.id, name: s.name }))}
+      />
     </div>
   );
 }
