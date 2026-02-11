@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
 import { Pencil, Copy, Check, ArrowLeft } from 'lucide-react'
+import { DateInput } from '@/components/common'
 import type { TodoItem } from '@/types'
 
 // MUI imports
@@ -554,25 +555,23 @@ function MyTasksPage() {
 
               <Grid container spacing={2}>
                 <Grid size={6}>
-                  <TextField
+                  <DateInput
                     label={t('todo.actualStartDate')}
-                    type="date"
+                    name="actualStartDate"
                     value={editForm.actualStartDate}
                     onChange={(e) => setEditForm({ ...editForm, actualStartDate: e.target.value })}
                     fullWidth
                     size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
                 <Grid size={6}>
-                  <TextField
+                  <DateInput
                     label={t('todo.actualEndDate')}
-                    type="date"
+                    name="actualEndDate"
                     value={editForm.actualEndDate}
                     onChange={(e) => setEditForm({ ...editForm, actualEndDate: e.target.value })}
                     fullWidth
                     size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
               </Grid>

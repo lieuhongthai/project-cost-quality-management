@@ -20,6 +20,7 @@ import {
   Input,
   HolidayImportDialog,
   Select,
+  DateInput,
 } from "@/components/common";
 import { MetricsChart, StageTimelineGantt } from "@/components/charts";
 import {
@@ -2896,11 +2897,12 @@ function ProjectDetail() {
                 </Button>
               </div>
               <div className="flex gap-2 mb-3">
-                <input
-                  type="date"
+                <DateInput
+                  name="newHoliday"
                   value={newHoliday}
                   onChange={(e) => setNewHoliday(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  fullWidth
+                  size="small"
                 />
                 <Button
                   type="button"

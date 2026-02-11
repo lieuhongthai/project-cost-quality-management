@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
+import { DateInput } from '@/components/common';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -666,25 +667,23 @@ export function StepScreenFunctionEditModal({
                               <Typography variant="caption" fontWeight={500} sx={{ mb: 0.5 }}>{t('stages.estimatedSchedule')}</Typography>
                               <Grid container spacing={2}>
                                 <Grid size={6}>
-                                  <TextField
+                                  <DateInput
                                     label={t('stages.startDate')}
-                                    type="date"
+                                    name={`member-${member.id}-estimatedStartDate`}
                                     size="small"
                                     fullWidth
                                     value={member.estimatedStartDate}
                                     onChange={(e) => updateMemberField(member.id!, 'estimatedStartDate', e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
                                   />
                                 </Grid>
                                 <Grid size={6}>
-                                  <TextField
+                                  <DateInput
                                     label={t('stages.endDate')}
-                                    type="date"
+                                    name={`member-${member.id}-estimatedEndDate`}
                                     size="small"
                                     fullWidth
                                     value={member.estimatedEndDate}
                                     onChange={(e) => updateMemberField(member.id!, 'estimatedEndDate', e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
                                   />
                                 </Grid>
                               </Grid>
@@ -695,25 +694,23 @@ export function StepScreenFunctionEditModal({
                               <Typography variant="caption" fontWeight={500} sx={{ mb: 0.5 }}>{t('stages.actualSchedule')}</Typography>
                               <Grid container spacing={2}>
                                 <Grid size={6}>
-                                  <TextField
+                                  <DateInput
                                     label={t('stages.startDate')}
-                                    type="date"
+                                    name={`member-${member.id}-actualStartDate`}
                                     size="small"
                                     fullWidth
                                     value={member.actualStartDate}
                                     onChange={(e) => updateMemberField(member.id!, 'actualStartDate', e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
                                   />
                                 </Grid>
                                 <Grid size={6}>
-                                  <TextField
+                                  <DateInput
                                     label={t('stages.endDate')}
-                                    type="date"
+                                    name={`member-${member.id}-actualEndDate`}
                                     size="small"
                                     fullWidth
                                     value={member.actualEndDate}
                                     onChange={(e) => updateMemberField(member.id!, 'actualEndDate', e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
                                   />
                                 </Grid>
                               </Grid>
@@ -847,25 +844,23 @@ export function StepScreenFunctionEditModal({
                   <Typography variant="caption" fontWeight={500}>{t('stages.estimatedSchedule')}</Typography>
                   <Grid container spacing={1.5}>
                     <Grid size={6}>
-                      <TextField
+                      <DateInput
                         label={t('stages.startDate')}
-                        type="date"
+                        name="newMember-estimatedStartDate"
                         size="small"
                         fullWidth
                         value={newMember.estimatedStartDate}
                         onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedStartDate: e.target.value }))}
-                        slotProps={{ inputLabel: { shrink: true } }}
                       />
                     </Grid>
                     <Grid size={6}>
-                      <TextField
+                      <DateInput
                         label={t('stages.endDate')}
-                        type="date"
+                        name="newMember-estimatedEndDate"
                         size="small"
                         fullWidth
                         value={newMember.estimatedEndDate}
                         onChange={(e) => setNewMember((prev) => ({ ...prev, estimatedEndDate: e.target.value }))}
-                        slotProps={{ inputLabel: { shrink: true } }}
                       />
                     </Grid>
                   </Grid>
@@ -876,25 +871,23 @@ export function StepScreenFunctionEditModal({
                   <Typography variant="caption" fontWeight={500}>{t('stages.actualSchedule')}</Typography>
                   <Grid container spacing={1.5}>
                     <Grid size={6}>
-                      <TextField
+                      <DateInput
                         label={t('stages.startDate')}
-                        type="date"
+                        name="newMember-actualStartDate"
                         size="small"
                         fullWidth
                         value={newMember.actualStartDate}
                         onChange={(e) => setNewMember((prev) => ({ ...prev, actualStartDate: e.target.value }))}
-                        slotProps={{ inputLabel: { shrink: true } }}
                       />
                     </Grid>
                     <Grid size={6}>
-                      <TextField
+                      <DateInput
                         label={t('stages.endDate')}
-                        type="date"
+                        name="newMember-actualEndDate"
                         size="small"
                         fullWidth
                         value={newMember.actualEndDate}
                         onChange={(e) => setNewMember((prev) => ({ ...prev, actualEndDate: e.target.value }))}
-                        slotProps={{ inputLabel: { shrink: true } }}
                       />
                     </Grid>
                   </Grid>
@@ -939,25 +932,23 @@ export function StepScreenFunctionEditModal({
             <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.estimatedSchedule')}</Typography>
             <Grid container spacing={2}>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.estimatedStartDate')}
-                  type="date"
+                  name="estimatedStartDate"
                   size="small"
                   fullWidth
                   value={formData.estimatedStartDate}
                   onChange={handleDateChange('estimatedStartDate')}
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.estimatedEndDate')}
-                  type="date"
+                  name="estimatedEndDate"
                   size="small"
                   fullWidth
                   value={formData.estimatedEndDate}
                   onChange={handleDateChange('estimatedEndDate')}
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
             </Grid>

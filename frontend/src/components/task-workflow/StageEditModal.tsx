@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, projectApi } from '@/services/api';
+import { DateInput } from '@/components/common';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -292,47 +293,43 @@ export function StageEditModal({
             <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.scheduleDates')}</Typography>
             <Grid container spacing={2}>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.estimatedStartDate')}
-                  type="date"
+                  name="startDate"
                   value={formData.startDate}
                   onChange={handleDateChange('startDate')}
                   fullWidth
                   size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.estimatedEndDate')}
-                  type="date"
+                  name="endDate"
                   value={formData.endDate}
                   onChange={handleDateChange('endDate')}
                   fullWidth
                   size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.actualStartDate')}
-                  type="date"
+                  name="actualStartDate"
                   value={formData.actualStartDate}
                   onChange={handleDateChange('actualStartDate')}
                   fullWidth
                   size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={6}>
-                <TextField
+                <DateInput
                   label={t('stages.actualEndDate')}
-                  type="date"
+                  name="actualEndDate"
                   value={formData.actualEndDate}
                   onChange={handleDateChange('actualEndDate')}
                   fullWidth
                   size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
             </Grid>
