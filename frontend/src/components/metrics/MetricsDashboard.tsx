@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Grid from '@mui/material/Grid';
 import type { ProjectMetricTypeSummary } from '@/types';
 
 interface MetricsDashboardProps {
@@ -234,150 +241,159 @@ export function MetricsDashboard({ projectMetricTypeSummary, stageFilter }: Metr
     return { color: 'bg-red-500', label: t('status.atRisk') };
   };
 
-  const views = [
-    { id: 'overview', label: t('metrics.dashboardOverview', 'Overview') },
-    { id: 'heatmap', label: t('metrics.dashboardHeatmap', 'Heat Map') },
-    { id: 'issues', label: t('metrics.dashboardTopIssues', 'Top Issues') },
-    { id: 'distribution', label: t('metrics.dashboardDistribution', 'Distribution') },
-  ] as const;
+  const handleTabChange = (_: React.SyntheticEvent, newValue: typeof activeView) => {
+    setActiveView(newValue);
+  };
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* View Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex gap-4">
-          {views.map(view => (
-            <button
-              key={view.id}
-              onClick={() => setActiveView(view.id)}
-              className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                activeView === view.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {view.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={activeView} onChange={handleTabChange}>
+          <Tab label={t('metrics.dashboardOverview', 'Overview')} value="overview" />
+          <Tab label={t('metrics.dashboardHeatmap', 'Heat Map')} value="heatmap" />
+          <Tab label={t('metrics.dashboardTopIssues', 'Top Issues')} value="issues" />
+          <Tab label={t('metrics.dashboardDistribution', 'Distribution')} value="distribution" />
+        </Tabs>
+      </Box>
 
       {/* Overview - Summary Cards */}
       {activeView === 'overview' && (
-        <div className="space-y-6">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Grid container spacing={2}>
             {aggregatedMetrics.map(metric => {
               const colors = getMetricTypeColor(metric.metricTypeName);
               const status = getStatusIndicator(metric);
               const passRate = getTestPassRate(metric);
 
               return (
-                <div
-                  key={metric.metricTypeId}
-                  className={`rounded-xl border-2 ${colors.accent} ${colors.bg} p-5 transition-shadow hover:shadow-md`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{colors.icon}</span>
-                      <div>
-                        <h3 className={`font-semibold ${colors.text}`}>{metric.metricTypeName}</h3>
-                        <p className="text-xs text-gray-500">
-                          {metric.screenCount} {t('metrics.screens', 'screens')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium text-white ${status.color}`}>
-                      {status.label}
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {passRate !== null ? (
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-3xl font-bold ${colors.text}`}>{passRate}%</span>
-                        <span className="text-sm text-gray-500">{t('metrics.passRate', 'pass rate')}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-3xl font-bold ${colors.text}`}>{metric.totalValue.toLocaleString()}</span>
-                        <span className="text-sm text-gray-500">{t('common.total', 'total')}</span>
-                      </div>
-                    )}
-
-                    <div className="mt-1 text-xs text-gray-500">
-                      {t('metrics.avgPerScreen', 'Avg per screen')}: {metric.avgPerScreen.toFixed(1)}
-                    </div>
-                  </div>
-
-                  {/* Category breakdown mini bars */}
-                  <div className="mt-4 space-y-2">
-                    {metric.categories.slice(0, 4).map((cat, idx) => (
-                      <div key={cat.id} className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600 w-24 truncate" title={cat.name}>{cat.name}</span>
-                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${BAR_COLORS[idx % BAR_COLORS.length]} rounded-full`}
-                            style={{ width: `${metric.totalValue > 0 ? (cat.total / metric.totalValue) * 100 : 0}%` }}
-                          />
+                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={metric.metricTypeId}>
+                  <Card
+                    className={`h-full ${colors.accent} ${colors.bg}`}
+                    sx={{ borderRadius: 3, border: 2, transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 3 } }}
+                  >
+                    <CardContent sx={{ p: 2.5 }}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{colors.icon}</span>
+                          <div>
+                            <Typography variant="subtitle1" fontWeight={600} className={colors.text}>
+                              {metric.metricTypeName}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {metric.screenCount} {t('metrics.screens', 'screens')}
+                            </Typography>
+                          </div>
                         </div>
-                        <span className="text-xs font-medium text-gray-700 w-8 text-right">{cat.total}</span>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium text-white ${status.color}`}>
+                          {status.label}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+
+                      <Box sx={{ mt: 2 }}>
+                        {passRate !== null ? (
+                          <div className="flex items-baseline gap-2">
+                            <Typography variant="h4" fontWeight={700} className={colors.text}>{passRate}%</Typography>
+                            <Typography variant="body2" color="text.secondary">{t('metrics.passRate', 'pass rate')}</Typography>
+                          </div>
+                        ) : (
+                          <div className="flex items-baseline gap-2">
+                            <Typography variant="h4" fontWeight={700} className={colors.text}>{metric.totalValue.toLocaleString()}</Typography>
+                            <Typography variant="body2" color="text.secondary">{t('common.total', 'total')}</Typography>
+                          </div>
+                        )}
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {t('metrics.avgPerScreen', 'Avg per screen')}: {metric.avgPerScreen.toFixed(1)}
+                        </Typography>
+                      </Box>
+
+                      {/* Category breakdown mini bars */}
+                      <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {metric.categories.slice(0, 4).map((cat, idx) => (
+                          <div key={cat.id} className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600 w-24 truncate" title={cat.name}>{cat.name}</span>
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${BAR_COLORS[idx % BAR_COLORS.length]} rounded-full`}
+                                style={{ width: `${metric.totalValue > 0 ? (cat.total / metric.totalValue) * 100 : 0}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-gray-700 w-8 text-right">{cat.total}</span>
+                          </div>
+                        ))}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
               );
             })}
-          </div>
+          </Grid>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-              <div className="text-2xl font-bold text-gray-900">{allScreenMetrics.length}</div>
-              <div className="text-sm text-gray-500">{t('metrics.totalScreens', 'Total Screens')}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-              <div className="text-2xl font-bold text-emerald-600">
-                {allScreenMetrics.filter(s => s.totalIssues === 0).length}
-              </div>
-              <div className="text-sm text-gray-500">{t('metrics.cleanScreens', 'Clean Screens')}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-              <div className="text-2xl font-bold text-amber-600">
-                {allScreenMetrics.filter(s => s.totalIssues > 0 && s.totalIssues <= 5).length}
-              </div>
-              <div className="text-sm text-gray-500">{t('metrics.warningScreens', 'Warning')}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {allScreenMetrics.filter(s => s.totalIssues > 5).length}
-              </div>
-              <div className="text-sm text-gray-500">{t('metrics.criticalScreens', 'Critical')}</div>
-            </div>
-          </div>
-        </div>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="h5" fontWeight={700}>{allScreenMetrics.length}</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('metrics.totalScreens', 'Total Screens')}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="success.main">
+                    {allScreenMetrics.filter(s => s.totalIssues === 0).length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">{t('metrics.cleanScreens', 'Clean Screens')}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="warning.main">
+                    {allScreenMetrics.filter(s => s.totalIssues > 0 && s.totalIssues <= 5).length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">{t('metrics.warningScreens', 'Warning')}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="error.main">
+                    {allScreenMetrics.filter(s => s.totalIssues > 5).length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">{t('metrics.criticalScreens', 'Critical')}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
       )}
 
       {/* Heat Map View */}
       {activeView === 'heatmap' && (
-        <div className="space-y-6">
-          <p className="text-sm text-gray-600">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Typography variant="body2" color="text.secondary">
             {t('metrics.heatmapDescription', 'Visual overview of quality status across all screens by stage. Click on a cell to see details.')}
-          </p>
+          </Typography>
 
           {heatMapData.length === 0 ? (
-            <div className="text-center py-10 text-gray-500">
-              {t('metrics.noDataForHeatmap', 'No data available for heat map')}
-            </div>
+            <Box sx={{ textAlign: 'center', py: 5 }}>
+              <Typography color="text.secondary">{t('metrics.noDataForHeatmap', 'No data available for heat map')}</Typography>
+            </Box>
           ) : (
-            <div className="space-y-4">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {heatMapData.map(stage => (
-                <div key={stage.stageId} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <h4 className="font-medium text-gray-900">{stage.stageName}</h4>
-                    <p className="text-xs text-gray-500">{stage.screens.length} screens</p>
-                  </div>
-                  <div className="p-4">
+                <Card key={stage.stageId}>
+                  <Box sx={{ bgcolor: 'grey.50', px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" fontWeight={500}>{stage.stageName}</Typography>
+                    <Typography variant="caption" color="text.secondary">{stage.screens.length} screens</Typography>
+                  </Box>
+                  <CardContent>
                     <div className="flex flex-wrap gap-2">
                       {stage.screens.map(screen => (
                         <div
@@ -400,75 +416,84 @@ export function MetricsDashboard({ projectMetricTypeSummary, stageFilter }: Metr
                         </div>
                       ))}
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
-            </div>
+            </Box>
           )}
 
           {/* Legend */}
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-gray-500">{t('metrics.legend', 'Legend')}:</span>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">{t('metrics.legend', 'Legend')}:</Typography>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-200" />
-              <span>{t('metrics.noIssues', 'No issues')}</span>
+              <Typography variant="body2">{t('metrics.noIssues', 'No issues')}</Typography>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-amber-100 border border-amber-200" />
-              <span>{t('metrics.fewIssues', '1-5 issues')}</span>
+              <Typography variant="body2">{t('metrics.fewIssues', '1-5 issues')}</Typography>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-red-100 border border-red-200" />
-              <span>{t('metrics.manyIssues', '6+ issues')}</span>
+              <Typography variant="body2">{t('metrics.manyIssues', '6+ issues')}</Typography>
             </div>
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
 
       {/* Top Issues View */}
       {activeView === 'issues' && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
             {t('metrics.topIssuesDescription', 'Screens with the most issues that need attention.')}
-          </p>
+          </Typography>
 
           {topIssues.length === 0 ? (
-            <div className="text-center py-10">
-              <div className="text-4xl mb-2">🎉</div>
-              <div className="text-lg font-medium text-emerald-600">
+            <Box sx={{ textAlign: 'center', py: 5 }}>
+              <Typography variant="h3" sx={{ mb: 1 }}>🎉</Typography>
+              <Typography variant="h6" color="success.main">
                 {t('metrics.noIssuesFound', 'No issues found!')}
-              </div>
-              <div className="text-sm text-gray-500">
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
                 {t('metrics.allScreensClean', 'All screens are clean.')}
-              </div>
-            </div>
+              </Typography>
+            </Box>
           ) : (
-            <div className="space-y-2">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {topIssues.map((screen, index) => (
-                <div
+                <Card
                   key={screen.screenFunctionId}
-                  className={`flex items-center gap-4 p-4 rounded-lg border ${
-                    index === 0
-                      ? 'border-red-200 bg-red-50'
-                      : index < 3
-                      ? 'border-amber-200 bg-amber-50'
-                      : 'border-gray-200 bg-white'
-                  }`}
+                  sx={{
+                    border: 1,
+                    borderColor: index === 0 ? 'error.light' : index < 3 ? 'warning.light' : 'divider',
+                    bgcolor: index === 0 ? 'error.50' : index < 3 ? 'warning.50' : 'background.paper',
+                  }}
                 >
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
-                    index === 0 ? 'bg-red-500' : index < 3 ? 'bg-amber-500' : 'bg-gray-400'
-                  }`}>
-                    {index + 1}
-                  </div>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Box
+                      sx={{
+                        flexShrink: 0,
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        color: 'white',
+                        bgcolor: index === 0 ? 'error.main' : index < 3 ? 'warning.main' : 'grey.400',
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">{screen.screenFunctionName}</div>
-                    <div className="text-xs text-gray-500">
-                      {screen.stageName} → {screen.stepName}
-                    </div>
-                  </div>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={500} noWrap>{screen.screenFunctionName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {screen.stageName} → {screen.stepName}
+                      </Typography>
+                    </Box>
 
-                  <div className="flex items-center gap-2">
                     <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                       screen.totalIssues > 10
                         ? 'bg-red-100 text-red-800'
@@ -478,49 +503,49 @@ export function MetricsDashboard({ projectMetricTypeSummary, stageFilter }: Metr
                     }`}>
                       {screen.totalIssues} {t('metrics.issues', 'issues')}
                     </span>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
-            </div>
+            </Box>
           )}
-        </div>
+        </Box>
       )}
 
       {/* Distribution View */}
       {activeView === 'distribution' && (
-        <div className="space-y-6">
-          <p className="text-sm text-gray-600">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Typography variant="body2" color="text.secondary">
             {t('metrics.distributionDescription', 'Breakdown of issues by category for each metric type.')}
-          </p>
+          </Typography>
 
           {aggregatedMetrics.map(metric => {
             const colors = getMetricTypeColor(metric.metricTypeName);
             const maxValue = Math.max(...metric.categories.map(c => c.total), 1);
 
             return (
-              <div key={metric.metricTypeId} className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className={`${colors.bg} px-4 py-3 border-b ${colors.accent}`}>
-                  <div className="flex items-center gap-2">
+              <Card key={metric.metricTypeId}>
+                <Box className={`${colors.bg} ${colors.accent}`} sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <span className="text-xl">{colors.icon}</span>
-                    <h4 className={`font-medium ${colors.text}`}>{metric.metricTypeName}</h4>
-                    <span className="text-sm text-gray-500 ml-auto">
+                    <Typography variant="subtitle2" fontWeight={500} className={colors.text}>{metric.metricTypeName}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
                       {t('common.total')}: {metric.totalValue.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                    </Typography>
+                  </Box>
+                </Box>
 
-                <div className="p-4 space-y-3">
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {metric.categories.map((cat, idx) => {
                     const percentage = metric.totalValue > 0 ? (cat.total / metric.totalValue) * 100 : 0;
 
                     return (
-                      <div key={cat.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-gray-700">{cat.name}</span>
-                          <span className="text-gray-500">
+                      <Box key={cat.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight={500}>{cat.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">
                             {cat.total.toLocaleString()} ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
+                          </Typography>
+                        </Box>
                         <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full ${BAR_COLORS[idx % BAR_COLORS.length]} rounded-full transition-all duration-500 flex items-center justify-end pr-2`}
@@ -531,16 +556,16 @@ export function MetricsDashboard({ projectMetricTypeSummary, stageFilter }: Metr
                             )}
                           </div>
                         </div>
-                      </div>
+                      </Box>
                     );
                   })}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             );
           })}
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
