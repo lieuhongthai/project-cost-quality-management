@@ -2,7 +2,8 @@
 
 > **Ngày tạo**: 10/02/2026  
 > **Dự án**: Project Cost & Quality Management  
-> **Mục tiêu**: Tích hợp Material-UI (MUI) làm component library chính, giữ lại Tailwind CSS v4 cho utility styling
+> **Mục tiêu**: Tích hợp Material-UI (MUI) làm component library chính, upgrade Tailwind CSS lên v4 cho utility styling  
+> **Tailwind**: Upgrade từ v3 → **v4** (CSS-first configuration)
 
 ---
 
@@ -14,7 +15,7 @@
 | **Files cần thay đổi** | ~46 files |
 | **Risk level** | Trung bình (CSS Layers giảm conflicts) |
 | **Dependencies mới** | `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`, `@emotion/cache`, `react-datepicker` |
-| **Upgrade** | Tailwind CSS v3 → v4 |
+| **Tailwind** | Upgrade v3 → v4 (`@tailwindcss/vite`) |
 | **Integration** | CSS Layers + Emotion Cache (`prepend: true`) |
 
 ### Chiến lược Hybrid
@@ -74,7 +75,7 @@
 |---|------|----------|
 | 0.1 | Cài đặt dependencies MUI | `npm install @mui/material @mui/icons-material @emotion/react @emotion/styled @emotion/cache` |
 | 0.2 | Cài đặt date picker | `npm install react-datepicker` (thay cho @mui/x-date-pickers) |
-| 0.3 | Upgrade Tailwind CSS v4 | `npm install tailwindcss@next @tailwindcss/vite@next` |
+| 0.3 | Upgrade Tailwind CSS v4 | `npm install tailwindcss@latest @tailwindcss/vite@latest` |
 | 0.4 | Setup Emotion Cache | Cấu hình cache cho CSS layer integration |
 | 0.5 | Setup MUI Theme | Sử dụng default MUI colors với CSS Variables |
 | 0.6 | Setup CSS Layer Integration | Cấu hình `CacheProvider` + `StyledEngineProvider` + `GlobalStyles` |
@@ -125,8 +126,10 @@ export default muiCache;
 
 ### Tailwind CSS v4 Configuration
 
+Tailwind v4 sử dụng CSS-first configuration thay vì JavaScript config:
+
 ```typescript
-// vite.config.ts
+// vite.config.ts - Cập nhật với @tailwindcss/vite
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -140,11 +143,33 @@ export default defineConfig({
 ```
 
 ```css
-/* frontend/src/index.css */
+/* frontend/src/index.css - v4 style */
 @import 'tailwindcss';
 
 /* CSS Layer ordering - MUI sẽ nằm giữa base và components */
 @layer theme, base, mui, components, utilities;
+
+/* Custom theme với CSS variables (thay thế tailwind.config.js) */
+@theme {
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+}
+```
+
+**Sau khi upgrade v4, XÓA các file config cũ:**
+```
+frontend/
+├── tailwind.config.js   ❌ XÓA - không cần với v4
+├── postcss.config.js    ❌ XÓA - @tailwindcss/vite xử lý
+└── src/index.css        ✅ CẬP NHẬT - dùng @import 'tailwindcss'
 ```
 
 ### Cập nhật main.tsx
@@ -219,7 +244,10 @@ import { Button, TextField, Dialog, Card } from '@mui/material';
 ### Checklist Phase 0
 - [ ] MUI dependencies cài đặt thành công (bao gồm `@emotion/cache`)
 - [ ] `react-datepicker` cài đặt thành công
-- [ ] Tailwind CSS v4 upgrade thành công
+- [ ] Tailwind CSS v4 upgrade thành công (`@tailwindcss/vite`)
+- [ ] Xóa `tailwind.config.js` và `postcss.config.js` (v4 không cần)
+- [ ] Cập nhật `vite.config.ts` với `@tailwindcss/vite` plugin
+- [ ] Cập nhật `index.css` với `@import 'tailwindcss'` và `@theme`
 - [ ] Emotion cache được cấu hình với `prepend: true`
 - [ ] Theme file được tạo với `cssVariables: true`
 - [ ] CSS variables hoạt động (kiểm tra trong DevTools: `--mui-palette-*`)
@@ -227,7 +255,7 @@ import { Button, TextField, Dialog, Card } from '@mui/material';
 - [ ] `StyledEngineProvider` với `enableCssLayer` được setup
 - [ ] CSS layer ordering hoạt động đúng
 - [ ] App vẫn chạy được
-- [ ] Tailwind classes vẫn hoạt động song song với MUI
+- [ ] Tailwind v4 classes hoạt động song song với MUI
 
 ---
 
@@ -566,6 +594,23 @@ const columns: GridColDef[] = [
 | 7.6 | Fix responsive issues | Kiểm tra tablet/mobile |
 | 7.7 | Performance check | Bundle size comparison |
 
+### ⚠️ Lưu ý về Tailwind v4 Migration
+
+Với Tailwind v4, cấu hình chuyển từ JavaScript sang CSS-first:
+
+```
+frontend/
+├── tailwind.config.js   ❌ XÓA - v4 không cần
+├── postcss.config.js    ❌ XÓA - @tailwindcss/vite xử lý
+├── vite.config.ts       ✅ CẬP NHẬT - thêm @tailwindcss/vite plugin
+└── src/index.css        ✅ CẬP NHẬT - @import 'tailwindcss' + @theme
+```
+
+**Thay đổi chính:**
+- Custom colors chuyển từ `tailwind.config.js` → `@theme` block trong CSS
+- Không cần PostCSS plugin - `@tailwindcss/vite` xử lý trực tiếp
+- CSS Layers được hỗ trợ native, tốt hơn cho MUI integration
+
 ### index.css với Tailwind v4 + MUI Integration
 
 ```css
@@ -573,12 +618,22 @@ const columns: GridColDef[] = [
 @import 'tailwindcss';
 
 /* CSS Layer ordering - quan trọng để kiểm soát specificity */
-/* Thứ tự: theme < base < mui < components < utilities */
-/* MUI styles nằm ở layer 'mui', Tailwind utilities nằm ở 'utilities' */
-/* => Tailwind utilities có thể override MUI styles khi cần */
 @layer theme, base, mui, components, utilities;
 
-/* Custom global styles */
+/* Custom theme với CSS variables (thay thế tailwind.config.js) */
+@theme {
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -802,7 +857,12 @@ Week 3:
 - `@tanstack/react-query` cho data fetching
 - `@tanstack/react-router` cho routing
 - `i18next` cho internationalization
-- **`Tailwind CSS v4`** - giữ lại và tích hợp qua CSS Layers
+
+### Tailwind CSS v4 - Thay đổi chính
+- **`@tailwindcss/vite`** - Plugin cho Vite thay thế PostCSS
+- **CSS-first config** - Dùng `@theme` block thay cho `tailwind.config.js`
+- **Xóa files cũ** - `tailwind.config.js`, `postcss.config.js` không còn cần
+- Hybrid approach: MUI components + Tailwind v4 utilities
 
 ### MUI packages cân nhắc thêm
 - `@mui/x-data-grid` cho tables phức tạp
@@ -899,6 +959,7 @@ import Card from '@mui/material/Card';
 - [CSS Injection Order](https://mui.com/material-ui/guides/interoperability/#css-injection-order)
 
 ### Tailwind & Date Picker
-- [Tailwind CSS v4 Documentation](https://tailwindcss.com/docs)
+- [**Tailwind CSS v4 Documentation**](https://tailwindcss.com/docs)
+- [Tailwind CSS v4 Upgrade Guide](https://tailwindcss.com/docs/upgrade-guide)
 - [react-datepicker Documentation](https://reactdatepicker.com/)
 - [react-datepicker GitHub](https://github.com/Hacker0x01/react-datepicker)

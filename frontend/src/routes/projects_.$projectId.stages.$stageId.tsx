@@ -435,7 +435,7 @@ function StageDetail() {
           to="/projects/$projectId"
           params={{ projectId }}
           search={{ tab: 'stages' }}
-          className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors group"
+          className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary-dark transition-colors group"
         >
           <svg
             className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform"
@@ -495,7 +495,7 @@ function StageDetail() {
                   to="/projects/$projectId"
                   params={{ projectId }}
                   search={{ tab: 'overview' }}
-                  className="text-primary-600 hover:text-primary-700 font-medium"
+                  className="text-primary hover:text-primary-dark font-medium"
                 >
                   {project.name}
                 </Link>
@@ -621,7 +621,7 @@ function StageDetail() {
                   onClick={() => setActiveStepId(step.id)}
                   className={`${
                     activeStepId === step.id
-                      ? "border-primary-500 text-primary-600"
+                      ? "border-primary text-primary"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2`}
                 >
@@ -946,7 +946,7 @@ function StageDetail() {
                       type="checkbox"
                       checked={selectedSFIds.includes(sf.id)}
                       onChange={() => toggleSFSelection(sf.id)}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                      className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                     />
                     <div className="ml-3 flex-1">
                       <p className="font-medium text-gray-900">{sf.name}</p>
