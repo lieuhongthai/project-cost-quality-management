@@ -137,9 +137,8 @@ export const DateInput: React.FC<DateInputProps> = ({
       dateFormat="yyyy/MM/dd"
       placeholderText={placeholder}
       disabled={disabled}
-      showMonthDropdown
-      showYearDropdown
-      dropdownMode="select"
+      // showYearPicker
+      // showMonthYearPicker
       customInput={
         <CustomInput
           id={id}
