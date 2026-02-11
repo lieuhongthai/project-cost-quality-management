@@ -2,8 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, projectApi } from '@/services/api';
-import { Modal, Button, Input, DateInput } from '@/components/common';
-import { Select } from '@/components/common/FormFields';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import type { StageOverviewData, StageStatus, EffortUnit, ProjectSettings } from '@/types';
 import { convertEffort, EFFORT_UNIT_LABELS } from '@/utils/effortUtils';
 import { DEFAULT_NON_WORKING_DAYS } from '@/types';
@@ -252,236 +263,247 @@ export function StageEditModal({
   const actWorkingDays = Math.ceil(convertEffort(formData.actualEffort, effortUnit, 'man-day', workSettings));
 
   return (
-    <Modal
-      isOpen
+    <Dialog
+      open
       onClose={() => onClose()}
-      title={t('stages.editStage')}
-      size="lg"
+      maxWidth="md"
+      fullWidth
+      disableScrollLock
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Stage Name (readonly) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('stages.stageName')}
-          </label>
-          <Input
-            value={stage.name}
-            disabled
-            className="bg-gray-100"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            {t('stages.stageNameReadonly')}
-          </p>
-        </div>
+      <DialogTitle>{t('stages.editStage')}</DialogTitle>
+      <DialogContent>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+          {/* Stage Name (readonly) */}
+          <Box>
+            <TextField
+              label={t('stages.stageName')}
+              value={stage.name}
+              disabled
+              fullWidth
+              size="small"
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+              {t('stages.stageNameReadonly')}
+            </Typography>
+          </Box>
 
-        {/* Dates Section */}
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.scheduleDates')}</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <DateInput
-              label={t('stages.estimatedStartDate')}
-              name="startDate"
-              value={formData.startDate}
-              onChange={handleDateChange('startDate')}
-            />
-            <DateInput
-              label={t('stages.estimatedEndDate')}
-              name="endDate"
-              value={formData.endDate}
-              onChange={handleDateChange('endDate')}
-            />
-            <DateInput
-              label={t('stages.actualStartDate')}
-              name="actualStartDate"
-              value={formData.actualStartDate}
-              onChange={handleDateChange('actualStartDate')}
-            />
-            <DateInput
-              label={t('stages.actualEndDate')}
-              name="actualEndDate"
-              value={formData.actualEndDate}
-              onChange={handleDateChange('actualEndDate')}
-            />
-          </div>
-        </div>
+          {/* Dates Section */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.scheduleDates')}</Typography>
+            <Grid container spacing={2}>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.estimatedStartDate')}
+                  type="date"
+                  value={formData.startDate}
+                  onChange={handleDateChange('startDate')}
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.estimatedEndDate')}
+                  type="date"
+                  value={formData.endDate}
+                  onChange={handleDateChange('endDate')}
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.actualStartDate')}
+                  type="date"
+                  value={formData.actualStartDate}
+                  onChange={handleDateChange('actualStartDate')}
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <TextField
+                  label={t('stages.actualEndDate')}
+                  type="date"
+                  value={formData.actualEndDate}
+                  onChange={handleDateChange('actualEndDate')}
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
 
-        {/* Effort Section */}
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.effort')}</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('stages.estimatedEffort')} ({unitLabel})
-              </label>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={formData.estimatedEffort}
-                onChange={(e) => handleChange('estimatedEffort', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('stages.actualEffort')} ({unitLabel})
-              </label>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={formData.actualEffort}
-                onChange={(e) => handleChange('actualEffort', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-          </div>
+          {/* Effort Section */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.effort')}</Typography>
+            <Grid container spacing={2}>
+              <Grid size={6}>
+                <TextField
+                  label={`${t('stages.estimatedEffort')} (${unitLabel})`}
+                  type="number"
+                  value={formData.estimatedEffort}
+                  onChange={(e) => handleChange('estimatedEffort', parseFloat(e.target.value) || 0)}
+                  fullWidth
+                  size="small"
+                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <TextField
+                  label={`${t('stages.actualEffort')} (${unitLabel})`}
+                  type="number"
+                  value={formData.actualEffort}
+                  onChange={(e) => handleChange('actualEffort', parseFloat(e.target.value) || 0)}
+                  fullWidth
+                  size="small"
+                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                />
+              </Grid>
+            </Grid>
 
-          {/* Suggested End Date for Estimated */}
-          {showEstSuggestion && formData.startDate && formData.estimatedEffort > 0 && (
-            <div className={`mt-3 p-3 rounded-lg border transition-colors ${
-              estSuggestionUsed
-                ? 'bg-green-50 border-green-200'
-                : 'bg-blue-50 border-blue-200'
-            }`}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className={`text-sm font-medium ${estSuggestionUsed ? 'text-green-700' : 'text-blue-700'}`}>
-                    {estSuggestionUsed
-                      ? t('stages.endDateApplied')
-                      : t('stages.suggestedEndDate')}
-                  </p>
-                  {isCalculatingEnd ? (
-                    <p className="text-sm text-blue-600">{t('common.loading')}</p>
-                  ) : suggestedEndDate ? (
-                    <p className={`text-lg font-semibold ${estSuggestionUsed ? 'text-green-800' : 'text-blue-800'}`}>
-                      {formatSuggestedDate(suggestedEndDate)}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">{t('stages.unableToCalculate')}</p>
+            {/* Suggested End Date for Estimated */}
+            {showEstSuggestion && formData.startDate && formData.estimatedEffort > 0 && (
+              <Box sx={{
+                mt: 1.5,
+                p: 1.5,
+                borderRadius: 1,
+                border: 1,
+                borderColor: estSuggestionUsed ? 'success.main' : 'primary.main',
+                bgcolor: estSuggestionUsed ? 'success.light' : 'primary.light',
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" fontWeight={500} color={estSuggestionUsed ? 'success.dark' : 'primary.dark'}>
+                      {estSuggestionUsed ? t('stages.endDateApplied') : t('stages.suggestedEndDate')}
+                    </Typography>
+                    {isCalculatingEnd ? (
+                      <Typography variant="body2" color="primary">{t('common.loading')}</Typography>
+                    ) : suggestedEndDate ? (
+                      <Typography variant="h6" fontWeight={600} color={estSuggestionUsed ? 'success.dark' : 'primary.dark'}>
+                        {formatSuggestedDate(suggestedEndDate)}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">{t('stages.unableToCalculate')}</Typography>
+                    )}
+                    <Typography variant="caption" color={estSuggestionUsed ? 'success.main' : 'primary.main'}>
+                      {t('stages.basedOnWorkingDays', { days: estWorkingDays })}
+                    </Typography>
+                  </Box>
+                  {suggestedEndDate && !estSuggestionUsed && (
+                    <Button variant="contained" size="small" onClick={useEstSuggestedDate} disabled={isCalculatingEnd}>
+                      {t('stages.useThisDate')}
+                    </Button>
                   )}
-                  <p className={`text-xs mt-1 ${estSuggestionUsed ? 'text-green-500' : 'text-blue-500'}`}>
-                    {t('stages.basedOnWorkingDays', { days: estWorkingDays })}
-                  </p>
-                </div>
-                {suggestedEndDate && !estSuggestionUsed && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={useEstSuggestedDate}
-                    disabled={isCalculatingEnd}
-                  >
-                    {t('stages.useThisDate')}
-                  </Button>
-                )}
-                {estSuggestionUsed && (
-                  <span className="text-green-600 text-sm font-medium">{t('common.applied')}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Suggested End Date for Actual */}
-          {showActSuggestion && formData.actualStartDate && formData.actualEffort > 0 && (
-            <div className={`mt-3 p-3 rounded-lg border transition-colors ${
-              actSuggestionUsed
-                ? 'bg-green-50 border-green-200'
-                : 'bg-blue-50 border-blue-200'
-            }`}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className={`text-sm font-medium ${actSuggestionUsed ? 'text-green-700' : 'text-blue-700'}`}>
-                    {actSuggestionUsed
-                      ? t('stages.actualEndDateApplied')
-                      : t('stages.suggestedActualEndDate')}
-                  </p>
-                  {isCalculatingActualEnd ? (
-                    <p className="text-sm text-blue-600">{t('common.loading')}</p>
-                  ) : suggestedActualEndDate ? (
-                    <p className={`text-lg font-semibold ${actSuggestionUsed ? 'text-green-800' : 'text-blue-800'}`}>
-                      {formatSuggestedDate(suggestedActualEndDate)}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">{t('stages.unableToCalculate')}</p>
+                  {estSuggestionUsed && (
+                    <Typography variant="body2" color="success.main" fontWeight={500}>{t('common.applied')}</Typography>
                   )}
-                  <p className={`text-xs mt-1 ${actSuggestionUsed ? 'text-green-500' : 'text-blue-500'}`}>
-                    {t('stages.basedOnWorkingDays', { days: actWorkingDays })}
-                  </p>
-                </div>
-                {suggestedActualEndDate && !actSuggestionUsed && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={useActSuggestedDate}
-                    disabled={isCalculatingActualEnd}
-                  >
-                    {t('stages.useThisDate')}
-                  </Button>
-                )}
-                {actSuggestionUsed && (
-                  <span className="text-green-600 text-sm font-medium">{t('common.applied')}</span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+                </Box>
+              </Box>
+            )}
 
-        {/* Status Section */}
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">{t('stages.manualStatus')}</h4>
-          <div>
-            <Select
-              label={t('stages.status')}
-              value={formData.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              options={statusOptions}
-            />
-            <p className="mt-1 text-xs text-gray-500">
+            {/* Suggested End Date for Actual */}
+            {showActSuggestion && formData.actualStartDate && formData.actualEffort > 0 && (
+              <Box sx={{
+                mt: 1.5,
+                p: 1.5,
+                borderRadius: 1,
+                border: 1,
+                borderColor: actSuggestionUsed ? 'success.main' : 'primary.main',
+                bgcolor: actSuggestionUsed ? 'success.light' : 'primary.light',
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" fontWeight={500} color={actSuggestionUsed ? 'success.dark' : 'primary.dark'}>
+                      {actSuggestionUsed ? t('stages.actualEndDateApplied') : t('stages.suggestedActualEndDate')}
+                    </Typography>
+                    {isCalculatingActualEnd ? (
+                      <Typography variant="body2" color="primary">{t('common.loading')}</Typography>
+                    ) : suggestedActualEndDate ? (
+                      <Typography variant="h6" fontWeight={600} color={actSuggestionUsed ? 'success.dark' : 'primary.dark'}>
+                        {formatSuggestedDate(suggestedActualEndDate)}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">{t('stages.unableToCalculate')}</Typography>
+                    )}
+                    <Typography variant="caption" color={actSuggestionUsed ? 'success.main' : 'primary.main'}>
+                      {t('stages.basedOnWorkingDays', { days: actWorkingDays })}
+                    </Typography>
+                  </Box>
+                  {suggestedActualEndDate && !actSuggestionUsed && (
+                    <Button variant="contained" size="small" onClick={useActSuggestedDate} disabled={isCalculatingActualEnd}>
+                      {t('stages.useThisDate')}
+                    </Button>
+                  )}
+                  {actSuggestionUsed && (
+                    <Typography variant="body2" color="success.main" fontWeight={500}>{t('common.applied')}</Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          {/* Status Section */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+            <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.manualStatus')}</Typography>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('stages.status')}</InputLabel>
+              <Select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                label={t('stages.status')}
+                MenuProps={{ disableScrollLock: true }}
+              >
+                {statusOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
               {t('stages.statusAutoCalculated')}
-            </p>
-          </div>
-        </div>
+            </Typography>
+          </Box>
 
-        {/* Info Section */}
-        <div className="border-t pt-4 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">{t('stages.progress')}:</span>
-              <span className="ml-1 font-medium">{stage.progress}%</span>
-            </div>
-            <div>
-              <span className="text-gray-500">{t('stages.steps')}:</span>
-              <span className="ml-1 font-medium">{stage.stepsCount}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">{t('stages.linkedScreens')}:</span>
-              <span className="ml-1 font-medium">{stage.linkedScreensCount}</span>
-            </div>
-          </div>
-        </div>
+          {/* Info Section */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, bgcolor: 'grey.50', mx: -3, mb: -3, px: 3, py: 2 }}>
+            <Grid container spacing={2}>
+              <Grid size={4}>
+                <Typography variant="body2" color="text.secondary">{t('stages.progress')}:</Typography>
+                <Typography variant="body2" fontWeight={500}>{stage.progress}%</Typography>
+              </Grid>
+              <Grid size={4}>
+                <Typography variant="body2" color="text.secondary">{t('stages.steps')}:</Typography>
+                <Typography variant="body2" fontWeight={500}>{stage.stepsCount}</Typography>
+              </Grid>
+              <Grid size={4}>
+                <Typography variant="body2" color="text.secondary">{t('stages.linkedScreens')}:</Typography>
+                <Typography variant="body2" fontWeight={500}>{stage.linkedScreensCount}</Typography>
+              </Grid>
+            </Grid>
+          </Box>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onClose()}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            type="submit"
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending ? t('common.saving') : t('common.save')}
-          </Button>
-        </div>
+          {/* Actions */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, pt: 2 }}>
+            <Button variant="outlined" onClick={() => onClose()}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" variant="contained" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? t('common.saving') : t('common.save')}
+            </Button>
+          </Box>
 
-        {/* Error display */}
-        {updateMutation.isError && (
-          <div className="text-red-600 text-sm mt-2">
-            {t('common.error')}: {(updateMutation.error as Error).message}
-          </div>
-        )}
-      </form>
-    </Modal>
+          {/* Error display */}
+          {updateMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {t('common.error')}: {(updateMutation.error as Error).message}
+            </Alert>
+          )}
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 }

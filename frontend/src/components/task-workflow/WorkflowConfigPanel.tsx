@@ -2,7 +2,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
-import { Card, LoadingSpinner, Button, Input, Modal } from '@/components/common';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import CircularProgress from '@mui/material/CircularProgress';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
+import CloseIcon from '@mui/icons-material/Close';
 import type { WorkflowStage, WorkflowStep } from '@/types';
 
 interface WorkflowConfigPanelProps {
@@ -96,9 +109,9 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
@@ -106,14 +119,15 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
   if (!config?.stages || config.stages.length === 0) {
     return (
       <Card>
-        <div className="text-center py-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
             {t('taskWorkflow.noWorkflowConfig')}
-          </h3>
-          <p className="text-gray-500 mb-4">
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
             {t('taskWorkflow.initializeConfigDescription')}
-          </p>
+          </Typography>
           <Button
+            variant="contained"
             onClick={() => initializeMutation.mutate()}
             disabled={initializeMutation.isPending}
           >
@@ -121,247 +135,281 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
               ? t('common.loading')
               : t('taskWorkflow.initializeDefault')}
           </Button>
-        </div>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold">{t('taskWorkflow.workflowConfiguration')}</h3>
-          <p className="text-sm text-gray-500">{t('taskWorkflow.configDescription')}</p>
-        </div>
-        <Button onClick={() => setShowAddStage(true)}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h6">{t('taskWorkflow.workflowConfiguration')}</Typography>
+          <Typography variant="body2" color="text.secondary">{t('taskWorkflow.configDescription')}</Typography>
+        </Box>
+        <Button variant="contained" onClick={() => setShowAddStage(true)}>
           {t('taskWorkflow.addStage')}
         </Button>
-      </div>
+      </Box>
 
       {/* Stages List */}
-      <div className="space-y-4">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {config.stages.map((stage, stageIndex) => (
           <Card key={stage.id}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-medium text-gray-700">
-                  {stageIndex + 1}. {stage.name}
-                </span>
-                <span className="text-sm text-gray-500">
-                  ({stage.steps?.length || 0} {t('taskWorkflow.steps')})
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setEditingStage(stage)}
-                >
-                  {t('common.edit')}
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(t('taskWorkflow.confirmDeleteStage'))) {
-                      deleteStageMutation.mutate(stage.id);
-                    }
-                  }}
-                >
-                  {t('common.delete')}
-                </Button>
-              </div>
-            </div>
-
-            {/* Steps */}
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <div className="flex flex-wrap gap-2 mb-3">
-                {stage.steps?.map((step, stepIndex) => (
-                  <div
-                    key={step.id}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-white border rounded-full text-sm group"
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography variant="body1" fontWeight={500} color="text.secondary">
+                    {stageIndex + 1}. {stage.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ({stage.steps?.length || 0} {t('taskWorkflow.steps')})
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setEditingStage(stage)}
                   >
-                    <span className="text-gray-500 text-xs">{stepIndex + 1}.</span>
-                    <span>{step.name}</span>
-                    <button
-                      onClick={() => setEditingStep({ step, stageId: stage.id })}
-                      className="ml-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title={t('common.edit')}
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => {
+                    {t('common.edit')}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={() => {
+                      if (confirm(t('taskWorkflow.confirmDeleteStage'))) {
+                        deleteStageMutation.mutate(stage.id);
+                      }
+                    }}
+                  >
+                    {t('common.delete')}
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Steps */}
+              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2, bgcolor: 'grey.50' }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                  {stage.steps?.map((step, stepIndex) => (
+                    <Chip
+                      key={step.id}
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">{stepIndex + 1}.</Typography>
+                          <span>{step.name}</span>
+                        </Box>
+                      }
+                      onDelete={() => {
                         if (confirm(t('taskWorkflow.confirmDeleteStep'))) {
                           deleteStepMutation.mutate(step.id);
                         }
                       }}
-                      className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title={t('common.delete')}
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add Step */}
-              {addingStepToStage === stage.id ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={newStepName}
-                    onChange={(e) => setNewStepName(e.target.value)}
-                    placeholder={t('taskWorkflow.stepName')}
-                    className="flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (newStepName.trim()) {
-                        createStepMutation.mutate({ stageId: stage.id, name: newStepName.trim() });
+                      deleteIcon={<CloseIcon fontSize="small" />}
+                      sx={{
+                        '& .MuiChip-label': { display: 'flex', alignItems: 'center' },
+                        '&:hover .edit-icon': { opacity: 1 },
+                      }}
+                      icon={
+                        <IconButton
+                          size="small"
+                          className="edit-icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingStep({ step, stageId: stage.id });
+                          }}
+                          sx={{ opacity: 0, transition: 'opacity 0.2s', p: 0, ml: 0.5 }}
+                        >
+                          <EditIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
                       }
-                    }}
-                    disabled={createStepMutation.isPending}
-                  >
-                    {t('common.add')}
-                  </Button>
+                    />
+                  ))}
+                </Box>
+
+                {/* Add Step */}
+                {addingStepToStage === stage.id ? (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      value={newStepName}
+                      onChange={(e) => setNewStepName(e.target.value)}
+                      placeholder={t('taskWorkflow.stepName')}
+                      size="small"
+                      sx={{ flex: 1 }}
+                    />
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => {
+                        if (newStepName.trim()) {
+                          createStepMutation.mutate({ stageId: stage.id, name: newStepName.trim() });
+                        }
+                      }}
+                      disabled={createStepMutation.isPending}
+                    >
+                      {t('common.add')}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        setAddingStepToStage(null);
+                        setNewStepName('');
+                      }}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                  </Box>
+                ) : (
                   <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setAddingStepToStage(null);
-                      setNewStepName('');
-                    }}
+                    variant="text"
+                    size="small"
+                    onClick={() => setAddingStepToStage(stage.id)}
+                    sx={{ color: 'primary.main' }}
                   >
-                    {t('common.cancel')}
+                    + {t('taskWorkflow.addStep')}
                   </Button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setAddingStepToStage(stage.id)}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  + {t('taskWorkflow.addStep')}
-                </button>
-              )}
-            </div>
+                )}
+              </Box>
+            </CardContent>
           </Card>
         ))}
-      </div>
+      </Box>
 
       {/* Add Stage Modal */}
-      <Modal
-        isOpen={showAddStage}
+      <Dialog
+        open={showAddStage}
         onClose={() => {
           setShowAddStage(false);
           setNewStageName('');
         }}
-        title={t('taskWorkflow.addStage')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        <div className="space-y-4">
-          <Input
-            label={t('taskWorkflow.stageName')}
-            value={newStageName}
-            onChange={(e) => setNewStageName(e.target.value)}
-            placeholder={t('taskWorkflow.stageNamePlaceholder')}
-          />
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowAddStage(false);
-                setNewStageName('');
-              }}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                if (newStageName.trim()) {
-                  createStageMutation.mutate(newStageName.trim());
-                }
-              }}
-              disabled={createStageMutation.isPending || !newStageName.trim()}
-            >
-              {t('common.create')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        <DialogTitle>{t('taskWorkflow.addStage')}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label={t('taskWorkflow.stageName')}
+              value={newStageName}
+              onChange={(e) => setNewStageName(e.target.value)}
+              placeholder={t('taskWorkflow.stageNamePlaceholder')}
+              size="small"
+              fullWidth
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setShowAddStage(false);
+                  setNewStageName('');
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  if (newStageName.trim()) {
+                    createStageMutation.mutate(newStageName.trim());
+                  }
+                }}
+                disabled={createStageMutation.isPending || !newStageName.trim()}
+              >
+                {t('common.create')}
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Stage Modal */}
-      <Modal
-        isOpen={!!editingStage}
+      <Dialog
+        open={!!editingStage}
         onClose={() => setEditingStage(null)}
-        title={t('taskWorkflow.editStage')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        {editingStage && (
-          <div className="space-y-4">
-            <Input
-              label={t('taskWorkflow.stageName')}
-              value={editingStage.name}
-              onChange={(e) => setEditingStage({ ...editingStage, name: e.target.value })}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditingStage(null)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={() => {
-                  if (editingStage.name.trim()) {
-                    updateStageMutation.mutate({ id: editingStage.id, name: editingStage.name.trim() });
-                  }
-                }}
-                disabled={updateStageMutation.isPending}
-              >
-                {t('common.save')}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        <DialogTitle>{t('taskWorkflow.editStage')}</DialogTitle>
+        <DialogContent>
+          {editingStage && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <TextField
+                label={t('taskWorkflow.stageName')}
+                value={editingStage.name}
+                onChange={(e) => setEditingStage({ ...editingStage, name: e.target.value })}
+                size="small"
+                fullWidth
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button variant="outlined" onClick={() => setEditingStage(null)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (editingStage.name.trim()) {
+                      updateStageMutation.mutate({ id: editingStage.id, name: editingStage.name.trim() });
+                    }
+                  }}
+                  disabled={updateStageMutation.isPending}
+                >
+                  {t('common.save')}
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Step Modal */}
-      <Modal
-        isOpen={!!editingStep}
+      <Dialog
+        open={!!editingStep}
         onClose={() => setEditingStep(null)}
-        title={t('taskWorkflow.editStep')}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        {editingStep && (
-          <div className="space-y-4">
-            <Input
-              label={t('taskWorkflow.stepName')}
-              value={editingStep.step.name}
-              onChange={(e) =>
-                setEditingStep({
-                  ...editingStep,
-                  step: { ...editingStep.step, name: e.target.value },
-                })
-              }
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditingStep(null)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={() => {
-                  if (editingStep.step.name.trim()) {
-                    updateStepMutation.mutate({ id: editingStep.step.id, name: editingStep.step.name.trim() });
-                  }
-                }}
-                disabled={updateStepMutation.isPending}
-              >
-                {t('common.save')}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
+        <DialogTitle>{t('taskWorkflow.editStep')}</DialogTitle>
+        <DialogContent>
+          {editingStep && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <TextField
+                label={t('taskWorkflow.stepName')}
+                value={editingStep.step.name}
+                onChange={(e) =>
+                  setEditingStep({
+                    ...editingStep,
+                    step: { ...editingStep.step, name: e.target.value },
+                  })
+                }
+                size="small"
+                fullWidth
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button variant="outlined" onClick={() => setEditingStep(null)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (editingStep.step.name.trim()) {
+                      updateStepMutation.mutate({ id: editingStep.step.id, name: editingStep.step.name.trim() });
+                    }
+                  }}
+                  disabled={updateStepMutation.isPending}
+                >
+                  {t('common.save')}
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }

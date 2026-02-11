@@ -2,7 +2,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
-import { Card, LoadingSpinner, Button, Modal, EmptyState, ProgressBar } from '@/components/common';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
+import Typography from '@mui/material/Typography';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
 import { StageEditModal } from './StageEditModal';
 import type { StageOverviewData, StageStatus, EffortUnit, ProjectSettings, ScreenFunctionType } from '@/types';
 import { convertEffort, formatEffort, EFFORT_UNIT_LABELS } from '@/utils/effortUtils';
@@ -118,17 +131,17 @@ export function StagesOverviewPanel({
     return formatEffort(converted, effortUnit);
   };
 
-  // Get status color class
-  const getStatusColor = (status: StageStatus): string => {
+  // Get status color for MUI Chip
+  const getStatusColor = (status: StageStatus): 'success' | 'warning' | 'error' | 'default' => {
     switch (status) {
       case 'Good':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       case 'Warning':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'warning';
       case 'At Risk':
-        return 'bg-red-100 text-red-800';
+        return 'error';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
     }
   };
 
@@ -137,136 +150,157 @@ export function StagesOverviewPanel({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress size={40} />
+      </Box>
     );
   }
 
   if (!stages || stages.length === 0) {
     return (
       <Card>
-        <EmptyState
-          title={t('stages.noStages')}
-          description={t('stages.initializeWorkflowFirst')}
-        />
+        <CardContent>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {t('stages.noStages')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('stages.initializeWorkflowFirst')}
+            </Typography>
+          </Box>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">{t('stages.title')}</h2>
-        <Button variant="secondary" onClick={() => refetch()}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" fontWeight={600}>{t('stages.title')}</Typography>
+        <Button variant="outlined" onClick={() => refetch()}>
           {t('common.refresh')}
         </Button>
-      </div>
+      </Box>
 
       {/* Stages Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <Grid container spacing={2}>
         {stages.map((stage) => (
-          <Card key={stage.id} className="hover:shadow-lg transition-shadow">
-            {/* Stage Header */}
-            <div className="flex justify-between items-start mb-3">
-              <div
-                className="flex-1 cursor-pointer"
-                onClick={() => handleStageClick(stage.id)}
-              >
-                <h3 className="text-lg font-medium text-gray-900 hover:text-primary-600">
-                  {stage.name}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(stage.status)}`}>
-                    {stage.status}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {stage.stepsCount} {t('stages.steps')} | {stage.linkedScreensCount} {t('stages.linkedScreens')}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={(e) => openQuickLink(stage.id, e)}
-                  title={t('stages.quickLink', { defaultValue: 'Quick Link' })}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingStage(stage);
-                  }}
-                >
-                  {t('common.edit')}
-                </Button>
-              </div>
-            </div>
+          <Grid key={stage.id} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Card sx={{ height: '100%', '&:hover': { boxShadow: 4 }, transition: 'box-shadow 0.2s' }}>
+              <CardContent>
+                {/* Stage Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                  <Box
+                    sx={{ flex: 1, cursor: 'pointer' }}
+                    onClick={() => handleStageClick(stage.id)}
+                  >
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight={500}
+                      sx={{ '&:hover': { color: 'primary.main' } }}
+                    >
+                      {stage.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                      <Chip
+                        label={stage.status}
+                        size="small"
+                        color={getStatusColor(stage.status)}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        {stage.stepsCount} {t('stages.steps')} | {stage.linkedScreensCount} {t('stages.linkedScreens')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={(e) => openQuickLink(stage.id, e)}
+                      title={t('stages.quickLink', { defaultValue: 'Quick Link' })}
+                      sx={{ minWidth: 'auto', px: 1 }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingStage(stage);
+                      }}
+                    >
+                      {t('common.edit')}
+                    </Button>
+                  </Box>
+                </Box>
 
-            {/* Progress Bar */}
-            <div className="mb-3">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-500">{t('stages.progress')}</span>
-                <span className="font-medium">{stage.progress}%</span>
-              </div>
-              <ProgressBar progress={stage.progress} />
-            </div>
+                {/* Progress Bar */}
+                <Box sx={{ mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary">{t('stages.progress')}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{stage.progress}%</Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={stage.progress} sx={{ height: 6, borderRadius: 1 }} />
+                </Box>
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              <div>
-                <span className="text-gray-500">{t('stages.startDate')}:</span>
-                <span className="ml-1">{formatDate(stage.startDate)}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">{t('stages.endDate')}:</span>
-                <span className="ml-1">{formatDate(stage.endDate)}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">{t('stages.actualStart')}:</span>
-                <span className="ml-1">{formatDate(stage.actualStartDate)}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">{t('stages.actualEnd')}:</span>
-                <span className="ml-1">{formatDate(stage.actualEndDate)}</span>
-              </div>
-            </div>
+                {/* Dates */}
+                <Grid container spacing={1} sx={{ mb: 1.5 }}>
+                  <Grid size={6}>
+                    <Typography variant="caption" color="text.secondary">{t('stages.startDate')}:</Typography>
+                    <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{formatDate(stage.startDate)}</Typography>
+                  </Grid>
+                  <Grid size={6}>
+                    <Typography variant="caption" color="text.secondary">{t('stages.endDate')}:</Typography>
+                    <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{formatDate(stage.endDate)}</Typography>
+                  </Grid>
+                  <Grid size={6}>
+                    <Typography variant="caption" color="text.secondary">{t('stages.actualStart')}:</Typography>
+                    <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{formatDate(stage.actualStartDate)}</Typography>
+                  </Grid>
+                  <Grid size={6}>
+                    <Typography variant="caption" color="text.secondary">{t('stages.actualEnd')}:</Typography>
+                    <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>{formatDate(stage.actualEndDate)}</Typography>
+                  </Grid>
+                </Grid>
 
-            {/* Effort */}
-            <div className="grid grid-cols-2 gap-2 text-sm border-t pt-3">
-              <div>
-                <span className="text-gray-500">{t('stages.estimatedEffort')}:</span>
-                <span className="ml-1 font-medium">
-                  {displayEffort(stage.estimatedEffort || 0)} {unitLabel}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500">{t('stages.actualEffort')}:</span>
-                <span className="ml-1 font-medium">
-                  {displayEffort(stage.actualEffort || 0)} {unitLabel}
-                </span>
-              </div>
-            </div>
+                {/* Effort */}
+                <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1.5 }}>
+                  <Grid container spacing={1}>
+                    <Grid size={6}>
+                      <Typography variant="caption" color="text.secondary">{t('stages.estimatedEffort')}:</Typography>
+                      <Typography variant="body2" fontWeight={500} component="span" sx={{ ml: 0.5 }}>
+                        {displayEffort(stage.estimatedEffort || 0)} {unitLabel}
+                      </Typography>
+                    </Grid>
+                    <Grid size={6}>
+                      <Typography variant="caption" color="text.secondary">{t('stages.actualEffort')}:</Typography>
+                      <Typography variant="body2" fontWeight={500} component="span" sx={{ ml: 0.5 }}>
+                        {displayEffort(stage.actualEffort || 0)} {unitLabel}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
 
-            {/* View Details Link */}
-            <div className="mt-3 pt-3 border-t">
-              <button
-                onClick={() => handleStageClick(stage.id)}
-                className="text-sm text-primary-600 hover:text-primary-800 font-medium"
-              >
-                {t('stages.viewDetails')} &rarr;
-              </button>
-            </div>
-          </Card>
+                {/* View Details Link */}
+                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => handleStageClick(stage.id)}
+                    sx={{ p: 0, minWidth: 'auto' }}
+                  >
+                    {t('stages.viewDetails')} &rarr;
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         ))}
-      </div>
+      </Grid>
 
       {/* Edit Modal */}
       {editingStage && (
@@ -280,196 +314,219 @@ export function StagesOverviewPanel({
       )}
 
       {/* Quick Link Modal */}
-      <Modal
-        isOpen={quickLinkStageId !== null}
+      <Dialog
+        open={quickLinkStageId !== null}
         onClose={closeQuickLink}
-        title={t('stages.quickLinkTitle', { defaultValue: 'Quick Link Screen/Functions' })}
-        size="md"
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
       >
-        <div className="space-y-4">
-          {!quickLinkResult ? (
-            <>
-              <p className="text-sm text-gray-600">
-                {t('stages.quickLinkDescription', {
-                  defaultValue: 'Automatically link all Screen/Functions of a selected type to every step of this stage. Existing links will be skipped.',
-                })}
-              </p>
-
-              {/* Stage name context */}
-              {quickLinkStageId && (
-                <div className="bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-gray-500">{t('stages.stage', { defaultValue: 'Stage' })}:</span>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
-                    {stages?.find(s => s.id === quickLinkStageId)?.name}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({stages?.find(s => s.id === quickLinkStageId)?.stepsCount} {t('stages.steps')})
-                  </span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('stages.quickLinkSelectType', { defaultValue: 'Select type to link' })}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['Screen', 'Function', 'Other'] as ScreenFunctionType[]).map((type) => {
-                    const count = sfSummary?.byType?.[type] ?? 0;
-                    const isSelected = quickLinkType === type;
-                    const colorMap: Record<string, string> = {
-                      Screen: isSelected ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-purple-300',
-                      Function: isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300',
-                      Other: isSelected ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-200 hover:border-orange-300',
-                    };
-                    const badgeColor: Record<string, string> = {
-                      Screen: 'bg-purple-100 text-purple-800',
-                      Function: 'bg-blue-100 text-blue-800',
-                      Other: 'bg-orange-100 text-orange-800',
-                    };
-
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setQuickLinkType(type)}
-                        className={`p-3 rounded-lg border-2 text-center transition-all cursor-pointer ${colorMap[type]}`}
-                      >
-                        <span className={`inline-block px-2 py-0.5 text-xs rounded mb-1 ${badgeColor[type]}`}>
-                          {type}
-                        </span>
-                        <p className="text-lg font-semibold text-gray-900">{count}</p>
-                        <p className="text-xs text-gray-500">{t('stages.items', { defaultValue: 'items' })}</p>
-                      </button>
-                    );
+        <DialogTitle>{t('stages.quickLinkTitle', { defaultValue: 'Quick Link Screen/Functions' })}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {!quickLinkResult ? (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  {t('stages.quickLinkDescription', {
+                    defaultValue: 'Automatically link all Screen/Functions of a selected type to every step of this stage. Existing links will be skipped.',
                   })}
-                </div>
-              </div>
+                </Typography>
 
-              {quickLinkStageId && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">
-                    {t('stages.quickLinkPreview', { defaultValue: 'Preview' })}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {sfSummary?.byType?.[quickLinkType] ?? 0} {quickLinkType}(s) &times; {stages?.find(s => s.id === quickLinkStageId)?.stepsCount ?? 0} step(s) = {t('stages.upTo', { defaultValue: 'up to' })} <strong>{(sfSummary?.byType?.[quickLinkType] ?? 0) * (stages?.find(s => s.id === quickLinkStageId)?.stepsCount ?? 0)}</strong> {t('stages.tasks', { defaultValue: 'tasks' })}
-                  </p>
-                </div>
-              )}
-
-              {/* Assign Members Option */}
-              {(() => {
-                // Count how many screen functions of the selected type have default members
-                const sfIdsWithMembers = new Set(defaultMembers?.map(item => item.screenFunctionId) || []);
-                const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
-
-                return (
-                  <div className="border border-gray-200 rounded-lg p-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={quickLinkAssignMembers}
-                        onChange={(e) => setQuickLinkAssignMembers(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {t('stages.quickLinkAssignMembers', { defaultValue: 'Auto-assign default members' })}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {hasAnyDefaultMembers
-                            ? t('stages.quickLinkAssignMembersDesc', {
-                                defaultValue: 'Automatically assign default members configured in Screen/Functions tab to newly created tasks.',
-                              })
-                            : t('stages.quickLinkNoDefaultMembers', {
-                                defaultValue: 'No default members configured. Go to Screen/Functions tab to assign default members first.',
-                              })
-                          }
-                        </p>
-                        {hasAnyDefaultMembers && (
-                          <p className="text-xs text-indigo-600 mt-1">
-                            {sfIdsWithMembers.size} {t('stages.sfWithAssignees', { defaultValue: 'Screen/Function(s) with default assignees' })}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                );
-              })()}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="secondary" onClick={closeQuickLink}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={handleQuickLink}
-                  disabled={quickLinkMutation.isPending || (sfSummary?.byType?.[quickLinkType] ?? 0) === 0}
-                  loading={quickLinkMutation.isPending}
-                >
-                  {t('stages.quickLinkAction', { defaultValue: `Link ${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s)` })}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-center py-2">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  {t('stages.quickLinkComplete', { defaultValue: 'Quick Link Complete' })}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {t('stages.quickLinkCreated', {
-                    defaultValue: `Created ${quickLinkResult.created} new task(s), skipped ${quickLinkResult.skipped} existing`,
-                    created: quickLinkResult.created,
-                    skipped: quickLinkResult.skipped,
-                  })}
-                </p>
-                {quickLinkResult.membersAssigned > 0 && (
-                  <p className="text-sm text-indigo-600 mt-1">
-                    {t('stages.quickLinkMembersAssigned', {
-                      defaultValue: `${quickLinkResult.membersAssigned} member assignment(s) created`,
-                      count: quickLinkResult.membersAssigned,
-                    })}
-                  </p>
+                {/* Stage name context */}
+                {quickLinkStageId && (
+                  <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, px: 1.5, py: 1 }}>
+                    <Typography variant="caption" color="text.secondary">{t('stages.stage', { defaultValue: 'Stage' })}:</Typography>
+                    <Typography variant="body2" fontWeight={500} component="span" sx={{ ml: 1 }}>
+                      {stages?.find(s => s.id === quickLinkStageId)?.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      ({stages?.find(s => s.id === quickLinkStageId)?.stepsCount} {t('stages.steps')})
+                    </Typography>
+                  </Box>
                 )}
-              </div>
 
-              {quickLinkResult.details.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                    {t('stages.quickLinkDetails', { defaultValue: 'Details by step' })}
-                  </p>
-                  <div className="space-y-1">
-                    {quickLinkResult.details.map((d) => (
-                      <div key={d.stepId} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{d.stepName}</span>
-                        <div className="flex gap-3">
-                          <span className={d.linked > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
-                            +{d.linked} {t('stages.tasks', { defaultValue: 'tasks' })}
-                          </span>
-                          {d.membersAssigned > 0 && (
-                            <span className="text-indigo-600 font-medium">
-                              +{d.membersAssigned} {t('stages.assignees', { defaultValue: 'assignees' })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                <Box>
+                  <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                    {t('stages.quickLinkSelectType', { defaultValue: 'Select type to link' })}
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {(['Screen', 'Function', 'Other'] as ScreenFunctionType[]).map((type) => {
+                      const count = sfSummary?.byType?.[type] ?? 0;
+                      const isSelected = quickLinkType === type;
+                      const colorMap: Record<string, string> = {
+                        Screen: isSelected ? 'secondary.light' : 'background.paper',
+                        Function: isSelected ? 'primary.light' : 'background.paper',
+                        Other: isSelected ? 'warning.light' : 'background.paper',
+                      };
+                      const chipColorMap: Record<string, 'secondary' | 'primary' | 'warning'> = {
+                        Screen: 'secondary',
+                        Function: 'primary',
+                        Other: 'warning',
+                      };
 
-              <div className="flex justify-end pt-2">
-                <Button onClick={closeQuickLink}>
-                  {t('common.close', { defaultValue: 'Close' })}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
-    </div>
+                      return (
+                        <Grid key={type} size={4}>
+                          <Box
+                            onClick={() => setQuickLinkType(type)}
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: 2,
+                              borderColor: isSelected ? `${chipColorMap[type]}.main` : 'divider',
+                              bgcolor: colorMap[type],
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': { borderColor: `${chipColorMap[type]}.main` },
+                            }}
+                          >
+                            <Chip label={type} size="small" color={chipColorMap[type]} sx={{ mb: 0.5 }} />
+                            <Typography variant="h6" fontWeight={600}>{count}</Typography>
+                            <Typography variant="caption" color="text.secondary">{t('stages.items', { defaultValue: 'items' })}</Typography>
+                          </Box>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </Box>
+
+                {quickLinkStageId && (
+                  <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, p: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('stages.quickLinkPreview', { defaultValue: 'Preview' })}
+                    </Typography>
+                    <Typography variant="body2">
+                      {sfSummary?.byType?.[quickLinkType] ?? 0} {quickLinkType}(s) &times; {stages?.find(s => s.id === quickLinkStageId)?.stepsCount ?? 0} step(s) = {t('stages.upTo', { defaultValue: 'up to' })} <strong>{(sfSummary?.byType?.[quickLinkType] ?? 0) * (stages?.find(s => s.id === quickLinkStageId)?.stepsCount ?? 0)}</strong> {t('stages.tasks', { defaultValue: 'tasks' })}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Assign Members Option */}
+                {(() => {
+                  const sfIdsWithMembers = new Set(defaultMembers?.map(item => item.screenFunctionId) || []);
+                  const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
+
+                  return (
+                    <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={quickLinkAssignMembers}
+                            onChange={(e) => setQuickLinkAssignMembers(e.target.checked)}
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              {t('stages.quickLinkAssignMembers', { defaultValue: 'Auto-assign default members' })}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {hasAnyDefaultMembers
+                                ? t('stages.quickLinkAssignMembersDesc', {
+                                    defaultValue: 'Automatically assign default members configured in Screen/Functions tab to newly created tasks.',
+                                  })
+                                : t('stages.quickLinkNoDefaultMembers', {
+                                    defaultValue: 'No default members configured. Go to Screen/Functions tab to assign default members first.',
+                                  })
+                              }
+                            </Typography>
+                            {hasAnyDefaultMembers && (
+                              <Typography variant="caption" color="primary">
+                                {sfIdsWithMembers.size} {t('stages.sfWithAssignees', { defaultValue: 'Screen/Function(s) with default assignees' })}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </Box>
+                  );
+                })()}
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, pt: 1 }}>
+                  <Button variant="outlined" onClick={closeQuickLink}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleQuickLink}
+                    disabled={quickLinkMutation.isPending || (sfSummary?.byType?.[quickLinkType] ?? 0) === 0}
+                  >
+                    {quickLinkMutation.isPending ? <CircularProgress size={20} /> : t('stages.quickLinkAction', { defaultValue: `Link ${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s)` })}
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <>
+                <Box sx={{ textAlign: 'center', py: 1 }}>
+                  <Box sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    bgcolor: 'success.light',
+                    mb: 1.5,
+                  }}>
+                    <svg className="w-6 h-6" style={{ color: '#2e7d32' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </Box>
+                  <Typography variant="h6">
+                    {t('stages.quickLinkComplete', { defaultValue: 'Quick Link Complete' })}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('stages.quickLinkCreated', {
+                      defaultValue: `Created ${quickLinkResult.created} new task(s), skipped ${quickLinkResult.skipped} existing`,
+                      created: quickLinkResult.created,
+                      skipped: quickLinkResult.skipped,
+                    })}
+                  </Typography>
+                  {quickLinkResult.membersAssigned > 0 && (
+                    <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
+                      {t('stages.quickLinkMembersAssigned', {
+                        defaultValue: `${quickLinkResult.membersAssigned} member assignment(s) created`,
+                        count: quickLinkResult.membersAssigned,
+                      })}
+                    </Typography>
+                  )}
+                </Box>
+
+                {quickLinkResult.details.length > 0 && (
+                  <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, p: 1.5 }}>
+                    <Typography variant="caption" fontWeight={500} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {t('stages.quickLinkDetails', { defaultValue: 'Details by step' })}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+                      {quickLinkResult.details.map((d) => (
+                        <Box key={d.stepId} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2">{d.stepName}</Typography>
+                          <Box sx={{ display: 'flex', gap: 1.5 }}>
+                            <Typography variant="body2" color={d.linked > 0 ? 'success.main' : 'text.disabled'} fontWeight={d.linked > 0 ? 500 : 400}>
+                              +{d.linked} {t('stages.tasks', { defaultValue: 'tasks' })}
+                            </Typography>
+                            {d.membersAssigned > 0 && (
+                              <Typography variant="body2" color="primary" fontWeight={500}>
+                                +{d.membersAssigned} {t('stages.assignees', { defaultValue: 'assignees' })}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                  <Button variant="contained" onClick={closeQuickLink}>
+                    {t('common.close', { defaultValue: 'Close' })}
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }

@@ -2,7 +2,26 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
-import { Card, LoadingSpinner, Button, Input, EmptyState, ProgressBar, Select } from '@/components/common';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
+import Typography from '@mui/material/Typography';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import Chip from '@mui/material/Chip';
 import type { Member, StepScreenFunctionStatus } from '@/types';
 
 interface TaskWorkflowTableProps {
@@ -113,9 +132,9 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <CircularProgress size={40} />
+      </Box>
     );
   }
 
@@ -123,215 +142,336 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
   if (!workflowData?.stages || workflowData.stages.length === 0) {
     return (
       <Card>
-        <EmptyState
-          title={t('taskWorkflow.noWorkflow')}
-          description={t('taskWorkflow.initializeDescription')}
-        />
-        <div className="mt-4 text-center">
-          <Button
-            onClick={() => initializeMutation.mutate()}
-            disabled={initializeMutation.isPending}
-          >
-            {initializeMutation.isPending
-              ? t('common.loading')
-              : t('taskWorkflow.initialize')}
-          </Button>
-        </div>
+        <CardContent>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {t('taskWorkflow.noWorkflow')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('taskWorkflow.initializeDescription')}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => initializeMutation.mutate()}
+              disabled={initializeMutation.isPending}
+            >
+              {initializeMutation.isPending
+                ? t('common.loading')
+                : t('taskWorkflow.initialize')}
+            </Button>
+          </Box>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Progress Overview */}
       <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold">{t('taskWorkflow.progress')}</h3>
-            <p className="text-sm text-gray-500">
-              {workflowData.progress.completed} / {workflowData.progress.total} {t('taskWorkflow.stepsCompleted')}
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-2xl font-bold text-primary-600">
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>{t('taskWorkflow.progress')}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {workflowData.progress.completed} / {workflowData.progress.total} {t('taskWorkflow.stepsCompleted')}
+              </Typography>
+            </Box>
+            <Typography variant="h4" fontWeight={700} color="primary">
               {workflowData.progress.percentage}%
-            </span>
-          </div>
-        </div>
-        <ProgressBar progress={workflowData.progress.percentage} />
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={workflowData.progress.percentage}
+            sx={{ height: 8, borderRadius: 1 }}
+          />
+        </CardContent>
       </Card>
 
       {/* Filters and Actions */}
       <Card>
-        <div className="flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex flex-wrap gap-4 items-center">
-            {/* Screen Filter */}
-            <div className="w-64">
-              <Input
+        <CardContent>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+              {/* Screen Filter */}
+              <TextField
+                size="small"
                 placeholder={t('taskWorkflow.filterByScreen')}
                 value={screenFilter}
                 onChange={(e) => setScreenFilter(e.target.value)}
+                sx={{ width: 256 }}
               />
-            </div>
 
-            {/* Stage Filter */}
-            <Select
-              value={stageFilter || ''}
-              onChange={(e) => setStageFilter(e.target.value ? parseInt(e.target.value as string) : null)}
-              options={[
-                { value: '', label: t('taskWorkflow.allStages') },
-                ...workflowData.stages.map((stage) => ({
-                  value: stage.id,
-                  label: stage.name,
-                })),
-              ]}
-              fullWidth={false}
-            />
+              {/* Stage Filter */}
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>{t('taskWorkflow.stage')}</InputLabel>
+                <Select
+                  value={stageFilter || ''}
+                  onChange={(e) => setStageFilter(e.target.value ? Number(e.target.value) : null)}
+                  label={t('taskWorkflow.stage')}
+                  MenuProps={{ disableScrollLock: true }}
+                >
+                  <MenuItem value="">{t('taskWorkflow.allStages')}</MenuItem>
+                  {workflowData.stages.map((stage) => (
+                    <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-            {/* Status Filter */}
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'incomplete')}
-              options={[
-                { value: 'all', label: t('taskWorkflow.allStatus') },
-                { value: 'completed', label: t('taskWorkflow.completed') },
-                { value: 'incomplete', label: t('taskWorkflow.incomplete') },
-              ]}
-              fullWidth={false}
-            />
-          </div>
+              {/* Status Filter */}
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>{t('taskWorkflow.status')}</InputLabel>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'incomplete')}
+                  label={t('taskWorkflow.status')}
+                  MenuProps={{ disableScrollLock: true }}
+                >
+                  <MenuItem value="all">{t('taskWorkflow.allStatus')}</MenuItem>
+                  <MenuItem value="completed">{t('taskWorkflow.completed')}</MenuItem>
+                  <MenuItem value="incomplete">{t('taskWorkflow.incomplete')}</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
 
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => refetch()}>
-              {t('common.refresh')}
-            </Button>
-            <Button onClick={handleExport}>
-              {t('taskWorkflow.exportExcel')}
-            </Button>
-          </div>
-        </div>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="outlined" onClick={() => refetch()}>
+                {t('common.refresh')}
+              </Button>
+              <Button variant="contained" onClick={handleExport}>
+                {t('taskWorkflow.exportExcel')}
+              </Button>
+            </Box>
+          </Box>
+        </CardContent>
       </Card>
 
       {/* Workflow Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              {/* Stage Header Row */}
-              <tr className="bg-gray-100">
-                <th className="sticky left-0 z-20 bg-gray-100 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                  No
-                </th>
-                <th className="sticky left-12 z-20 bg-gray-100 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
-                  Screen
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                  Note
-                </th>
-                {workflowData.stages.map((stage) => (
-                  <th
-                    key={stage.id}
-                    colSpan={(stage.steps || []).length}
-                    className="px-2 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider bg-gray-200"
-                    style={{ backgroundColor: stage.color || undefined }}
-                  >
-                    {stage.name}
-                    <span className="ml-1 text-gray-500">({(stage.steps || []).length})</span>
-                  </th>
-                ))}
-                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                  Release
-                </th>
-              </tr>
+      <TableContainer component={Paper} sx={{ maxHeight: 'calc(100vh - 300px)' }}>
+        <Table stickyHeader size="small" sx={{ minWidth: 'max-content' }}>
+          <TableHead>
+            {/* Stage Header Row */}
+            <TableRow>
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 3,
+                  bgcolor: 'grey.100',
+                  width: 48,
+                  fontWeight: 500,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'text.secondary',
+                }}
+              >
+                No
+              </TableCell>
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 48,
+                  zIndex: 3,
+                  bgcolor: 'grey.100',
+                  minWidth: 200,
+                  fontWeight: 500,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'text.secondary',
+                }}
+              >
+                Screen
+              </TableCell>
+              <TableCell
+                sx={{
+                  bgcolor: 'grey.100',
+                  minWidth: 150,
+                  fontWeight: 500,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'text.secondary',
+                }}
+              >
+                Note
+              </TableCell>
+              {workflowData.stages.map((stage) => (
+                <TableCell
+                  key={stage.id}
+                  colSpan={(stage.steps || []).length}
+                  align="center"
+                  sx={{
+                    bgcolor: stage.color || 'grey.200',
+                    fontWeight: 500,
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'text.primary',
+                  }}
+                >
+                  {stage.name}
+                  <Typography component="span" sx={{ ml: 0.5, color: 'text.secondary' }}>
+                    ({(stage.steps || []).length})
+                  </Typography>
+                </TableCell>
+              ))}
+              <TableCell
+                align="center"
+                sx={{
+                  bgcolor: 'grey.100',
+                  width: 80,
+                  fontWeight: 500,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'text.secondary',
+                }}
+              >
+                Release
+              </TableCell>
+            </TableRow>
 
-              {/* Step Header Row */}
-              <tr className="bg-gray-50">
-                <th className="sticky left-0 z-20 bg-gray-50 px-3 py-2"></th>
-                <th className="sticky left-12 z-20 bg-gray-50 px-3 py-2"></th>
-                <th className="px-3 py-2"></th>
-                {allSteps.map((step) => (
-                  <th
-                    key={step.id}
-                    className="px-1 py-2 text-center text-xs font-medium text-gray-600 tracking-wider whitespace-nowrap"
-                    title={`${step.stageName} - ${step.name}`}
-                  >
-                    {step.name}
-                  </th>
-                ))}
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
+            {/* Step Header Row */}
+            <TableRow>
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 3,
+                  bgcolor: 'grey.50',
+                }}
+              />
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 48,
+                  zIndex: 3,
+                  bgcolor: 'grey.50',
+                }}
+              />
+              <TableCell sx={{ bgcolor: 'grey.50' }} />
+              {allSteps.map((step) => (
+                <TableCell
+                  key={step.id}
+                  align="center"
+                  title={`${step.stageName} - ${step.name}`}
+                  sx={{
+                    bgcolor: 'grey.50',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                    px: 0.5,
+                  }}
+                >
+                  {step.name}
+                </TableCell>
+              ))}
+              <TableCell sx={{ bgcolor: 'grey.50' }} />
+            </TableRow>
+          </TableHead>
 
-            <tbody className="bg-white divide-y divide-gray-200">
-              {workflowData.screenFunctions.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4 + allSteps.length}
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    {t('taskWorkflow.noScreenFunctions')}
-                  </td>
-                </tr>
-              ) : (
-                workflowData.screenFunctions.map((sf, index) => {
-                  const releasePercentage = calculateReleasePercentage(sf.id);
-                  return (
-                    <tr key={sf.id} className="hover:bg-gray-50">
-                      <td className="sticky left-0 z-10 bg-white px-3 py-2 text-sm text-gray-500">
-                        {index + 1}
-                      </td>
-                      <td className="sticky left-12 z-10 bg-white px-3 py-2">
-                        <div className="text-sm font-medium text-gray-900">{sf.name}</div>
-                        <div className="text-xs text-gray-500">{sf.type}</div>
-                      </td>
-                      <td className="px-3 py-2 text-sm text-gray-500 max-w-[150px] truncate" title={sf.description}>
-                        {sf.description || '-'}
-                      </td>
-                      {allSteps.map((step) => {
-                        const status = getStepScreenFunctionStatus(sf.id, step.id);
-                        return (
-                          <td
-                            key={`${sf.id}-${step.id}`}
-                            className="px-1 py-2 text-center"
-                            title={status ? t(`screenFunction.status${status.replace(' ', '')}`) : t('taskWorkflow.notLinked')}
-                          >
-                            {status === null ? (
-                              // Not linked - show dash
-                              <span className="text-gray-400">-</span>
-                            ) : status === 'Completed' ? (
-                              // Completed - show checkmark
-                              <span className="text-green-600">✓</span>
-                            ) : status === 'Skipped' ? (
-                              // Skipped - show skip symbol
-                              <span className="text-gray-400">○</span>
-                            ) : (
-                              // Not Started or In Progress - show empty box
-                              <span className="text-gray-400">☐</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            releasePercentage === 100
-                              ? 'bg-green-100 text-green-800'
-                              : releasePercentage >= 50
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
+          <TableBody>
+            {workflowData.screenFunctions.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={4 + allSteps.length}
+                  align="center"
+                  sx={{ py: 6, color: 'text.secondary' }}
+                >
+                  {t('taskWorkflow.noScreenFunctions')}
+                </TableCell>
+              </TableRow>
+            ) : (
+              workflowData.screenFunctions.map((sf, index) => {
+                const releasePercentage = calculateReleasePercentage(sf.id);
+                return (
+                  <TableRow key={sf.id} hover>
+                    <TableCell
+                      sx={{
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        fontSize: '0.875rem',
+                        color: 'text.secondary',
+                      }}
+                    >
+                      {index + 1}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        position: 'sticky',
+                        left: 48,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight={500}>
+                        {sf.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {sf.type}
+                      </Typography>
+                    </TableCell>
+                    <TableCell
+                      title={sf.description}
+                      sx={{
+                        fontSize: '0.875rem',
+                        color: 'text.secondary',
+                        maxWidth: 150,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {sf.description || '-'}
+                    </TableCell>
+                    {allSteps.map((step) => {
+                      const status = getStepScreenFunctionStatus(sf.id, step.id);
+                      return (
+                        <TableCell
+                          key={`${sf.id}-${step.id}`}
+                          align="center"
+                          title={status ? t(`screenFunction.status${status.replace(' ', '')}`) : t('taskWorkflow.notLinked')}
+                          sx={{ px: 0.5 }}
                         >
-                          {releasePercentage}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+                          {status === null ? (
+                            <Typography color="text.disabled">-</Typography>
+                          ) : status === 'Completed' ? (
+                            <Typography color="success.main">✓</Typography>
+                          ) : status === 'Skipped' ? (
+                            <Typography color="text.disabled">○</Typography>
+                          ) : (
+                            <Typography color="text.disabled">☐</Typography>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell align="center">
+                      <Chip
+                        label={`${releasePercentage}%`}
+                        size="small"
+                        color={
+                          releasePercentage === 100
+                            ? 'success'
+                            : releasePercentage >= 50
+                            ? 'warning'
+                            : 'default'
+                        }
+                        sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }
