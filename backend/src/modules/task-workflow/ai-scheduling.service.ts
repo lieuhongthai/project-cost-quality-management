@@ -251,7 +251,7 @@ export class AISchedulingService {
       return {
         success: true,
         source: 'Template',
-        data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, settings),
+        data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, members, settings, project),
       };
     }
   }
@@ -780,14 +780,33 @@ Consider:
     `.trim();
   }
 
+  private addWorkingDays(startDate: Date, days: number, nonWorkingDays: number[] = [0, 6]): Date {
+    const result = new Date(startDate);
+    let added = 0;
+    while (added < days) {
+      result.setDate(result.getDate() + 1);
+      if (!nonWorkingDays.includes(result.getDay())) {
+        added++;
+      }
+    }
+    return result;
+  }
+
+  private formatDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
+
   private generateTemplateStageEstimation(
     stages: WorkflowStage[],
     stageContext: Array<any>,
     screenFunctions: ScreenFunction[],
+    members: Member[],
     settings: any,
+    project: any,
   ) {
     const workingHoursPerDay = settings?.workingHoursPerDay || 8;
     const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+    const nonWorkingDays = settings?.nonWorkingDays || [0, 6];
 
     // Calculate total SF effort as baseline
     const totalSFEffort = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
@@ -810,6 +829,13 @@ Consider:
       'User Test': 0.10,
     };
 
+    // Team capacity: parallel work factor (how many people can work simultaneously)
+    const activeMembers = members.filter(m => m.status === 'Active');
+    const parallelFactor = Math.max(1, Math.min(activeMembers.length, 3)); // cap at 3 for realistic parallelism
+
+    // Calculate start date for sequential stages
+    let currentDate = new Date(project.startDate || new Date().toISOString().split('T')[0]);
+
     const estimates = stages.map(stage => {
       const ctx = stageContext.find(c => c.stageId === stage.id);
       // Use existing step effort if available, otherwise use distribution
@@ -819,10 +845,22 @@ Consider:
         ? effortFromSteps
         : Math.round(baseTotalEffort * distribution);
 
+      // Calculate calendar days: effort hours / (hours per day * parallel workers)
+      const calendarDays = Math.max(1, Math.ceil(estimatedHours / (workingHoursPerDay * parallelFactor)));
+
+      const suggestedStartDate = this.formatDate(currentDate);
+      const endDate = this.addWorkingDays(currentDate, calendarDays, nonWorkingDays);
+      const suggestedEndDate = this.formatDate(endDate);
+
+      // Next stage starts the working day after this stage ends
+      currentDate = this.addWorkingDays(endDate, 1, nonWorkingDays);
+
       return {
         stageId: stage.id,
         stageName: stage.name,
         estimatedEffortHours: estimatedHours,
+        suggestedStartDate,
+        suggestedEndDate,
         confidence: 'low' as const,
         reasoning: effortFromSteps > 0
           ? `Based on ${ctx?.linkedScreenFunctions} linked step-screen functions totaling ${effortFromSteps}h`
@@ -842,6 +880,8 @@ Consider:
         'Standard effort distribution: Req 10%, Design 15%, Coding 30%, UT 15%, IT 10%, ST 10%, UAT 10%',
         `Working: ${workingHoursPerDay}h/day, ${workingDaysPerMonth} days/month`,
         `Base total effort: ${baseTotalEffort}h from ${screenFunctions.length} screen functions`,
+        `Parallel factor: ${parallelFactor} members working simultaneously`,
+        'Stages are sequential (each stage starts after the previous one ends)',
       ],
     };
   }
