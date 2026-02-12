@@ -75,7 +75,7 @@ export class AISchedulingService {
     try {
       const languageInstruction = this.getLanguageInstruction(language);
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -152,7 +152,7 @@ export class AISchedulingService {
     try {
       const languageInstruction = this.getLanguageInstruction(language);
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -224,7 +224,7 @@ export class AISchedulingService {
     try {
       const languageInstruction = this.getLanguageInstruction(language);
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
