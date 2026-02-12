@@ -11,8 +11,10 @@ import { TaskWorkflowService } from './task-workflow.service';
 import OpenAI from 'openai';
 import {
   AIEstimateEffortDto,
+  AIEstimateStageEffortDto,
   AIGenerateScheduleDto,
   ApplyAIEstimationDto,
+  ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
 } from './ai-scheduling.dto';
 
@@ -27,6 +29,8 @@ export class AISchedulingService {
     private stepScreenFunctionRepository: typeof StepScreenFunction,
     @Inject('STEP_SCREEN_FUNCTION_MEMBER_REPOSITORY')
     private stepScreenFunctionMemberRepository: typeof StepScreenFunctionMember,
+    @Inject('WORKFLOW_STAGE_REPOSITORY')
+    private stageRepository: typeof WorkflowStage,
     @Inject(forwardRef(() => MemberService))
     private memberService: MemberService,
     @Inject(forwardRef(() => ProjectService))
@@ -181,7 +185,103 @@ export class AISchedulingService {
     }
   }
 
+  // ===== Stage Effort Estimation =====
+
+  async estimateStageEffort(dto: AIEstimateStageEffortDto) {
+    const { projectId, stageIds, language = 'English' } = dto;
+
+    // Fetch stages
+    const allStages = await this.taskWorkflowService.findAllStages(projectId);
+    const stages = stageIds && stageIds.length > 0
+      ? allStages.filter(s => stageIds.includes(s.id))
+      : allStages;
+
+    if (stages.length === 0) {
+      throw new BadRequestException('No workflow stages found for this project');
+    }
+
+    // Fetch screen functions to understand project scope
+    const screenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId },
+    });
+
+    // Fetch team members
+    const members = await this.memberService.findActiveByProject(projectId);
+
+    // Fetch project settings
+    const project = await this.projectService.findOne(projectId);
+    const settings = await this.projectService.getSettings(projectId);
+
+    // Fetch historical stage data
+    const historicalData = await this.getHistoricalData(projectId);
+
+    // Get step-screen function counts per stage for context
+    const stageContext = await this.getStageContext(stages);
+
+    // Build prompt
+    const prompt = this.buildStageEffortPrompt(stages, stageContext, screenFunctions, members, historicalData, settings, project);
+
+    try {
+      const languageInstruction = this.getLanguageInstruction(language);
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a software project estimation expert. Analyze workflow stages, screen functions scope, and team composition to provide accurate stage-level effort estimates. Each stage represents a phase of software development (e.g., Requirement, Design, Coding, Testing). ${languageInstruction} You MUST respond with a valid JSON object.`,
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || '{}');
+      return {
+        success: true,
+        source: 'AI',
+        data: result,
+      };
+    } catch (error) {
+      console.error('AI stage effort estimation error:', error);
+      return {
+        success: true,
+        source: 'Template',
+        data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, settings),
+      };
+    }
+  }
+
   // ===== Apply Results =====
+
+  async applyStageEstimation(dto: ApplyAIStageEstimationDto) {
+    const { projectId, estimates } = dto;
+
+    const results: Array<{ stageId: number; updated: boolean }> = [];
+
+    for (const estimate of estimates) {
+      try {
+        const stage = await this.stageRepository.findByPk(estimate.stageId);
+        if (stage && stage.projectId === projectId) {
+          const updateData: any = { estimatedEffort: estimate.estimatedEffortHours };
+          if (estimate.startDate) updateData.startDate = estimate.startDate;
+          if (estimate.endDate) updateData.endDate = estimate.endDate;
+          await stage.update(updateData);
+          results.push({ stageId: estimate.stageId, updated: true });
+        } else {
+          results.push({ stageId: estimate.stageId, updated: false });
+        }
+      } catch (error) {
+        results.push({ stageId: estimate.stageId, updated: false });
+      }
+    }
+
+    return { success: true, results };
+  }
 
   async applyEstimation(dto: ApplyAIEstimationDto) {
     const { projectId, estimates } = dto;
@@ -537,6 +637,211 @@ Rules:
         'Template-based estimation (AI unavailable)',
         `Simple=8h, Medium=24h, Complex=56h`,
         `Working: ${workingHoursPerDay}h/day, ${workingDaysPerMonth} days/month`,
+      ],
+    };
+  }
+
+  private async getStageContext(stages: WorkflowStage[]) {
+    const context: Array<{
+      stageId: number;
+      stageName: string;
+      stepCount: number;
+      linkedScreenFunctions: number;
+      totalEstimatedEffort: number;
+    }> = [];
+
+    for (const stage of stages) {
+      const steps = await this.taskWorkflowService.findAllSteps(stage.id);
+      const stepIds = steps.map(s => s.id);
+
+      let linkedSFs = 0;
+      let totalEffort = 0;
+      if (stepIds.length > 0) {
+        const ssfs = await this.stepScreenFunctionRepository.findAll({
+          where: { stepId: stepIds },
+        });
+        linkedSFs = ssfs.length;
+        totalEffort = ssfs.reduce((sum, s) => sum + (s.estimatedEffort || 0), 0);
+      }
+
+      context.push({
+        stageId: stage.id,
+        stageName: stage.name,
+        stepCount: steps.length,
+        linkedScreenFunctions: linkedSFs,
+        totalEstimatedEffort: totalEffort,
+      });
+    }
+
+    return context;
+  }
+
+  private buildStageEffortPrompt(
+    stages: WorkflowStage[],
+    stageContext: Array<any>,
+    screenFunctions: ScreenFunction[],
+    members: Member[],
+    historicalData: any,
+    settings: any,
+    project: any,
+  ): string {
+    const stageList = stages.map(s => {
+      const ctx = stageContext.find(c => c.stageId === s.id);
+      return {
+        id: s.id,
+        name: s.name,
+        displayOrder: s.displayOrder,
+        currentEstimatedEffort: s.estimatedEffort || 0,
+        currentStartDate: s.startDate || null,
+        currentEndDate: s.endDate || null,
+        stepCount: ctx?.stepCount || 0,
+        linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
+        existingStepEffort: ctx?.totalEstimatedEffort || 0,
+      };
+    });
+
+    const sfSummary = {
+      total: screenFunctions.length,
+      byComplexity: {
+        Simple: screenFunctions.filter(sf => sf.complexity === 'Simple').length,
+        Medium: screenFunctions.filter(sf => sf.complexity === 'Medium').length,
+        Complex: screenFunctions.filter(sf => sf.complexity === 'Complex').length,
+      },
+      byType: {
+        Screen: screenFunctions.filter(sf => sf.type === 'Screen').length,
+        Function: screenFunctions.filter(sf => sf.type === 'Function').length,
+        Other: screenFunctions.filter(sf => sf.type === 'Other').length,
+      },
+      totalCurrentEstimate: screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0),
+    };
+
+    const teamSummary = {
+      totalMembers: members.length,
+      byRole: members.reduce((acc, m) => {
+        acc[m.role] = (acc[m.role] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      avgExperience: members.length > 0
+        ? (members.reduce((sum, m) => sum + (m.yearsOfExperience || 0), 0) / members.length).toFixed(1)
+        : 0,
+    };
+
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+    const projectStartDate = project.startDate || new Date().toISOString().split('T')[0];
+
+    return `
+Estimate the effort (in man-hours) for each workflow stage below.
+Each stage represents a phase in the software development lifecycle.
+
+Project: ${project.name}
+Project Start Date: ${projectStartDate}
+Working hours/day: ${workingHoursPerDay}
+Working days/month: ${workingDaysPerMonth}
+
+Team Composition:
+${JSON.stringify(teamSummary, null, 2)}
+
+Screen Functions Summary (project scope):
+${JSON.stringify(sfSummary, null, 2)}
+
+Historical Performance Data:
+${JSON.stringify(historicalData, null, 2)}
+
+Workflow Stages to Estimate:
+${JSON.stringify(stageList, null, 2)}
+
+Respond with a JSON object in this exact format:
+{
+  "estimates": [
+    {
+      "stageId": <number>,
+      "stageName": "<string>",
+      "estimatedEffortHours": <number>,
+      "suggestedStartDate": "YYYY-MM-DD",
+      "suggestedEndDate": "YYYY-MM-DD",
+      "confidence": "high" | "medium" | "low",
+      "reasoning": "<brief explanation>",
+      "effortDistribution": "<percentage of total project effort>"
+    }
+  ],
+  "totalEstimatedHours": <number>,
+  "totalEstimatedManMonths": <number>,
+  "assumptions": ["<string>"]
+}
+
+Consider:
+- Typical software effort distribution: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
+- Adjust based on project complexity (number and complexity of screen functions)
+- Team size affects calendar duration but not total effort
+- If step-screen function links exist, use their effort as a baseline
+- Stages should be sequential; end date of one stage = start date of next
+- Skip weekends for date calculations
+    `.trim();
+  }
+
+  private generateTemplateStageEstimation(
+    stages: WorkflowStage[],
+    stageContext: Array<any>,
+    screenFunctions: ScreenFunction[],
+    settings: any,
+  ) {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    // Calculate total SF effort as baseline
+    const totalSFEffort = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    // If no SF effort, estimate based on count and complexity
+    const baseTotalEffort = totalSFEffort > 0
+      ? totalSFEffort
+      : screenFunctions.reduce((sum, sf) => {
+          const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
+          return sum + mult;
+        }, 0) || 160; // default 160h (1 man-month) if no SFs
+
+    // Typical effort distribution by stage name
+    const stageDistribution: Record<string, number> = {
+      'Requirement': 0.10,
+      'Functional Design': 0.15,
+      'Coding': 0.30,
+      'Unit Test': 0.15,
+      'Integration Test': 0.10,
+      'System Test': 0.10,
+      'User Test': 0.10,
+    };
+
+    const estimates = stages.map(stage => {
+      const ctx = stageContext.find(c => c.stageId === stage.id);
+      // Use existing step effort if available, otherwise use distribution
+      const distribution = stageDistribution[stage.name] || (1 / stages.length);
+      const effortFromSteps = ctx?.totalEstimatedEffort || 0;
+      const estimatedHours = effortFromSteps > 0
+        ? effortFromSteps
+        : Math.round(baseTotalEffort * distribution);
+
+      return {
+        stageId: stage.id,
+        stageName: stage.name,
+        estimatedEffortHours: estimatedHours,
+        confidence: 'low' as const,
+        reasoning: effortFromSteps > 0
+          ? `Based on ${ctx?.linkedScreenFunctions} linked step-screen functions totaling ${effortFromSteps}h`
+          : `Template: ${(distribution * 100).toFixed(0)}% of total project effort (${baseTotalEffort}h)`,
+        effortDistribution: `${(distribution * 100).toFixed(0)}%`,
+      };
+    });
+
+    const totalHours = estimates.reduce((sum, e) => sum + e.estimatedEffortHours, 0);
+
+    return {
+      estimates,
+      totalEstimatedHours: totalHours,
+      totalEstimatedManMonths: +(totalHours / (workingHoursPerDay * workingDaysPerMonth)).toFixed(2),
+      assumptions: [
+        'Template-based estimation (AI unavailable)',
+        'Standard effort distribution: Req 10%, Design 15%, Coding 30%, UT 15%, IT 10%, ST 10%, UAT 10%',
+        `Working: ${workingHoursPerDay}h/day, ${workingDaysPerMonth} days/month`,
+        `Base total effort: ${baseTotalEffort}h from ${screenFunctions.length} screen functions`,
       ],
     };
   }

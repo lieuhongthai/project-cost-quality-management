@@ -400,10 +400,14 @@ export const taskWorkflowApi = {
   // ===== AI Scheduling =====
   aiEstimateEffort: (data: { projectId: number; screenFunctionIds?: number[]; stageId?: number; language?: string }) =>
     api.post('/task-workflow/ai/estimate-effort', data),
+  aiEstimateStageEffort: (data: { projectId: number; stageIds?: number[]; language?: string }) =>
+    api.post('/task-workflow/ai/estimate-stage-effort', data),
   aiGenerateSchedule: (data: { projectId: number; stageId: number; language?: string }) =>
     api.post('/task-workflow/ai/generate-schedule', data),
   aiApplyEstimation: (data: { projectId: number; estimates: Array<{ screenFunctionId: number; estimatedEffortHours: number }> }) =>
     api.post('/task-workflow/ai/apply-estimation', data),
+  aiApplyStageEstimation: (data: { projectId: number; estimates: Array<{ stageId: number; estimatedEffortHours: number; startDate?: string; endDate?: string }> }) =>
+    api.post('/task-workflow/ai/apply-stage-estimation', data),
   aiApplySchedule: (data: { assignments: Array<{ stepScreenFunctionId: number; memberId: number; estimatedEffort: number; estimatedStartDate: string; estimatedEndDate: string }> }) =>
     api.post('/task-workflow/ai/apply-schedule', data),
 };

@@ -54,6 +54,49 @@ export class ApplyAIEstimationDto {
   estimates: EstimateItem[];
 }
 
+export class AIEstimateStageEffortDto {
+  @IsNotEmpty()
+  @IsNumber()
+  projectId: number;
+
+  @IsOptional()
+  @IsArray()
+  stageIds?: number[];
+
+  @IsOptional()
+  @IsString()
+  language?: 'English' | 'Vietnamese' | 'Japanese';
+}
+
+class StageEstimateItem {
+  @IsNotEmpty()
+  @IsNumber()
+  stageId: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  estimatedEffortHours: number;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+}
+
+export class ApplyAIStageEstimationDto {
+  @IsNotEmpty()
+  @IsNumber()
+  projectId: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StageEstimateItem)
+  estimates: StageEstimateItem[];
+}
+
 class ScheduleAssignment {
   @IsNotEmpty()
   @IsNumber()

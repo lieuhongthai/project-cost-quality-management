@@ -15,8 +15,10 @@ import { TaskWorkflowService } from './task-workflow.service';
 import { AISchedulingService } from './ai-scheduling.service';
 import {
   AIEstimateEffortDto,
+  AIEstimateStageEffortDto,
   AIGenerateScheduleDto,
   ApplyAIEstimationDto,
+  ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
 } from './ai-scheduling.dto';
 import {
@@ -645,6 +647,11 @@ export class TaskWorkflowController {
     return this.aiSchedulingService.estimateEffort(dto);
   }
 
+  @Post('ai/estimate-stage-effort')
+  estimateStageEffort(@Body() dto: AIEstimateStageEffortDto) {
+    return this.aiSchedulingService.estimateStageEffort(dto);
+  }
+
   @Post('ai/generate-schedule')
   generateSchedule(@Body() dto: AIGenerateScheduleDto) {
     return this.aiSchedulingService.generateSchedule(dto);
@@ -653,6 +660,11 @@ export class TaskWorkflowController {
   @Post('ai/apply-estimation')
   applyEstimation(@Body() dto: ApplyAIEstimationDto) {
     return this.aiSchedulingService.applyEstimation(dto);
+  }
+
+  @Post('ai/apply-stage-estimation')
+  applyStageEstimation(@Body() dto: ApplyAIStageEstimationDto) {
+    return this.aiSchedulingService.applyStageEstimation(dto);
   }
 
   @Post('ai/apply-schedule')
