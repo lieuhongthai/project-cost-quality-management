@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
+import { taskWorkflowApi, screenFunctionApi, memberApi, projectApi } from '@/services/api';
 import { Modal, Button, LoadingSpinner } from '@/components/common';
-import { BrainCircuit, CalendarDays, Sparkles } from 'lucide-react';
+import { BrainCircuit, CalendarDays, Sparkles, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 interface AISchedulingDialogProps {
   open: boolean;
@@ -14,6 +14,24 @@ interface AISchedulingDialogProps {
 
 type TabType = 'estimate' | 'schedule';
 
+function ReadinessItem({ ready, label, detail }: { ready: boolean; label: string; detail: string }) {
+  return (
+    <div className="flex items-start gap-2 py-1">
+      {ready ? (
+        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+      ) : (
+        <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+      )}
+      <div>
+        <span className={`text-sm font-medium ${ready ? 'text-green-700' : 'text-amber-700'}`}>
+          {label}
+        </span>
+        <p className="text-xs text-gray-500">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
 export function AISchedulingDialog({ open, onClose, projectId, stages }: AISchedulingDialogProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('estimate');
@@ -22,6 +40,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
   const [estimationResult, setEstimationResult] = useState<any>(null);
   const [scheduleResult, setScheduleResult] = useState<any>(null);
 
+  // Fetch data for readiness check
   const { data: screenFunctions } = useQuery({
     queryKey: ['screenFunctions', projectId],
     queryFn: async () => {
@@ -30,6 +49,39 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
     },
     enabled: open,
   });
+
+  const { data: members } = useQuery({
+    queryKey: ['members', projectId],
+    queryFn: async () => {
+      const res = await memberApi.getByProject(projectId);
+      return res.data;
+    },
+    enabled: open,
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ['projectSettings', projectId],
+    queryFn: async () => {
+      const res = await projectApi.getSettings(projectId);
+      return res.data;
+    },
+    enabled: open,
+  });
+
+  // Calculate readiness
+  const sfCount = screenFunctions?.length || 0;
+  const sfWithComplexity = screenFunctions?.filter((sf: any) => sf.complexity && sf.complexity !== 'Medium').length || 0;
+  const memberCount = members?.length || 0;
+  const activeMembers = members?.filter((m: any) => m.status === 'Active').length || 0;
+  const membersWithRole = members?.filter((m: any) => m.role).length || 0;
+  const membersWithSkills = members?.filter((m: any) => m.skills && m.skills.length > 0).length || 0;
+  const membersWithRate = members?.filter((m: any) => m.hourlyRate && m.hourlyRate > 0).length || 0;
+  const hasSettings = !!settings;
+  const hasStages = stages.length > 0;
+
+  // Readiness scores
+  const estimateReady = sfCount > 0 && memberCount > 0;
+  const scheduleReady = estimateReady && hasStages;
 
   const estimateMutation = useMutation({
     mutationFn: () =>
@@ -135,15 +187,59 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
               {t('ai.estimateDescription')}
             </p>
 
-            <div className="mb-4">
-              <p className="text-sm text-gray-500">
-                {t('ai.screenFunctions')}: {screenFunctions?.length || 0}
-              </p>
+            {/* Prerequisites / Readiness Check */}
+            <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 text-blue-500" />
+                <h4 className="text-sm font-semibold text-slate-700">{t('ai.prereq.title')}</h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                {/* Required */}
+                <ReadinessItem
+                  ready={sfCount > 0}
+                  label={t('ai.prereq.screenFunctions', { count: sfCount })}
+                  detail={t('ai.prereq.screenFunctionsDetail')}
+                />
+                <ReadinessItem
+                  ready={activeMembers > 0}
+                  label={t('ai.prereq.activeMembers', { count: activeMembers })}
+                  detail={t('ai.prereq.activeMembersDetail')}
+                />
+
+                {/* Recommended */}
+                <ReadinessItem
+                  ready={sfWithComplexity > 0 || sfCount === 0}
+                  label={t('ai.prereq.complexity', { count: sfWithComplexity, total: sfCount })}
+                  detail={t('ai.prereq.complexityDetail')}
+                />
+                <ReadinessItem
+                  ready={membersWithRole === memberCount && memberCount > 0}
+                  label={t('ai.prereq.memberRoles', { count: membersWithRole, total: memberCount })}
+                  detail={t('ai.prereq.memberRolesDetail')}
+                />
+                <ReadinessItem
+                  ready={membersWithSkills > 0}
+                  label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })}
+                  detail={t('ai.prereq.memberSkillsDetail')}
+                />
+                <ReadinessItem
+                  ready={hasSettings}
+                  label={t('ai.prereq.projectSettings')}
+                  detail={t('ai.prereq.projectSettingsDetail')}
+                />
+              </div>
+
+              {!estimateReady && (
+                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                  {t('ai.prereq.estimateNotReady')}
+                </div>
+              )}
             </div>
 
             <Button
               onClick={() => estimateMutation.mutate()}
-              disabled={estimateMutation.isPending}
+              disabled={estimateMutation.isPending || !estimateReady}
             >
               <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
               {estimateMutation.isPending ? t('ai.analyzing') : t('ai.runEstimation')}
@@ -247,6 +343,53 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
               {t('ai.scheduleDescription')}
             </p>
 
+            {/* Prerequisites / Readiness Check */}
+            <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 text-blue-500" />
+                <h4 className="text-sm font-semibold text-slate-700">{t('ai.prereq.titleSchedule')}</h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                <ReadinessItem
+                  ready={hasStages}
+                  label={t('ai.prereq.stages', { count: stages.length })}
+                  detail={t('ai.prereq.stagesDetail')}
+                />
+                <ReadinessItem
+                  ready={activeMembers > 0}
+                  label={t('ai.prereq.activeMembers', { count: activeMembers })}
+                  detail={t('ai.prereq.activeMembersScheduleDetail')}
+                />
+                <ReadinessItem
+                  ready={sfCount > 0}
+                  label={t('ai.prereq.stepScreenLinks')}
+                  detail={t('ai.prereq.stepScreenLinksDetail')}
+                />
+                <ReadinessItem
+                  ready={membersWithRate > 0}
+                  label={t('ai.prereq.hourlyRates', { count: membersWithRate, total: memberCount })}
+                  detail={t('ai.prereq.hourlyRatesDetail')}
+                />
+                <ReadinessItem
+                  ready={hasSettings}
+                  label={t('ai.prereq.workingCalendar')}
+                  detail={t('ai.prereq.workingCalendarDetail')}
+                />
+                <ReadinessItem
+                  ready={membersWithSkills > 0}
+                  label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })}
+                  detail={t('ai.prereq.memberSkillsScheduleDetail')}
+                />
+              </div>
+
+              {!scheduleReady && (
+                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                  {t('ai.prereq.scheduleNotReady')}
+                </div>
+              )}
+            </div>
+
             <div className="mb-4">
               <label className="text-sm font-medium text-gray-700 block mb-1">{t('ai.selectStage')}:</label>
               <select
@@ -264,7 +407,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
 
             <Button
               onClick={() => scheduleMutation.mutate()}
-              disabled={scheduleMutation.isPending || !selectedStageId}
+              disabled={scheduleMutation.isPending || !selectedStageId || !scheduleReady}
             >
               <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
               {scheduleMutation.isPending ? t('ai.analyzing') : t('ai.runSchedule')}
