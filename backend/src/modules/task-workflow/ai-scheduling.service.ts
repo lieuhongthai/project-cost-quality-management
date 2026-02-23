@@ -1,5 +1,6 @@
 import { Injectable, Inject, forwardRef, BadRequestException } from '@nestjs/common';
 import { ScreenFunction } from '../screen-function/screen-function.model';
+import { ScreenFunctionDefaultMember } from '../screen-function/screen-function-default-member.model';
 import { StepScreenFunction } from './step-screen-function.model';
 import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { WorkflowStage } from './workflow-stage.model';
@@ -31,6 +32,8 @@ export class AISchedulingService {
     private stepScreenFunctionMemberRepository: typeof StepScreenFunctionMember,
     @Inject('WORKFLOW_STAGE_REPOSITORY')
     private stageRepository: typeof WorkflowStage,
+    @Inject('SCREEN_FUNCTION_DEFAULT_MEMBER_REPOSITORY')
+    private defaultMemberRepository: typeof ScreenFunctionDefaultMember,
     @Inject(forwardRef(() => MemberService))
     private memberService: MemberService,
     @Inject(forwardRef(() => ProjectService))
@@ -142,12 +145,38 @@ export class AISchedulingService {
     // Fetch workload for each member
     const workloads = await this.memberService.getProjectWorkload(projectId);
 
+    // Fetch default member assignments for screen functions in this stage
+    const sfIds = tasks.map(t => t.screenFunctionId).filter(Boolean);
+    const defaultMembers = sfIds.length > 0
+      ? await this.defaultMemberRepository.findAll({
+          where: { screenFunctionId: sfIds },
+          include: [{ model: Member, as: 'member' }],
+        })
+      : [];
+
+    // Build a map: screenFunctionId → [{memberId, memberName, memberRole}]
+    const defaultMemberMap = new Map<number, Array<{ memberId: number; memberName: string; memberRole: string }>>();
+    for (const dm of defaultMembers) {
+      const sfId = dm.screenFunctionId;
+      if (!defaultMemberMap.has(sfId)) {
+        defaultMemberMap.set(sfId, []);
+      }
+      const member = (dm as any).member;
+      if (member) {
+        defaultMemberMap.get(sfId)!.push({
+          memberId: member.id,
+          memberName: member.name,
+          memberRole: member.role || '',
+        });
+      }
+    }
+
     // Fetch project settings
     const project = await this.projectService.findOne(projectId);
     const settings = await this.projectService.getSettings(projectId);
 
     // Build prompt
-    const prompt = this.buildSchedulePrompt(stage, steps, tasks, members, workloads, settings, project);
+    const prompt = this.buildSchedulePrompt(stage, steps, tasks, members, workloads, defaultMemberMap, settings, project);
 
     try {
       const languageInstruction = this.getLanguageInstruction(language);
@@ -180,7 +209,7 @@ export class AISchedulingService {
       return {
         success: true,
         source: 'Template',
-        data: this.generateTemplateSchedule(tasks, members, stage, settings),
+        data: this.generateTemplateSchedule(tasks, members, defaultMemberMap, stage, settings),
       };
     }
   }
@@ -447,18 +476,26 @@ Consider:
     tasks: StepScreenFunction[],
     members: Member[],
     workloads: any,
+    defaultMemberMap: Map<number, Array<{ memberId: number; memberName: string; memberRole: string }>>,
     settings: any,
     project: any,
   ): string {
-    const taskList = tasks.map(t => ({
-      stepScreenFunctionId: t.id,
-      stepName: (t as any).step?.name || 'Unknown',
-      screenFunctionName: (t as any).screenFunction?.name || 'Unknown',
-      priority: (t as any).screenFunction?.priority || 'Medium',
-      complexity: (t as any).screenFunction?.complexity || 'Medium',
-      estimatedEffort: t.estimatedEffort || 0,
-      status: t.status,
-    }));
+    const taskList = tasks.map(t => {
+      const sfId = t.screenFunctionId;
+      const assignedMembers = defaultMemberMap.get(sfId) || [];
+      return {
+        stepScreenFunctionId: t.id,
+        stepName: (t as any).step?.name || 'Unknown',
+        screenFunctionName: (t as any).screenFunction?.name || 'Unknown',
+        priority: (t as any).screenFunction?.priority || 'Medium',
+        complexity: (t as any).screenFunction?.complexity || 'Medium',
+        estimatedEffort: t.estimatedEffort || 0,
+        status: t.status,
+        registeredMembers: assignedMembers.length > 0
+          ? assignedMembers.map(m => ({ memberId: m.memberId, name: m.memberName, role: m.memberRole }))
+          : [],
+      };
+    });
 
     const memberList = members.map(m => {
       const workload = Array.isArray(workloads) ? workloads.find((w: any) => w.memberId === m.id) : null;
@@ -520,8 +557,10 @@ Respond with a JSON object in this exact format:
 }
 
 Rules:
-- Assign members based on role matching (DEV for coding, QA for testing, BA for requirements)
-- Balance workload across team members
+- CRITICAL: If a task has "registeredMembers" (non-empty array), you MUST assign that task to one of the registered members. These are the members the project manager has explicitly designated for this screen function.
+- Only fall back to other members if no registered members are available for a task
+- For tasks without registered members, assign based on role matching (DEV for coding, QA for testing, BA for requirements)
+- Balance workload across team members within their registered assignments
 - Consider member experience level (senior members can handle complex tasks)
 - Avoid overloading members who already have high workload
 - Schedule tasks sequentially within the same member's calendar
@@ -911,11 +950,13 @@ Rules:
   private generateTemplateSchedule(
     tasks: StepScreenFunction[],
     members: Member[],
+    defaultMemberMap: Map<number, Array<{ memberId: number; memberName: string; memberRole: string }>>,
     stage: WorkflowStage,
     settings: any,
   ) {
     const workingHoursPerDay = settings?.workingHoursPerDay || 8;
-    const startDate = stage.startDate || new Date().toISOString().split('T')[0];
+    const nonWorkingDays = settings?.nonWorkingDays || [0, 6];
+    const stageStart = new Date(stage.startDate || new Date().toISOString().split('T')[0]);
 
     // Filter to development-capable members
     const devMembers = members.filter(m =>
@@ -926,41 +967,87 @@ Rules:
       return { assignments: [], warnings: ['No active development team members found'], summary: 'Cannot generate schedule without team members' };
     }
 
-    // Round-robin assignment
-    const assignments = tasks.map((task, index) => {
-      const member = devMembers[index % devMembers.length];
-      const effort = task.estimatedEffort || 8;
-      const daysNeeded = Math.ceil(effort / workingHoursPerDay);
+    // Track each member's next available date
+    const memberNextDate = new Map<number, Date>();
+    devMembers.forEach(m => memberNextDate.set(m.id, new Date(stageStart)));
 
-      // Simple date calculation (no weekend/holiday awareness)
-      const start = new Date(startDate);
-      start.setDate(start.getDate() + Math.floor(index / devMembers.length) * daysNeeded);
-      const end = new Date(start);
-      end.setDate(end.getDate() + daysNeeded - 1);
+    let fallbackIndex = 0;
+    const assignments = tasks.map((task) => {
+      const effort = task.estimatedEffort || 8;
+      const daysNeeded = Math.max(1, Math.ceil(effort / workingHoursPerDay));
+      const sfId = task.screenFunctionId;
+      const sf = (task as any).screenFunction;
+      const taskName = sf?.name || `Task ${task.id}`;
+
+      // Check for registered default members
+      const registeredMembers = defaultMemberMap.get(sfId) || [];
+      let chosenMember: Member | undefined;
+      let reasoning: string;
+
+      if (registeredMembers.length > 0) {
+        // Prefer registered member with the earliest available date
+        let earliestDate: Date | null = null;
+        for (const rm of registeredMembers) {
+          const m = devMembers.find(dm => dm.id === rm.memberId);
+          if (m) {
+            const nextDate = memberNextDate.get(m.id) || stageStart;
+            if (!earliestDate || nextDate < earliestDate) {
+              earliestDate = nextDate;
+              chosenMember = m;
+            }
+          }
+        }
+        reasoning = chosenMember
+          ? `Assigned to registered default member for "${taskName}"`
+          : 'Registered members not available, using fallback';
+      }
+
+      // Fallback: round-robin from devMembers
+      if (!chosenMember) {
+        chosenMember = devMembers[fallbackIndex % devMembers.length];
+        fallbackIndex++;
+        reasoning = 'Round-robin assignment (no registered member)';
+      }
+
+      const memberStart = memberNextDate.get(chosenMember.id) || new Date(stageStart);
+      const memberEnd = this.addWorkingDays(memberStart, daysNeeded - 1, nonWorkingDays);
+
+      // Update this member's next available date
+      memberNextDate.set(chosenMember.id, this.addWorkingDays(memberEnd, 1, nonWorkingDays));
 
       return {
         stepScreenFunctionId: task.id,
-        memberId: member.id,
-        memberName: member.name,
-        taskName: `Task ${task.id}`,
+        memberId: chosenMember.id,
+        memberName: chosenMember.name,
+        taskName,
         estimatedEffort: effort,
-        estimatedStartDate: start.toISOString().split('T')[0],
-        estimatedEndDate: end.toISOString().split('T')[0],
-        reasoning: 'Round-robin assignment (AI unavailable)',
+        estimatedStartDate: this.formatDate(memberStart),
+        estimatedEndDate: this.formatDate(memberEnd),
+        reasoning,
       };
     });
+
+    const startDateStr = this.formatDate(stageStart);
+    const registeredCount = tasks.filter(t => (defaultMemberMap.get(t.screenFunctionId) || []).length > 0).length;
 
     return {
       assignments,
       timeline: {
-        startDate,
+        startDate: startDateStr,
         endDate: assignments.length > 0
           ? assignments[assignments.length - 1].estimatedEndDate
-          : startDate,
-        totalWorkingDays: Math.ceil(tasks.length / devMembers.length) * 3,
+          : startDateStr,
+        totalWorkingDays: Math.max(...Array.from(memberNextDate.values()).map(d =>
+          Math.ceil((d.getTime() - stageStart.getTime()) / (1000 * 60 * 60 * 24))
+        )),
       },
-      warnings: ['Template-based schedule - review and adjust manually'],
-      summary: `Round-robin assignment of ${tasks.length} tasks to ${devMembers.length} members`,
+      warnings: [
+        'Template-based schedule - review and adjust manually',
+        registeredCount > 0
+          ? `${registeredCount}/${tasks.length} tasks assigned to registered default members`
+          : 'No registered default members found — using round-robin',
+      ],
+      summary: `Assigned ${tasks.length} tasks to ${devMembers.length} members (${registeredCount} by registration, ${tasks.length - registeredCount} by round-robin)`,
     };
   }
 }
