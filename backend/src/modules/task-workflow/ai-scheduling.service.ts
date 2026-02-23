@@ -685,18 +685,26 @@ Rules:
     settings: any,
     project: any,
   ): string {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+    const projectStartDate = project.startDate || new Date().toISOString().split('T')[0];
+
     const stageList = stages.map(s => {
       const ctx = stageContext.find(c => c.stageId === s.id);
+      // Note: all effort fields below are in MAN-DAYS (MD)
+      const existingMD = ctx?.totalEstimatedEffort || 0;
       return {
         id: s.id,
         name: s.name,
         displayOrder: s.displayOrder,
-        currentEstimatedEffort: s.estimatedEffort || 0,
+        currentEstimatedEffort_manDays: s.estimatedEffort || 0,
+        currentEstimatedEffort_hours: (s.estimatedEffort || 0) * workingHoursPerDay,
         currentStartDate: s.startDate || null,
         currentEndDate: s.endDate || null,
         stepCount: ctx?.stepCount || 0,
         linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
-        existingStepEffort: ctx?.totalEstimatedEffort || 0,
+        existingStepEffort_manDays: existingMD,
+        existingStepEffort_hours: existingMD * workingHoursPerDay,
       };
     });
 
@@ -712,7 +720,9 @@ Rules:
         Function: screenFunctions.filter(sf => sf.type === 'Function').length,
         Other: screenFunctions.filter(sf => sf.type === 'Other').length,
       },
-      totalCurrentEstimate: screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0),
+      // estimatedEffort is stored in MAN-DAYS (MD) in the database
+      totalCurrentEstimate_manDays: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0)).toFixed(2),
+      totalCurrentEstimate_hours: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0) * workingHoursPerDay).toFixed(0),
     };
 
     const teamSummary = {
@@ -726,18 +736,24 @@ Rules:
         : 0,
     };
 
-    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
-    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
-    const projectStartDate = project.startDate || new Date().toISOString().split('T')[0];
+    const totalProjectHours = sfSummary.totalCurrentEstimate_hours;
+    const totalProjectMD = sfSummary.totalCurrentEstimate_manDays;
 
     return `
 Estimate the effort (in man-hours) for each workflow stage below.
 Each stage represents a phase in the software development lifecycle.
 
+CRITICAL UNIT NOTICE:
+- All "manDays" values in the data are in MAN-DAYS (MD), NOT hours
+- 1 MD = ${workingHoursPerDay} hours
+- The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours
+- Your "estimatedEffortHours" responses MUST be in HOURS
+
 Project: ${project.name}
 Project Start Date: ${projectStartDate}
 Working hours/day: ${workingHoursPerDay}
 Working days/month: ${workingDaysPerMonth}
+Total project scope: ${totalProjectMD} man-days = ${totalProjectHours} hours (use this as your baseline)
 
 Team Composition:
 ${JSON.stringify(teamSummary, null, 2)}
@@ -770,13 +786,15 @@ Respond with a JSON object in this exact format:
   "assumptions": ["<string>"]
 }
 
-Consider:
-- Typical software effort distribution: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
-- Adjust based on project complexity (number and complexity of screen functions)
-- Team size affects calendar duration but not total effort
-- If step-screen function links exist, use their effort as a baseline
-- Stages should be sequential; end date of one stage = start date of next
-- Skip weekends for date calculations
+Rules:
+- The sum of all stage estimatedEffortHours should be close to the total project hours (${totalProjectHours}h = ${totalProjectMD} MD)
+- Distribute effort using typical ratios: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
+- Adjust distribution based on project complexity (Simple/Medium/Complex mix of screen functions)
+- Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort
+- If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's effort
+- Stages are sequential; each stage's suggestedStartDate = previous stage's suggestedEndDate + 1 working day
+- Calendar duration of a stage = estimatedEffortHours / (workingHoursPerDay × parallel_team_members)
+- Skip weekends for date calculations (assuming non-working days: Saturday, Sunday)
     `.trim();
   }
 
@@ -809,10 +827,12 @@ Consider:
     const nonWorkingDays = settings?.nonWorkingDays || [0, 6];
 
     // Calculate total SF effort as baseline
-    const totalSFEffort = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
-    // If no SF effort, estimate based on count and complexity
-    const baseTotalEffort = totalSFEffort > 0
-      ? totalSFEffort
+    // estimatedEffort on ScreenFunction is stored in MAN-DAYS — convert to hours
+    const totalSFEffortMD = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    const totalSFEffortHours = totalSFEffortMD * workingHoursPerDay;
+    // If no SF effort, estimate based on count and complexity (already in hours)
+    const baseTotalEffort = totalSFEffortHours > 0
+      ? totalSFEffortHours
       : screenFunctions.reduce((sum, sf) => {
           const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
           return sum + mult;
@@ -879,7 +899,9 @@ Consider:
         'Template-based estimation (AI unavailable)',
         'Standard effort distribution: Req 10%, Design 15%, Coding 30%, UT 15%, IT 10%, ST 10%, UAT 10%',
         `Working: ${workingHoursPerDay}h/day, ${workingDaysPerMonth} days/month`,
-        `Base total effort: ${baseTotalEffort}h from ${screenFunctions.length} screen functions`,
+        totalSFEffortMD > 0
+          ? `Base total effort: ${totalSFEffortMD} MD × ${workingHoursPerDay}h = ${baseTotalEffort}h from ${screenFunctions.length} screen functions`
+          : `Base total effort: ${baseTotalEffort}h (estimated from ${screenFunctions.length} screen functions by complexity)`,
         `Parallel factor: ${parallelFactor} members working simultaneously`,
         'Stages are sequential (each stage starts after the previous one ends)',
       ],
