@@ -790,3 +790,11 @@ export class CommitWorklogImportDto {
   @Type(() => Number)
   selectedItemIds: number[];
 }
+
+export class AiSuggestWorklogRulesResultDto {
+  keyword: string;
+  stageId: number;
+  stepId: number;
+  confidence: number;
+  reason?: string;
+}

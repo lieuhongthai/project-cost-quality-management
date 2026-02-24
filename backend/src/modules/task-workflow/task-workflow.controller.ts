@@ -219,6 +219,30 @@ export class TaskWorkflowController {
   }
 
 
+
+  @Post('worklog-mapping-rules/ai-suggest')
+  @UseInterceptors(FileInterceptor('file'))
+  async aiSuggestWorklogMappingRules(
+    @UploadedFile() file: any,
+    @Body('projectId') projectIdRaw: string,
+    @Body('autoCreate') autoCreateRaw?: string,
+  ) {
+    const projectId = Number(projectIdRaw);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (!projectId) {
+      throw new BadRequestException('projectId is required');
+    }
+
+    const autoCreate = autoCreateRaw === 'true' || autoCreateRaw === '1';
+    return this.taskWorkflowService.aiSuggestWorklogMappingRules(
+      projectId,
+      file,
+      autoCreate,
+    );
+  }
+
   // ===== Worklog Import Endpoints =====
 
   @Post('worklog-import/preview')

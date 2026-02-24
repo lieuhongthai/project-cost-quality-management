@@ -38,6 +38,7 @@ import {
   StagesOverviewPanel,
   MetricConfigPanel,
   WorklogImportPanel,
+  WorklogMappingRulePanel,
 } from "@/components/task-workflow";
 import { MetricsDashboard } from "@/components/metrics";
 import { format } from "date-fns";
@@ -2646,6 +2647,8 @@ function ProjectDetail() {
         <div className="space-y-6">
           {/* Workflow Configuration Section */}
           <WorkflowConfigPanel projectId={parseInt(projectId)} />
+
+          <WorklogMappingRulePanel projectId={parseInt(projectId)} />
 
           {/* Metric Configuration Section */}
           <MetricConfigPanel projectId={parseInt(projectId)} />
