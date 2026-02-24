@@ -1992,7 +1992,8 @@ export class TaskWorkflowService {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const day = row.day?.trim();
+      const rawDay = row.day?.trim();
+      const day = this.normalizeDate(rawDay);
       const fullName = row.fullName?.trim();
       const email = row.email?.trim().toLowerCase();
       const phaseName = row.phase_name?.trim();
@@ -2036,6 +2037,13 @@ export class TaskWorkflowService {
         reason = 'No screen function matched from workDetail';
       } else {
         status = 'ready';
+      }
+
+      if (rawDay && !day) {
+        status = 'needs_review';
+        reason = reason
+          ? `${reason}; Invalid day format: ${rawDay}`
+          : `Invalid day format: ${rawDay}`;
       }
 
       itemsToCreate.push({
@@ -2252,27 +2260,72 @@ export class TaskWorkflowService {
   }
 
   private parseCsv(content: string): Array<Record<string, string>> {
-    const lines = content
-      .replace(/^\uFEFF/, '')
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0);
-    if (lines.length < 2) return [];
+    const rows = this.parseCsvRows(content);
+    if (rows.length < 2) return [];
 
-    const headers = this.parseCsvLine(lines[0]);
-    const rows: Array<Record<string, string>> = [];
+    const headers = rows[0].map((header) => header.trim());
+    const dataRows: Array<Record<string, string>> = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = this.parseCsvLine(lines[i]);
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
       const row: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        row[h] = values[idx] || '';
+      headers.forEach((header, idx) => {
+        row[header] = (values[idx] || '').trim();
       });
-      rows.push(row);
+
+      if (Object.values(row).some((value) => value !== '')) {
+        dataRows.push(row);
+      }
+    }
+
+    return dataRows;
+  }
+
+  private parseCsvRows(content: string): string[][] {
+    const text = content.replace(/^\uFEFF/, '');
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentValue = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          currentValue += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        currentRow.push(currentValue);
+        currentValue = '';
+      } else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && next === '\n') {
+          i++;
+        }
+
+        currentRow.push(currentValue);
+        currentValue = '';
+
+        if (currentRow.some((value) => value !== '')) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+      } else {
+        currentValue += char;
+      }
+    }
+
+    currentRow.push(currentValue);
+    if (currentRow.some((value) => value !== '')) {
+      rows.push(currentRow);
     }
 
     return rows;
   }
-
   private parseCsvLine(line: string): string[] {
     const result: string[] = [];
     let current = '';
@@ -2300,5 +2353,30 @@ export class TaskWorkflowService {
     result.push(current);
     return result.map((v) => v.trim());
   }
+
+  private normalizeDate(value?: string): string | null {
+    if (!value) return null;
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const d = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? null : `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+
+    const slashMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) {
+      const dd = slashMatch[1];
+      const mm = slashMatch[2];
+      const yyyy = slashMatch[3];
+      const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? null : `${yyyy}-${mm}-${dd}`;
+    }
+
+    return null;
+  }
+
 
 }
