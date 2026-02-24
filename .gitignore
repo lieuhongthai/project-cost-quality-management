@@ -46,3 +46,4 @@ coverage/
 .temp/
 tmp/
 frontend/src/routeTree.gen.ts
+.agent/

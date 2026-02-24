@@ -93,6 +93,6 @@ export class StepScreenFunctionMember extends Model {
   @BelongsTo(() => StepScreenFunction, { onDelete: 'CASCADE' })
   stepScreenFunction: StepScreenFunction;
 
-  @BelongsTo(() => Member)
+  @BelongsTo(() => Member, { onDelete: 'CASCADE' })
   member: Member;
 }
