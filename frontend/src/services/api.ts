@@ -33,6 +33,7 @@ import type {
   StageSFStat,
   ProjectMetricInsights,
   ProjectMetricTypeSummary,
+  WorklogMappingRule,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -210,6 +211,27 @@ export const taskWorkflowApi = {
     api.post<{ created: number; skipped: number; membersAssigned: number; details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }> }>(
       `/task-workflow/stages/${stageId}/quick-link`, { type, assignMembers }
     ),
+
+  // Worklog Mapping Rules
+  getWorklogMappingRules: (projectId: number) =>
+    api.get<WorklogMappingRule[]>(`/task-workflow/worklog-mapping-rules/project/${projectId}`),
+  createWorklogMappingRule: (data: {
+    projectId: number;
+    keyword: string;
+    stageId: number;
+    stepId: number;
+    priority?: number;
+    isActive?: boolean;
+  }) => api.post<WorklogMappingRule>('/task-workflow/worklog-mapping-rules', data),
+  updateWorklogMappingRule: (id: number, data: {
+    keyword?: string;
+    stageId?: number;
+    stepId?: number;
+    priority?: number;
+    isActive?: boolean;
+  }) => api.put<WorklogMappingRule>(`/task-workflow/worklog-mapping-rules/${id}`, data),
+  deleteWorklogMappingRule: (id: number) =>
+    api.delete(`/task-workflow/worklog-mapping-rules/${id}`),
 
   // Workflow Steps
   getSteps: (stageId: number) =>

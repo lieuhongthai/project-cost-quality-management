@@ -7,6 +7,7 @@ import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { MetricType, DEFAULT_METRIC_TYPES, DEFAULT_METRIC_CATEGORIES } from './metric-type.model';
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
+import { WorklogMappingRule } from './worklog-mapping-rule.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { ScreenFunctionDefaultMember } from '../screen-function/screen-function-default-member.model';
 import { Member } from '../member/member.model';
@@ -40,6 +41,8 @@ import {
   UpdateTaskMemberMetricDto,
   BulkUpsertTaskMemberMetricDto,
   InitializeProjectMetricsDto,
+  CreateWorklogMappingRuleDto,
+  UpdateWorklogMappingRuleDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 
@@ -64,6 +67,8 @@ export class TaskWorkflowService {
     private metricCategoryRepository: typeof MetricCategory,
     @Inject('TASK_MEMBER_METRIC_REPOSITORY')
     private taskMemberMetricRepository: typeof TaskMemberMetric,
+    @Inject('WORKLOG_MAPPING_RULE_REPOSITORY')
+    private worklogMappingRuleRepository: typeof WorklogMappingRule,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
   ) {}
@@ -1877,4 +1882,67 @@ export class TaskWorkflowService {
     // Re-fetch with categories included
     return { metricTypes: await this.findAllMetricTypes(dto.projectId) };
   }
+
+
+  // ===== Worklog Mapping Rule Methods =====
+
+  async getWorklogMappingRules(projectId: number): Promise<WorklogMappingRule[]> {
+    return this.worklogMappingRuleRepository.findAll({
+      where: { projectId },
+      include: [
+        { model: WorkflowStage, as: 'stage' },
+        { model: WorkflowStep, as: 'step' },
+      ],
+      order: [['priority', 'DESC'], ['id', 'ASC']],
+    });
+  }
+
+  async createWorklogMappingRule(
+    dto: CreateWorklogMappingRuleDto,
+  ): Promise<WorklogMappingRule> {
+    await this.findStageById(dto.stageId);
+    await this.findStepById(dto.stepId);
+
+    return this.worklogMappingRuleRepository.create({
+      projectId: dto.projectId,
+      keyword: dto.keyword.trim(),
+      stageId: dto.stageId,
+      stepId: dto.stepId,
+      priority: dto.priority ?? 100,
+      isActive: dto.isActive ?? true,
+    } as any);
+  }
+
+  async updateWorklogMappingRule(
+    id: number,
+    dto: UpdateWorklogMappingRuleDto,
+  ): Promise<WorklogMappingRule> {
+    const rule = await this.worklogMappingRuleRepository.findByPk(id);
+    if (!rule) {
+      throw new NotFoundException(`Worklog mapping rule with ID ${id} not found`);
+    }
+
+    if (dto.stageId) {
+      await this.findStageById(dto.stageId);
+    }
+    if (dto.stepId) {
+      await this.findStepById(dto.stepId);
+    }
+
+    await rule.update({
+      ...dto,
+      keyword: dto.keyword?.trim() ?? rule.keyword,
+    });
+
+    return rule;
+  }
+
+  async deleteWorklogMappingRule(id: number): Promise<void> {
+    const rule = await this.worklogMappingRuleRepository.findByPk(id);
+    if (!rule) {
+      throw new NotFoundException(`Worklog mapping rule with ID ${id} not found`);
+    }
+    await rule.destroy();
+  }
+
 }

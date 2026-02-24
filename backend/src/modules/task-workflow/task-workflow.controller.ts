@@ -40,6 +40,8 @@ import {
   UpdateTaskMemberMetricDto,
   BulkUpsertTaskMemberMetricDto,
   InitializeProjectMetricsDto,
+  CreateWorklogMappingRuleDto,
+  UpdateWorklogMappingRuleDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -183,6 +185,32 @@ export class TaskWorkflowController {
   @Get('configuration/project/:projectId')
   getWorkflowConfiguration(@Param('projectId', ParseIntPipe) projectId: number) {
     return this.taskWorkflowService.getWorkflowConfiguration(projectId);
+  }
+
+
+  // ===== Worklog Mapping Rule Endpoints =====
+
+  @Get('worklog-mapping-rules/project/:projectId')
+  getWorklogMappingRules(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.getWorklogMappingRules(projectId);
+  }
+
+  @Post('worklog-mapping-rules')
+  createWorklogMappingRule(@Body() dto: CreateWorklogMappingRuleDto) {
+    return this.taskWorkflowService.createWorklogMappingRule(dto);
+  }
+
+  @Put('worklog-mapping-rules/:id')
+  updateWorklogMappingRule(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWorklogMappingRuleDto,
+  ) {
+    return this.taskWorkflowService.updateWorklogMappingRule(id, dto);
+  }
+
+  @Delete('worklog-mapping-rules/:id')
+  deleteWorklogMappingRule(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteWorklogMappingRule(id);
   }
 
   // ===== Export Excel =====

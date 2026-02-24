@@ -578,3 +578,17 @@ export interface ProjectMetricTypeSummary {
     }>;
   }>;
 }
+
+export interface WorklogMappingRule {
+  id: number;
+  projectId: number;
+  keyword: string;
+  stageId: number;
+  stepId: number;
+  priority: number;
+  isActive: boolean;
+  stage?: WorkflowStage;
+  step?: WorkflowStep;
+  createdAt: string;
+  updatedAt: string;
+}

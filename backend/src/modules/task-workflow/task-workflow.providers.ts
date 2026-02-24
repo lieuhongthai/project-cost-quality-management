@@ -6,6 +6,7 @@ import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { MetricType } from './metric-type.model';
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
+import { WorklogMappingRule } from './worklog-mapping-rule.model';
 
 export const taskWorkflowProviders = [
   {
@@ -39,5 +40,9 @@ export const taskWorkflowProviders = [
   {
     provide: 'TASK_MEMBER_METRIC_REPOSITORY',
     useValue: TaskMemberMetric,
+  },
+  {
+    provide: 'WORKLOG_MAPPING_RULE_REPOSITORY',
+    useValue: WorklogMappingRule,
   },
 ];
