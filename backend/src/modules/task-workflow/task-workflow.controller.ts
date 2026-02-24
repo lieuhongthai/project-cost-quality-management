@@ -21,6 +21,7 @@ import {
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
 } from './ai-scheduling.dto';
+import { AIPlanAllDto } from './ai-plan-all.dto';
 import {
   CreateWorkflowStageDto,
   UpdateWorkflowStageDto,
@@ -670,5 +671,10 @@ export class TaskWorkflowController {
   @Post('ai/apply-schedule')
   applySchedule(@Body() dto: ApplyAIScheduleDto) {
     return this.aiSchedulingService.applySchedule(dto);
+  }
+
+  @Post('ai/plan-all')
+  planAll(@Body() dto: AIPlanAllDto) {
+    return this.aiSchedulingService.planAll(dto);
   }
 }

@@ -80,6 +80,13 @@ export const projectApi = {
     nonWorkingDays?: number[];
     holidays?: string[];
   }) => api.post<{ endDate: string; workingDays: number; totalDays: number }>('/projects/calculate-end-date', data),
+
+  // Quick setup: create members, screen functions, update settings in one call
+  quickSetup: (projectId: number, data: {
+    settings?: any;
+    members?: Array<{ name: string; role: string; email?: string; skills?: string[]; hourlyRate?: number }>;
+    screenFunctions?: Array<{ name: string; type?: string; complexity?: string; priority?: string; description?: string }>;
+  }) => api.post(`/projects/${projectId}/quick-setup`, data),
 };
 
 
@@ -410,6 +417,10 @@ export const taskWorkflowApi = {
     api.post('/task-workflow/ai/apply-stage-estimation', data),
   aiApplySchedule: (data: { assignments: Array<{ stepScreenFunctionId: number; memberId: number; estimatedEffort: number; estimatedStartDate: string; estimatedEndDate: string }> }) =>
     api.post('/task-workflow/ai/apply-schedule', data),
+
+  // Plan All: one-click AI estimation + scheduling for entire project
+  aiPlanAll: (data: { projectId: number; language?: string; autoApply?: boolean }) =>
+    api.post('/task-workflow/ai/plan-all', data),
 };
 
 export const iamApi = {

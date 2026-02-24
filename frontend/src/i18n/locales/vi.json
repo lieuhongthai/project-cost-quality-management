@@ -1053,6 +1053,21 @@
     "scheduleApplied": "Đã áp dụng lịch trình thành công!",
     "error": "Lỗi",
     "unknownError": "Đã xảy ra lỗi không xác định",
+    "planAll": "AI Lập kế hoạch toàn bộ",
+    "planAllTitle": "AI Lập kế hoạch toàn bộ",
+    "planAllDesc": "Lập kế hoạch AI một lần nhấp: ước tính công sức cho tất cả chức năng màn hình, giai đoạn và tạo lịch trình cho tất cả giai đoạn tự động.",
+    "planAllDone": "Lập kế hoạch AI hoàn tất! Tất cả kết quả đã được áp dụng.",
+    "advancedOptions": "Tùy chọn AI nâng cao",
+    "processing": "AI đang phân tích dự án...",
+    "step": {
+      "estimatingSF": "Đang ước tính công sức chức năng màn hình...",
+      "estimatingStages": "Đang ước tính công sức & ngày giai đoạn...",
+      "scheduling": "Đang tạo lịch trình cho tất cả giai đoạn..."
+    },
+    "quickAdd": {
+      "members": "Thêm nhanh thành viên",
+      "screenFunctions": "Thêm nhanh chức năng màn hình"
+    },
     "prereq": {
       "title": "Dữ liệu đầu vào cần thiết cho AI Ước lượng",
       "titleSchedule": "Dữ liệu đầu vào cần thiết cho AI Lập lịch",
