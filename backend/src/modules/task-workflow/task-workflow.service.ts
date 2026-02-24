@@ -1914,9 +1914,24 @@ export class TaskWorkflowService {
     await this.findStageById(dto.stageId);
     await this.findStepById(dto.stepId);
 
+    const normalizedKeyword = dto.keyword.trim();
+    const existed = await this.worklogMappingRuleRepository.findOne({
+      where: {
+        projectId: dto.projectId,
+        stageId: dto.stageId,
+        stepId: dto.stepId,
+        keyword: { [Op.iLike]: normalizedKeyword },
+      },
+    });
+
+    // Idempotent create: if the exact mapping already exists, return it instead of creating duplicate rows.
+    if (existed) {
+      return existed;
+    }
+
     return this.worklogMappingRuleRepository.create({
       projectId: dto.projectId,
-      keyword: dto.keyword.trim(),
+      keyword: normalizedKeyword,
       stageId: dto.stageId,
       stepId: dto.stepId,
       priority: dto.priority ?? 100,
