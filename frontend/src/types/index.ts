@@ -592,3 +592,48 @@ export interface WorklogMappingRule {
   createdAt: string;
   updatedAt: string;
 }
+
+
+export interface WorklogImportItem {
+  id: number;
+  rowNumber: number;
+  day?: string;
+  fullName?: string;
+  email?: string;
+  phaseName?: string;
+  workDetail?: string;
+  workTime?: string;
+  minutes?: number;
+  effortHours?: number;
+  effortDays?: number;
+  memberId?: number;
+  stageId?: number;
+  stepId?: number;
+  screenFunctionId?: number;
+  confidence: number;
+  status: 'ready' | 'needs_review' | 'unmapped' | 'pending' | 'committed' | 'skipped' | 'error';
+  isSelected: boolean;
+  reason?: string;
+  member?: Member;
+  stage?: WorkflowStage;
+  step?: WorkflowStep;
+  screenFunction?: ScreenFunction;
+}
+
+export interface WorklogImportBatchDetail {
+  batch: {
+    id: number;
+    projectId: number;
+    sourceFileName: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  summary: {
+    total: number;
+    ready: number;
+    needsReview: number;
+    unmapped: number;
+    selected: number;
+  };
+  items: WorklogImportItem[];
+}

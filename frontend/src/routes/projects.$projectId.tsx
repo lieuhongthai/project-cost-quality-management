@@ -37,6 +37,7 @@ import {
   WorkflowConfigPanel,
   StagesOverviewPanel,
   MetricConfigPanel,
+  WorklogImportPanel,
 } from "@/components/task-workflow";
 import { MetricsDashboard } from "@/components/metrics";
 import { format } from "date-fns";
@@ -2260,7 +2261,10 @@ function ProjectDetail() {
       )}
 
       {activeTab === "task-workflow" && (
-        <TaskWorkflowTable projectId={parseInt(projectId)} members={members} />
+        <div className="space-y-6">
+          <WorklogImportPanel projectId={parseInt(projectId)} />
+          <TaskWorkflowTable projectId={parseInt(projectId)} members={members} />
+        </div>
       )}
 
       {activeTab === "metric-summary" && (

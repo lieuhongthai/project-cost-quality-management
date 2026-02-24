@@ -8,6 +8,8 @@ import { MetricType, DEFAULT_METRIC_TYPES, DEFAULT_METRIC_CATEGORIES } from './m
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
 import { WorklogMappingRule } from './worklog-mapping-rule.model';
+import { WorklogImportBatch } from './worklog-import-batch.model';
+import { WorklogImportItem } from './worklog-import-item.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { ScreenFunctionDefaultMember } from '../screen-function/screen-function-default-member.model';
 import { Member } from '../member/member.model';
@@ -43,6 +45,7 @@ import {
   InitializeProjectMetricsDto,
   CreateWorklogMappingRuleDto,
   UpdateWorklogMappingRuleDto,
+  CommitWorklogImportDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 
@@ -69,6 +72,10 @@ export class TaskWorkflowService {
     private taskMemberMetricRepository: typeof TaskMemberMetric,
     @Inject('WORKLOG_MAPPING_RULE_REPOSITORY')
     private worklogMappingRuleRepository: typeof WorklogMappingRule,
+    @Inject('WORKLOG_IMPORT_BATCH_REPOSITORY')
+    private worklogImportBatchRepository: typeof WorklogImportBatch,
+    @Inject('WORKLOG_IMPORT_ITEM_REPOSITORY')
+    private worklogImportItemRepository: typeof WorklogImportItem,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
   ) {}
@@ -1943,6 +1950,355 @@ export class TaskWorkflowService {
       throw new NotFoundException(`Worklog mapping rule with ID ${id} not found`);
     }
     await rule.destroy();
+  }
+
+
+
+  // ===== Worklog Import Methods =====
+
+  async previewWorklogImport(projectId: number, file: any): Promise<any> {
+    const csvContent = file.buffer.toString('utf-8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length === 0) {
+      throw new BadRequestException('CSV has no data');
+    }
+
+    const requiredColumns = ['day', 'fullName', 'email', 'phase_name', 'workDetail', 'workTime', 'minutes'];
+    const headers = Object.keys(rows[0]);
+    const missing = requiredColumns.filter((col) => !headers.includes(col));
+    if (missing.length > 0) {
+      throw new BadRequestException(`Missing required columns: ${missing.join(', ')}`);
+    }
+
+    const project = await this.projectService.findOne(projectId);
+    const workingHoursPerDay = project?.settings?.workingHoursPerDay || 8;
+
+    const members = await Member.findAll({ where: { projectId } });
+    const memberByEmail = new Map(members.map((m) => [(m.email || '').toLowerCase(), m]));
+
+    const rules = await this.worklogMappingRuleRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['priority', 'DESC'], ['id', 'ASC']],
+    });
+
+    const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
+
+    const batch = await this.worklogImportBatchRepository.create({
+      projectId,
+      sourceFileName: file.originalname || 'worklog.csv',
+    } as any);
+
+    const itemsToCreate: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const day = row.day?.trim();
+      const fullName = row.fullName?.trim();
+      const email = row.email?.trim().toLowerCase();
+      const phaseName = row.phase_name?.trim();
+      const workDetail = row.workDetail?.trim();
+      const workTime = row.workTime?.trim();
+      const minutesRaw = row.minutes?.trim();
+
+      const minutes = Number(minutesRaw) || this.parseWorkTimeToMinutes(workTime);
+      const effortHours = Number((minutes / 60).toFixed(2));
+      const effortDays = Number((effortHours / workingHoursPerDay).toFixed(3));
+
+      const member = email ? memberByEmail.get(email) : undefined;
+
+      let matchedRule: WorklogMappingRule | undefined;
+      const workDetailLower = (workDetail || '').toLowerCase();
+      for (const rule of rules) {
+        const keyword = (rule.keyword || '').toLowerCase();
+        if (keyword && workDetailLower.includes(keyword)) {
+          matchedRule = rule;
+          break;
+        }
+      }
+
+      const screenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
+
+      const confidence = this.calculateConfidence({
+        hasMember: !!member,
+        hasRule: !!matchedRule,
+        hasScreenFunction: !!screenFunction,
+      });
+
+      let status = 'unmapped';
+      let reason = '';
+      if (!member) {
+        reason = 'Member email is not in this project';
+      } else if (!matchedRule) {
+        status = 'needs_review';
+        reason = 'No stage/step mapping rule matched';
+      } else if (!screenFunction) {
+        status = 'needs_review';
+        reason = 'No screen function matched from workDetail';
+      } else {
+        status = 'ready';
+      }
+
+      itemsToCreate.push({
+        batchId: batch.id,
+        rowNumber: i + 2,
+        rawRow: row,
+        day,
+        fullName,
+        email,
+        phaseName,
+        workDetail,
+        workTime,
+        minutes,
+        effortHours,
+        effortDays,
+        memberId: member?.id,
+        stageId: matchedRule?.stageId,
+        stepId: matchedRule?.stepId,
+        screenFunctionId: screenFunction?.id,
+        confidence,
+        status,
+        isSelected: status === 'ready',
+        reason,
+      });
+    }
+
+    await this.worklogImportItemRepository.bulkCreate(itemsToCreate as any[]);
+
+    return this.getWorklogImportBatch(batch.id);
+  }
+
+  async getWorklogImportBatch(batchId: number): Promise<any> {
+    const batch = await this.worklogImportBatchRepository.findByPk(batchId);
+    if (!batch) {
+      throw new NotFoundException(`Worklog import batch with ID ${batchId} not found`);
+    }
+
+    const items = await this.worklogImportItemRepository.findAll({
+      where: { batchId },
+      include: [
+        { model: Member, as: 'member' },
+        { model: WorkflowStage, as: 'stage' },
+        { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
+      ],
+      order: [['rowNumber', 'ASC']],
+    });
+
+    const summary = {
+      total: items.length,
+      ready: items.filter((i) => i.status === 'ready').length,
+      needsReview: items.filter((i) => i.status === 'needs_review').length,
+      unmapped: items.filter((i) => i.status === 'unmapped').length,
+      selected: items.filter((i) => i.isSelected).length,
+    };
+
+    return {
+      batch,
+      summary,
+      items,
+    };
+  }
+
+  async commitWorklogImport(dto: CommitWorklogImportDto): Promise<any> {
+    const batch = await this.worklogImportBatchRepository.findByPk(dto.batchId);
+    if (!batch) {
+      throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
+    }
+
+    const selectedSet = new Set(dto.selectedItemIds || []);
+    const items = await this.worklogImportItemRepository.findAll({ where: { batchId: dto.batchId } });
+
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const item of items) {
+      const isSelected = selectedSet.has(item.id);
+      await item.update({ isSelected });
+
+      if (!isSelected) {
+        await item.update({ status: 'skipped', reason: item.reason || 'Not selected by user' });
+        skipped += 1;
+        continue;
+      }
+
+      if (!item.memberId || !item.stepId || !item.screenFunctionId) {
+        await item.update({ status: 'error', reason: 'Missing mapping data for commit' });
+        failed += 1;
+        continue;
+      }
+
+      try {
+        const [stepScreenFunction] = await this.stepScreenFunctionRepository.findOrCreate({
+          where: {
+            stepId: item.stepId,
+            screenFunctionId: item.screenFunctionId,
+          },
+          defaults: {
+            stepId: item.stepId,
+            screenFunctionId: item.screenFunctionId,
+            actualEffort: item.effortHours || 0,
+          } as any,
+        });
+
+        const [assignment, created] = await this.stepScreenFunctionMemberRepository.findOrCreate({
+          where: {
+            stepScreenFunctionId: stepScreenFunction.id,
+            memberId: item.memberId,
+          },
+          defaults: {
+            stepScreenFunctionId: stepScreenFunction.id,
+            memberId: item.memberId,
+            actualEffort: item.effortHours || 0,
+            note: item.workDetail,
+            actualStartDate: item.day,
+            actualEndDate: item.day,
+          } as any,
+        });
+
+        if (!created) {
+          await assignment.update({
+            actualEffort: Number((Number(assignment.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
+            note: [assignment.note, `${item.day || ''}: ${item.workDetail || ''}`].filter(Boolean).join('\n'),
+            actualStartDate: assignment.actualStartDate || item.day,
+            actualEndDate: item.day || assignment.actualEndDate,
+          });
+        }
+
+        await stepScreenFunction.update({
+          actualEffort: Number((Number(stepScreenFunction.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
+          status: 'In Progress',
+        });
+
+        await item.update({ status: 'committed', reason: null as any });
+        success += 1;
+      } catch (error: any) {
+        await item.update({ status: 'error', reason: error?.message || 'Commit failed' });
+        failed += 1;
+      }
+    }
+
+    return { batchId: dto.batchId, success, failed, skipped, total: items.length };
+  }
+
+  async exportUnselectedWorklogImport(batchId: number): Promise<string> {
+    const items = await this.worklogImportItemRepository.findAll({
+      where: {
+        batchId,
+        [Op.or]: [{ isSelected: false }, { status: 'error' }, { status: 'unmapped' }, { status: 'needs_review' }, { status: 'skipped' }],
+      },
+      order: [['rowNumber', 'ASC']],
+    });
+
+    const headers = ['day', 'fullName', 'email', 'phase_name', 'workDetail', 'workTime', 'minutes', 'status', 'reason'];
+    const lines = [headers.join(',')];
+
+    for (const item of items) {
+      const row = [
+        item.day || '',
+        item.fullName || '',
+        item.email || '',
+        item.phaseName || '',
+        item.workDetail || '',
+        item.workTime || '',
+        item.minutes?.toString() || '',
+        item.status || '',
+        item.reason || '',
+      ].map((v) => this.escapeCsv(v));
+      lines.push(row.join(','));
+    }
+
+    return lines.join('\n');
+  }
+
+  private parseWorkTimeToMinutes(workTime?: string): number {
+    if (!workTime) return 0;
+    const m = workTime.match(/^(\d+):(\d{1,2})$/);
+    if (!m) return 0;
+    return Number(m[1]) * 60 + Number(m[2]);
+  }
+
+  private calculateConfidence(input: { hasMember: boolean; hasRule: boolean; hasScreenFunction: boolean }): number {
+    let score = 0;
+    if (input.hasMember) score += 0.4;
+    if (input.hasRule) score += 0.35;
+    if (input.hasScreenFunction) score += 0.25;
+    return Number(score.toFixed(2));
+  }
+
+  private findScreenFunction(screenFunctions: ScreenFunction[], workDetail: string): ScreenFunction | undefined {
+    const text = workDetail.toLowerCase();
+    const ticketMatch = workDetail.match(/[A-Za-z]+-\d+/);
+    if (ticketMatch) {
+      const ticket = ticketMatch[0].toLowerCase();
+      const byTicket = screenFunctions.find((sf) =>
+        (sf.name || '').toLowerCase().includes(ticket) ||
+        (sf.description || '').toLowerCase().includes(ticket),
+      );
+      if (byTicket) return byTicket;
+    }
+
+    return screenFunctions.find((sf) => {
+      const name = (sf.name || '').toLowerCase();
+      return name.length > 4 && text.includes(name);
+    });
+  }
+
+  private escapeCsv(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+
+  private parseCsv(content: string): Array<Record<string, string>> {
+    const lines = content
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+    if (lines.length < 2) return [];
+
+    const headers = this.parseCsvLine(lines[0]);
+    const rows: Array<Record<string, string>> = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = this.parseCsvLine(lines[i]);
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] || '';
+      });
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  private parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    result.push(current);
+    return result.map((v) => v.trim());
   }
 
 }
