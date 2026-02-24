@@ -18,6 +18,7 @@ import {
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
 } from './ai-scheduling.dto';
+import { AIPlanAllDto } from './ai-plan-all.dto';
 
 @Injectable()
 export class AISchedulingService {
@@ -393,6 +394,115 @@ export class AISchedulingService {
     }
 
     return { success: true, results };
+  }
+
+  // ===== Plan All Orchestrator =====
+
+  /**
+   * One-click AI planning: estimates screen function effort, stage effort, and schedules all stages.
+   * Orchestrates existing methods sequentially, optionally auto-applying results.
+   */
+  async planAll(dto: AIPlanAllDto) {
+    const { projectId, language = 'English', autoApply = true } = dto;
+
+    const result: {
+      estimation: any;
+      stageEstimation: any;
+      schedules: any[];
+      summary: { totalScreenFunctions: number; totalStages: number; totalAssignments: number };
+      applied: boolean;
+    } = {
+      estimation: null,
+      stageEstimation: null,
+      schedules: [],
+      summary: { totalScreenFunctions: 0, totalStages: 0, totalAssignments: 0 },
+      applied: false,
+    };
+
+    // Step 1: Estimate screen function effort
+    try {
+      result.estimation = await this.estimateEffort({ projectId, language });
+      result.summary.totalScreenFunctions = result.estimation?.data?.estimates?.length || 0;
+
+      if (autoApply && result.estimation?.data?.estimates) {
+        const estimates = result.estimation.data.estimates.map((e: any) => ({
+          screenFunctionId: e.screenFunctionId,
+          estimatedEffortHours: e.estimatedEffortHours,
+        }));
+        if (estimates.length > 0) {
+          await this.applyEstimation({ projectId, estimates });
+        }
+      }
+    } catch (error) {
+      console.warn('Plan All - estimateEffort failed:', error?.message);
+      result.estimation = { success: false, error: error?.message };
+    }
+
+    // Step 2: Estimate stage effort
+    try {
+      result.stageEstimation = await this.estimateStageEffort({ projectId, language });
+      result.summary.totalStages = result.stageEstimation?.data?.estimates?.length || 0;
+
+      if (autoApply && result.stageEstimation?.data?.estimates) {
+        const estimates = result.stageEstimation.data.estimates.map((e: any) => ({
+          stageId: e.stageId,
+          estimatedEffortHours: e.estimatedEffortHours,
+          startDate: e.suggestedStartDate,
+          endDate: e.suggestedEndDate,
+        }));
+        if (estimates.length > 0) {
+          await this.applyStageEstimation({ projectId, estimates });
+        }
+      }
+    } catch (error) {
+      console.warn('Plan All - estimateStageEffort failed:', error?.message);
+      result.stageEstimation = { success: false, error: error?.message };
+    }
+
+    // Step 3: Generate schedule for each stage
+    try {
+      const stages = await this.taskWorkflowService.findAllStages(projectId);
+      for (const stage of stages) {
+        try {
+          const schedule = await this.generateSchedule({ projectId, stageId: stage.id, language });
+          const stageResult = {
+            stageId: stage.id,
+            stageName: stage.name,
+            ...schedule,
+          };
+          result.schedules.push(stageResult);
+
+          if (autoApply && schedule?.data?.assignments) {
+            const assignments = schedule.data.assignments
+              .filter((a: any) => a.stepScreenFunctionId && a.memberId)
+              .map((a: any) => ({
+                stepScreenFunctionId: a.stepScreenFunctionId,
+                memberId: a.memberId,
+                estimatedEffort: a.estimatedEffort,
+                estimatedStartDate: a.estimatedStartDate,
+                estimatedEndDate: a.estimatedEndDate,
+              }));
+            if (assignments.length > 0) {
+              await this.applySchedule({ assignments });
+              result.summary.totalAssignments += assignments.length;
+            }
+          }
+        } catch (stageError) {
+          console.warn(`Plan All - schedule for stage ${stage.name} failed:`, stageError?.message);
+          result.schedules.push({
+            stageId: stage.id,
+            stageName: stage.name,
+            success: false,
+            error: stageError?.message,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Plan All - schedule generation failed:', error?.message);
+    }
+
+    result.applied = autoApply;
+    return { success: true, ...result };
   }
 
   // ===== Prompt Builders =====

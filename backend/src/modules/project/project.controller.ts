@@ -78,4 +78,16 @@ export class ProjectController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.projectService.remove(id);
   }
+
+  @Post(':id/quick-setup')
+  quickSetup(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: {
+      settings?: any;
+      members?: Array<{ name: string; role: string; email?: string; skills?: string[]; hourlyRate?: number; yearsOfExperience?: number }>;
+      screenFunctions?: Array<{ name: string; type?: string; complexity?: string; priority?: string; description?: string }>;
+    },
+  ) {
+    return this.projectService.quickSetup(id, body);
+  }
 }

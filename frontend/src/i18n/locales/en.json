@@ -1017,6 +1017,21 @@
     "scheduleApplied": "Schedule applied successfully!",
     "error": "Error",
     "unknownError": "An unknown error occurred",
+    "planAll": "AI Plan Everything",
+    "planAllTitle": "AI Plan Everything",
+    "planAllDesc": "One-click AI planning: estimates effort for all screen functions, stages, and generates schedules for all stages automatically.",
+    "planAllDone": "AI planning complete! All results have been applied.",
+    "advancedOptions": "Advanced AI Options",
+    "processing": "AI is analyzing your project...",
+    "step": {
+      "estimatingSF": "Estimating screen function effort...",
+      "estimatingStages": "Estimating stage effort & dates...",
+      "scheduling": "Generating schedules for all stages..."
+    },
+    "quickAdd": {
+      "members": "Quick Add Members",
+      "screenFunctions": "Quick Add Screen Functions"
+    },
     "prereq": {
       "title": "Required Input for AI Estimation",
       "titleSchedule": "Required Input for AI Schedule Generation",
