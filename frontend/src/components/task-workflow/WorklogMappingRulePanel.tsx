@@ -17,6 +17,7 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
+import TableSortLabel from '@mui/material/TableSortLabel';
 
 interface Props {
   projectId: number;
@@ -31,6 +32,8 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>>([]);
   const [selectedSuggestionKeys, setSelectedSuggestionKeys] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<'keyword' | 'stageStep'>('keyword');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: config } = useQuery({
     queryKey: ['workflowConfig', projectId],
@@ -76,23 +79,49 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     onSuccess: (res) => {
       const suggestions = res.data.suggestions || [];
       setAiSuggestions(suggestions);
-      setSelectedSuggestionKeys(
-        suggestions.map((s, idx) => `${s.keyword}|${s.stageId}|${s.stepId}|${idx}`),
-      );
+      setSelectedSuggestionKeys(suggestions.map((s) => `${s.keyword}|${s.stageId}|${s.stepId}|${s.reason || ''}`));
     },
   });
 
-  const suggestionKey = (
-    suggestion: { keyword: string; stageId: number; stepId: number },
-    idx: number,
-  ) => `${suggestion.keyword}|${suggestion.stageId}|${suggestion.stepId}|${idx}`;
+  const suggestionKey = (suggestion: {
+    keyword: string;
+    stageId: number;
+    stepId: number;
+    reason?: string;
+  }) => `${suggestion.keyword}|${suggestion.stageId}|${suggestion.stepId}|${suggestion.reason || ''}`;
 
-  const selectedSuggestions = aiSuggestions.filter((s, idx) =>
-    selectedSuggestionKeys.includes(suggestionKey(s, idx)),
+  const selectedSuggestions = aiSuggestions.filter((s) =>
+    selectedSuggestionKeys.includes(suggestionKey(s)),
   );
 
   const allSuggestionsSelected =
     aiSuggestions.length > 0 && selectedSuggestionKeys.length === aiSuggestions.length;
+
+  const sortedAiSuggestions = useMemo(() => {
+    const rows = [...aiSuggestions];
+    rows.sort((a, b) => {
+      const stageA = stageOptions.find((st: any) => st.id === a.stageId)?.name || String(a.stageId);
+      const stepA = stageOptions.find((st: any) => st.id === a.stageId)?.steps?.find((sp: any) => sp.id === a.stepId)?.name || String(a.stepId);
+      const stageB = stageOptions.find((st: any) => st.id === b.stageId)?.name || String(b.stageId);
+      const stepB = stageOptions.find((st: any) => st.id === b.stageId)?.steps?.find((sp: any) => sp.id === b.stepId)?.name || String(b.stepId);
+
+      const valueA = sortBy === 'keyword' ? a.keyword.toLowerCase() : `${stageA} / ${stepA}`.toLowerCase();
+      const valueB = sortBy === 'keyword' ? b.keyword.toLowerCase() : `${stageB} / ${stepB}`.toLowerCase();
+
+      const compared = valueA.localeCompare(valueB);
+      return sortDirection === 'asc' ? compared : -compared;
+    });
+    return rows;
+  }, [aiSuggestions, sortBy, sortDirection, stageOptions]);
+
+  const handleSort = (field: 'keyword' | 'stageStep') => {
+    if (sortBy === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
 
   const applyAiMutation = useMutation({
     mutationFn: async () => {
@@ -162,7 +191,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedSuggestionKeys(
-                              aiSuggestions.map((s, idx) => suggestionKey(s, idx)),
+                              aiSuggestions.map((s) => suggestionKey(s)),
                             );
                           } else {
                             setSelectedSuggestionKeys([]);
@@ -170,17 +199,33 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                         }}
                       />
                     </TableCell>
-                    <TableCell>Keyword</TableCell>
-                    <TableCell>Stage/Step</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortBy === 'keyword'}
+                        direction={sortBy === 'keyword' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('keyword')}
+                      >
+                        Keyword
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortBy === 'stageStep'}
+                        direction={sortBy === 'stageStep' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('stageStep')}
+                      >
+                        Stage/Step
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Confidence</TableCell>
                     <TableCell>Reason</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {aiSuggestions.map((s, idx) => {
+                  {sortedAiSuggestions.map((s) => {
                     const stage = stageOptions.find((st: any) => st.id === s.stageId);
                     const step = stage?.steps?.find((sp: any) => sp.id === s.stepId);
-                    const key = suggestionKey(s, idx);
+                    const key = suggestionKey(s);
                     return (
                       <TableRow key={key}>
                         <TableCell padding="checkbox">
