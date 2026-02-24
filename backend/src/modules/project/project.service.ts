@@ -1,8 +1,11 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
+import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
+import { MemberService } from '../member/member.service';
+import { ScreenFunctionService } from '../screen-function/screen-function.service';
 
 @Injectable()
 export class ProjectService {
@@ -11,6 +14,12 @@ export class ProjectService {
     private projectRepository: typeof Project,
     @Inject('PROJECT_SETTINGS_REPOSITORY')
     private projectSettingsRepository: typeof ProjectSettings,
+    @Inject(forwardRef(() => TaskWorkflowService))
+    private taskWorkflowService: TaskWorkflowService,
+    @Inject(forwardRef(() => MemberService))
+    private memberService: MemberService,
+    @Inject(forwardRef(() => ScreenFunctionService))
+    private screenFunctionService: ScreenFunctionService,
   ) {}
 
   async findAll(): Promise<Project[]> {
@@ -49,6 +58,14 @@ export class ProjectService {
       nonWorkingDays: DEFAULT_NON_WORKING_DAYS,
       holidays: [],
     } as any);
+
+    // Auto-initialize workflow stages and steps
+    try {
+      await this.taskWorkflowService.initializeProjectWorkflow({ projectId: project.id });
+    } catch (error) {
+      // Non-critical: project is still usable without auto-initialized workflow
+      console.warn(`Auto-init workflow failed for project ${project.id}:`, error?.message);
+    }
 
     return project;
   }
@@ -279,5 +296,72 @@ export class ProjectService {
       },
       { where: { id: projectId } },
     );
+  }
+
+  /**
+   * Quick setup for a project: create members, screen functions, and update settings in one call.
+   * Used by the AI Plan Everything dialog to resolve missing prerequisites inline.
+   */
+  async quickSetup(projectId: number, body: {
+    settings?: UpdateProjectSettingsDto;
+    members?: Array<{ name: string; role: string; email?: string; skills?: string[]; hourlyRate?: number; yearsOfExperience?: number }>;
+    screenFunctions?: Array<{ name: string; type?: string; complexity?: string; priority?: string; description?: string }>;
+  }) {
+    const results: { settingsUpdated: boolean; membersCreated: number; screenFunctionsCreated: number } = {
+      settingsUpdated: false,
+      membersCreated: 0,
+      screenFunctionsCreated: 0,
+    };
+
+    // 1. Update settings if provided
+    if (body.settings) {
+      await this.updateSettings(projectId, body.settings);
+      results.settingsUpdated = true;
+    }
+
+    // 2. Create members with smart defaults
+    if (body.members && body.members.length > 0) {
+      const ROLE_SKILLS_MAP: Record<string, string[]> = {
+        PM: ['project-management', 'planning', 'communication'],
+        TL: ['technical-leadership', 'code-review', 'architecture'],
+        BA: ['requirements-analysis', 'documentation', 'communication'],
+        DEV: ['coding', 'code-review', 'unit-testing'],
+        QA: ['testing', 'test-case-design', 'bug-reporting'],
+        Comtor: ['translation', 'communication'],
+        Designer: ['ui-design', 'ux-design', 'prototyping'],
+        DevOps: ['ci-cd', 'infrastructure', 'monitoring'],
+      };
+
+      for (const member of body.members) {
+        const skills = member.skills?.length ? member.skills : (ROLE_SKILLS_MAP[member.role] || []);
+        await this.memberService.create({
+          projectId,
+          name: member.name,
+          role: member.role as any,
+          email: member.email,
+          skills,
+          hourlyRate: member.hourlyRate || 0,
+          yearsOfExperience: member.yearsOfExperience,
+        } as any);
+        results.membersCreated++;
+      }
+    }
+
+    // 3. Create screen functions (auto-link handled by screen-function.service)
+    if (body.screenFunctions && body.screenFunctions.length > 0) {
+      for (const sf of body.screenFunctions) {
+        await this.screenFunctionService.create({
+          projectId,
+          name: sf.name,
+          type: (sf.type as any) || 'Screen',
+          complexity: (sf.complexity as any) || 'Medium',
+          priority: (sf.priority as any) || 'Medium',
+          description: sf.description,
+        } as any);
+        results.screenFunctionsCreated++;
+      }
+    }
+
+    return { success: true, ...results };
   }
 }

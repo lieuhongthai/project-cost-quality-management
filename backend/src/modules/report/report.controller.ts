@@ -8,13 +8,19 @@ import {
   Param,
   ParseIntPipe,
   Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ReportService } from './report.service';
+import { ReportExportService } from './report-export.service';
 import { CreateReportDto, UpdateReportDto } from './report.dto';
 
 @Controller('reports')
 export class ReportController {
-  constructor(private readonly reportService: ReportService) {}
+  constructor(
+    private readonly reportService: ReportService,
+    private readonly reportExportService: ReportExportService,
+  ) {}
 
   @Get()
   findAll() {
@@ -32,6 +38,40 @@ export class ReportController {
     @Param('scope') scope: string,
   ) {
     return this.reportService.findByScope(projectId, scope);
+  }
+
+  // ===== Export Endpoints =====
+
+  @Get(':id/export/excel')
+  async exportExcel(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const workbook = await this.reportExportService.generateExcel(id);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=report-${id}-${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  @Get(':id/export/pdf')
+  async exportPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.reportExportService.generatePdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=report-${id}-${Date.now()}.pdf`,
+    );
+    res.send(pdfBuffer);
   }
 
   @Get(':id')

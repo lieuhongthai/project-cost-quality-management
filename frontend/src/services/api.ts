@@ -81,6 +81,13 @@ export const projectApi = {
     nonWorkingDays?: number[];
     holidays?: string[];
   }) => api.post<{ endDate: string; workingDays: number; totalDays: number }>('/projects/calculate-end-date', data),
+
+  // Quick setup: create members, screen functions, update settings in one call
+  quickSetup: (projectId: number, data: {
+    settings?: any;
+    members?: Array<{ name: string; role: string; email?: string; skills?: string[]; hourlyRate?: number }>;
+    screenFunctions?: Array<{ name: string; type?: string; complexity?: string; priority?: string; description?: string }>;
+  }) => api.post(`/projects/${projectId}/quick-setup`, data),
 };
 
 
@@ -91,6 +98,8 @@ export const reportApi = {
   getByScope: (projectId: number, scope: string) => 
     api.get<Report[]>(`/reports/project/${projectId}/scope/${scope}`),
   getOne: (id: number) => api.get<Report>(`/reports/${id}`),
+  exportExcel: (id: number) => api.get(`/reports/${id}/export/excel`, { responseType: 'blob' }),
+  exportPdf: (id: number) => api.get(`/reports/${id}/export/pdf`, { responseType: 'blob' }),
   create: (data: Partial<Report>) => api.post<Report>('/reports', data),
   update: (id: number, data: Partial<Report>) => api.put<Report>(`/reports/${id}`, data),
   delete: (id: number) => api.delete(`/reports/${id}`),
@@ -416,6 +425,24 @@ export const taskWorkflowApi = {
     metrics: Array<{ metricCategoryId: number; value?: number; note?: string }>;
   }) =>
     api.post<TaskMemberMetric[]>('/task-workflow/task-member-metrics/bulk-upsert', data),
+
+  // ===== AI Scheduling =====
+  aiEstimateEffort: (data: { projectId: number; screenFunctionIds?: number[]; stageId?: number; language?: string }) =>
+    api.post('/task-workflow/ai/estimate-effort', data),
+  aiEstimateStageEffort: (data: { projectId: number; stageIds?: number[]; language?: string }) =>
+    api.post('/task-workflow/ai/estimate-stage-effort', data),
+  aiGenerateSchedule: (data: { projectId: number; stageId: number; language?: string }) =>
+    api.post('/task-workflow/ai/generate-schedule', data),
+  aiApplyEstimation: (data: { projectId: number; estimates: Array<{ screenFunctionId: number; estimatedEffortHours: number }> }) =>
+    api.post('/task-workflow/ai/apply-estimation', data),
+  aiApplyStageEstimation: (data: { projectId: number; estimates: Array<{ stageId: number; estimatedEffortHours: number; startDate?: string; endDate?: string }> }) =>
+    api.post('/task-workflow/ai/apply-stage-estimation', data),
+  aiApplySchedule: (data: { assignments: Array<{ stepScreenFunctionId: number; memberId: number; estimatedEffort: number; estimatedStartDate: string; estimatedEndDate: string }> }) =>
+    api.post('/task-workflow/ai/apply-schedule', data),
+
+  // Plan All: one-click AI estimation + scheduling for entire project
+  aiPlanAll: (data: { projectId: number; language?: string; autoApply?: boolean }) =>
+    api.post('/task-workflow/ai/plan-all', data),
 };
 
 export const iamApi = {
