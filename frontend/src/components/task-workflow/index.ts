@@ -6,3 +6,4 @@ export { StepScreenFunctionEditModal } from './StepScreenFunctionEditModal';
 export { MetricConfigPanel } from './MetricConfigPanel';
 
 export { WorklogImportPanel } from './WorklogImportPanel';
+export { WorklogMappingRulePanel } from './WorklogMappingRulePanel';

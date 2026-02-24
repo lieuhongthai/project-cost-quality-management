@@ -48,9 +48,11 @@ import {
   CommitWorklogImportDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
+import OpenAI from 'openai';
 
 @Injectable()
 export class TaskWorkflowService {
+  private openai: OpenAI;
   constructor(
     @Inject('WORKFLOW_STAGE_REPOSITORY')
     private stageRepository: typeof WorkflowStage,
@@ -78,7 +80,9 @@ export class TaskWorkflowService {
     private worklogImportItemRepository: typeof WorklogImportItem,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
-  ) {}
+  ) {
+    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+  }
 
   // ===== Workflow Stage Methods =====
 
@@ -2008,6 +2012,179 @@ export class TaskWorkflowService {
     await rule.destroy();
   }
 
+
+
+  async aiSuggestWorklogMappingRules(
+    projectId: number,
+    file: any,
+    autoCreate = false,
+  ): Promise<any> {
+    const csvContent = file.buffer.toString('utf-8');
+    const rows = this.parseCsv(csvContent);
+    const stages = await this.findAllStages(projectId);
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stages.map((s) => s.id) }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const stageStepPairs = stages.flatMap((stage) =>
+      steps
+        .filter((step) => step.stageId === stage.id)
+        .map((step) => ({ stageId: stage.id, stageName: stage.name, stepId: step.id, stepName: step.name })),
+    );
+
+    const workDetails = Array.from(
+      new Set(rows.map((r) => (r.workDetail || '').trim()).filter((v) => v.length > 0)),
+    ).slice(0, 200);
+
+    let suggestions = await this.aiGenerateKeywordSuggestions(stageStepPairs, workDetails);
+    if (suggestions.length === 0) {
+      suggestions = this.heuristicKeywordSuggestions(stageStepPairs, workDetails);
+    }
+
+    const existingRules = await this.worklogMappingRuleRepository.findAll({ where: { projectId } });
+    const exists = new Set(existingRules.map((r) => `${r.keyword.toLowerCase()}|${r.stageId}|${r.stepId}`));
+
+    const deduped = suggestions.filter((s) => {
+      const key = `${s.keyword.toLowerCase()}|${s.stageId}|${s.stepId}`;
+      if (exists.has(key)) return false;
+      exists.add(key);
+      return true;
+    });
+
+    let created = 0;
+    if (autoCreate && deduped.length > 0) {
+      for (const s of deduped) {
+        await this.worklogMappingRuleRepository.create({
+          projectId,
+          keyword: s.keyword,
+          stageId: s.stageId,
+          stepId: s.stepId,
+          priority: Math.round(100 * s.confidence),
+          isActive: true,
+        } as any);
+        created += 1;
+      }
+    }
+
+    return {
+      totalWorkDetails: workDetails.length,
+      suggestions: deduped,
+      created,
+      source: process.env.OPENAI_API_KEY ? 'ai_or_fallback' : 'heuristic',
+    };
+  }
+
+  private async aiGenerateKeywordSuggestions(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    workDetails: string[],
+  ): Promise<Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>> {
+    if (!process.env.OPENAI_API_KEY) return [];
+
+    const prompt = `Given workflow stage-step pairs and work detail samples, propose keyword mapping rules.
+
+StageStepPairs:
+${JSON.stringify(stageStepPairs)}
+
+WorkDetails:
+${JSON.stringify(workDetails)}
+
+Return ONLY valid JSON array.
+Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence": number, "reason": string}.
+- confidence in range 0..1
+- keyword should be short and reusable`;
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a workflow mapping assistant.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1400,
+      });
+
+      const content = completion.choices?.[0]?.message?.content || '[]';
+      const parsed = JSON.parse(content);
+      if (!Array.isArray(parsed)) return [];
+
+      const validStageSteps = new Set(stageStepPairs.map((p) => `${p.stageId}|${p.stepId}`));
+
+      return parsed
+        .filter((x: any) => typeof x?.keyword === 'string' && Number.isFinite(Number(x?.stageId)) && Number.isFinite(Number(x?.stepId)))
+        .map((x: any) => ({
+          keyword: x.keyword.trim(),
+          stageId: Number(x.stageId),
+          stepId: Number(x.stepId),
+          confidence: Math.max(0, Math.min(1, Number(x.confidence ?? 0.7))),
+          reason: x.reason || 'AI suggestion',
+        }))
+        .filter((x: any) => x.keyword.length > 1 && validStageSteps.has(`${x.stageId}|${x.stepId}`));
+    } catch {
+      return [];
+    }
+  }
+
+  private heuristicKeywordSuggestions(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    workDetails: string[],
+  ): Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }> {
+    const candidates = new Map<string, { keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>();
+
+    for (const detail of workDetails) {
+      const lower = detail.toLowerCase();
+      const bracketTokens = Array.from(lower.matchAll(/\[([^\]]+)\]/g)).map((m) => m[1].trim()).filter((v) => v.length >= 3);
+      const words = lower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length >= 4).slice(0, 8);
+      const tokens = [...new Set([...bracketTokens, ...words])];
+
+      if (tokens.length === 0) continue;
+
+      const target = this.bestStageStepByText(stageStepPairs, lower);
+      if (!target) continue;
+
+      for (const token of tokens.slice(0, 3)) {
+        const key = `${token}|${target.stageId}|${target.stepId}`;
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            keyword: token,
+            stageId: target.stageId,
+            stepId: target.stepId,
+            confidence: 0.55,
+            reason: 'Heuristic from workDetail tokens',
+          });
+        }
+      }
+    }
+
+    return Array.from(candidates.values()).slice(0, 80);
+  }
+
+  private bestStageStepByText(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    text: string,
+  ): { stageId: number; stepId: number } | null {
+    let best: { stageId: number; stepId: number; score: number } | null = null;
+
+    for (const pair of stageStepPairs) {
+      let score = 0;
+      const stageName = pair.stageName.toLowerCase();
+      const stepName = pair.stepName.toLowerCase();
+      if (text.includes(stageName)) score += 2;
+      if (text.includes(stepName)) score += 3;
+
+      const stageWords = stageName.split(/\s+/).filter((w) => w.length > 2);
+      const stepWords = stepName.split(/\s+/).filter((w) => w.length > 2);
+      score += stageWords.filter((w) => text.includes(w)).length * 0.4;
+      score += stepWords.filter((w) => text.includes(w)).length * 0.8;
+
+      if (!best || score > best.score) {
+        best = { stageId: pair.stageId, stepId: pair.stepId, score };
+      }
+    }
+
+    return best && best.score > 0 ? { stageId: best.stageId, stepId: best.stepId } : null;
+  }
 
 
   // ===== Worklog Import Methods =====

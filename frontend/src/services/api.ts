@@ -243,6 +243,18 @@ export const taskWorkflowApi = {
   deleteWorklogMappingRule: (id: number) =>
     api.delete(`/task-workflow/worklog-mapping-rules/${id}`),
 
+  aiSuggestWorklogMappingRules: (projectId: number, file: File, autoCreate = false) => {
+    const formData = new FormData();
+    formData.append('projectId', String(projectId));
+    formData.append('autoCreate', autoCreate ? 'true' : 'false');
+    formData.append('file', file);
+    return api.post<{ totalWorkDetails: number; suggestions: Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>; created: number; source: string }>(
+      '/task-workflow/worklog-mapping-rules/ai-suggest',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+  },
+
   // Worklog Import
   previewWorklogImport: (projectId: number, file: File) => {
     const formData = new FormData();
