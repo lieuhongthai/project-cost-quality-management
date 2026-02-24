@@ -194,17 +194,26 @@ export class AISchedulingService {
           },
         ],
         temperature: 0.3,
-        max_tokens: 3000,
+        max_tokens: 6000,
         response_format: { type: 'json_object' },
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || '{}');
+      let result: any;
+      try {
+        result = JSON.parse(completion.choices[0].message.content || '{}');
+      } catch (parseError) {
+        console.error('AI schedule JSON parse error (response likely truncated):', parseError);
+        throw new BadRequestException(
+          'AI response was too large to parse. The stage may have too many tasks. Try scheduling one stage at a time using Advanced AI Options.',
+        );
+      }
       return {
         success: true,
         source: 'AI',
         data: result,
       };
     } catch (error) {
+      if (error instanceof BadRequestException) throw error;
       console.error('AI schedule generation error:', error);
       // Fallback: simple round-robin assignment
       return {
@@ -461,6 +470,13 @@ export class AISchedulingService {
 
     // Step 3: Generate schedule for each stage
     try {
+      // Ensure all screen functions are linked to all stages before scheduling.
+      // This is idempotent - existing links are skipped.
+      const allSFs = await this.screenFunctionRepository.findAll({ where: { projectId } });
+      for (const sf of allSFs) {
+        await this.taskWorkflowService.linkScreenFunctionToAllStages(projectId, sf.id);
+      }
+
       const stages = await this.taskWorkflowService.findAllStages(projectId);
       for (const stage of stages) {
         try {
