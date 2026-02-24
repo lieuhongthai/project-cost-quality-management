@@ -2148,17 +2148,23 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     const candidates = new Map<string, { keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>();
 
     for (const detail of workDetails) {
-      const lower = detail.toLowerCase();
-      const bracketTokens = Array.from(lower.matchAll(/\[([^\]]+)\]/g)).map((m) => m[1].trim()).filter((v) => v.length >= 3);
-      const words = lower.replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length >= 4).slice(0, 8);
+      const normalized = this.normalizeWorkDetailForKeywordMatching(detail);
+      const bracketTokens = Array.from(normalized.matchAll(/\[([^\]]+)\]/g))
+        .map((m) => m[1].trim())
+        .filter((v) => v.length >= 2 && !/^gsl-\d+$/i.test(v));
+      const words = normalized
+        .replace(/[^\p{L}0-9\s-]/gu, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 2 && !/^gsl-\d+$/i.test(w))
+        .slice(0, 10);
       const tokens = [...new Set([...bracketTokens, ...words])];
 
       if (tokens.length === 0) continue;
 
-      const target = this.bestStageStepByText(stageStepPairs, lower);
+      const target = this.bestStageStepByText(stageStepPairs, normalized);
       if (!target) continue;
 
-      for (const token of tokens.slice(0, 3)) {
+      for (const token of tokens.slice(0, 4)) {
         const key = `${token}|${target.stageId}|${target.stepId}`;
         if (!candidates.has(key)) {
           candidates.set(key, {
@@ -2167,6 +2173,26 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
             stepId: target.stepId,
             confidence: 0.55,
             reason: 'Heuristic from workDetail tokens',
+          });
+        }
+      }
+
+      const comboCandidates: string[] = [];
+      for (let i = 0; i < Math.min(tokens.length, 4); i++) {
+        for (let j = i + 1; j < Math.min(tokens.length, 5); j++) {
+          comboCandidates.push(`${tokens[i]}+${tokens[j]}`);
+        }
+      }
+
+      for (const combo of comboCandidates.slice(0, 6)) {
+        const key = `${combo}|${target.stageId}|${target.stepId}`;
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            keyword: combo,
+            stageId: target.stageId,
+            stepId: target.stepId,
+            confidence: 0.65,
+            reason: 'Heuristic combined keywords',
           });
         }
       }
@@ -2199,6 +2225,47 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     }
 
     return best && best.score > 0 ? { stageId: best.stageId, stepId: best.stepId } : null;
+  }
+
+
+  private normalizeWorkDetailForKeywordMatching(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .replace(/\bgsl-\d+\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private findBestMappingRule(
+    rules: WorklogMappingRule[],
+    workDetail: string,
+  ): WorklogMappingRule | undefined {
+    const normalizedDetail = this.normalizeWorkDetailForKeywordMatching(workDetail);
+    if (!normalizedDetail) return undefined;
+
+    let best: { rule: WorklogMappingRule; score: number } | null = null;
+
+    for (const rule of rules) {
+      const rawKeyword = (rule.keyword || '').trim().toLowerCase();
+      if (!rawKeyword) continue;
+
+      const terms = rawKeyword
+        .split('+')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0 && !/^gsl-\d+$/i.test(term));
+
+      if (terms.length === 0) continue;
+
+      const allMatched = terms.every((term) => normalizedDetail.includes(term));
+      if (!allMatched) continue;
+
+      const score = terms.length * 10 + Math.min(8, rawKeyword.length / 8);
+      if (!best || score > best.score) {
+        best = { rule, score };
+      }
+    }
+
+    return best?.rule;
   }
 
 
@@ -2255,15 +2322,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const member = email ? memberByEmail.get(email) : undefined;
 
-      let matchedRule: WorklogMappingRule | undefined;
-      const workDetailLower = (workDetail || '').toLowerCase();
-      for (const rule of rules) {
-        const keyword = (rule.keyword || '').toLowerCase();
-        if (keyword && workDetailLower.includes(keyword)) {
-          matchedRule = rule;
-          break;
-        }
-      }
+      const matchedRule = this.findBestMappingRule(rules, workDetail || '');
 
       const screenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
 
