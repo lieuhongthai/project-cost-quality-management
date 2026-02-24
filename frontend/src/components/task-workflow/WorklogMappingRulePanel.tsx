@@ -16,6 +16,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
+import Checkbox from '@mui/material/Checkbox';
 
 interface Props {
   projectId: number;
@@ -29,6 +30,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [priority, setPriority] = useState<number>(100);
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>>([]);
+  const [selectedSuggestionKeys, setSelectedSuggestionKeys] = useState<string[]>([]);
 
   const { data: config } = useQuery({
     queryKey: ['workflowConfig', projectId],
@@ -72,14 +74,30 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
       return taskWorkflowApi.aiSuggestWorklogMappingRules(projectId, aiFile, false);
     },
     onSuccess: (res) => {
-      setAiSuggestions(res.data.suggestions || []);
+      const suggestions = res.data.suggestions || [];
+      setAiSuggestions(suggestions);
+      setSelectedSuggestionKeys(
+        suggestions.map((s, idx) => `${s.keyword}|${s.stageId}|${s.stepId}|${idx}`),
+      );
     },
   });
+
+  const suggestionKey = (
+    suggestion: { keyword: string; stageId: number; stepId: number },
+    idx: number,
+  ) => `${suggestion.keyword}|${suggestion.stageId}|${suggestion.stepId}|${idx}`;
+
+  const selectedSuggestions = aiSuggestions.filter((s, idx) =>
+    selectedSuggestionKeys.includes(suggestionKey(s, idx)),
+  );
+
+  const allSuggestionsSelected =
+    aiSuggestions.length > 0 && selectedSuggestionKeys.length === aiSuggestions.length;
 
   const applyAiMutation = useMutation({
     mutationFn: async () => {
       let created = 0;
-      for (const s of aiSuggestions) {
+      for (const s of selectedSuggestions) {
         await taskWorkflowApi.createWorklogMappingRule({
           projectId,
           keyword: s.keyword,
@@ -95,6 +113,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worklogMappingRules', projectId] });
       setAiSuggestions([]);
+      setSelectedSuggestionKeys([]);
     },
   });
 
@@ -120,7 +139,14 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <input type="file" accept=".csv,text/csv" onChange={(e) => setAiFile(e.target.files?.[0] || null)} />
             <Button variant="outlined" onClick={() => aiSuggestMutation.mutate()} disabled={!aiFile || aiSuggestMutation.isPending}>Suggest</Button>
-            <Button variant="contained" color="success" onClick={() => applyAiMutation.mutate()} disabled={aiSuggestions.length === 0 || applyAiMutation.isPending}>Apply suggestions ({aiSuggestions.length})</Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => applyAiMutation.mutate()}
+              disabled={selectedSuggestions.length === 0 || applyAiMutation.isPending}
+            >
+              Apply selected ({selectedSuggestions.length})
+            </Button>
           </Box>
           {aiSuggestMutation.isError && <Alert severity="error" sx={{ mt: 1 }}>AI suggest failed</Alert>}
           {aiSuggestions.length > 0 && (
@@ -128,6 +154,22 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        checked={allSuggestionsSelected}
+                        indeterminate={!allSuggestionsSelected && selectedSuggestionKeys.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSuggestionKeys(
+                              aiSuggestions.map((s, idx) => suggestionKey(s, idx)),
+                            );
+                          } else {
+                            setSelectedSuggestionKeys([]);
+                          }
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>Keyword</TableCell>
                     <TableCell>Stage/Step</TableCell>
                     <TableCell>Confidence</TableCell>
@@ -138,8 +180,22 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                   {aiSuggestions.map((s, idx) => {
                     const stage = stageOptions.find((st: any) => st.id === s.stageId);
                     const step = stage?.steps?.find((sp: any) => sp.id === s.stepId);
+                    const key = suggestionKey(s, idx);
                     return (
-                      <TableRow key={`${s.keyword}-${idx}`}>
+                      <TableRow key={key}>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            size="small"
+                            checked={selectedSuggestionKeys.includes(key)}
+                            onChange={(e) => {
+                              setSelectedSuggestionKeys((prev) =>
+                                e.target.checked
+                                  ? [...prev, key]
+                                  : prev.filter((x) => x !== key),
+                              );
+                            }}
+                          />
+                        </TableCell>
                         <TableCell>{s.keyword}</TableCell>
                         <TableCell>{stage?.name || s.stageId} / {step?.name || s.stepId}</TableCell>
                         <TableCell>{Math.round((s.confidence || 0) * 100)}%</TableCell>
