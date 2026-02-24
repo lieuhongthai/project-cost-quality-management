@@ -23,6 +23,8 @@ import { MetricCategory } from "../modules/task-workflow/metric-category.model";
 import { TaskMemberMetric } from "../modules/task-workflow/task-member-metric.model";
 import { ScreenFunctionDefaultMember } from "../modules/screen-function/screen-function-default-member.model";
 import { WorklogMappingRule } from "../modules/task-workflow/worklog-mapping-rule.model";
+import { WorklogImportBatch } from "../modules/task-workflow/worklog-import-batch.model";
+import { WorklogImportItem } from "../modules/task-workflow/worklog-import-item.model";
 
 export const databaseProviders = [
   {
@@ -75,6 +77,8 @@ export const databaseProviders = [
         TaskMemberMetric,
         ScreenFunctionDefaultMember,
         WorklogMappingRule,
+        WorklogImportBatch,
+        WorklogImportItem,
       ]);
 
       await sequelize.sync({alter: true });

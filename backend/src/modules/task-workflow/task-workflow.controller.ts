@@ -9,8 +9,12 @@ import {
   Query,
   ParseIntPipe,
   Res,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TaskWorkflowService } from './task-workflow.service';
 import { AISchedulingService } from './ai-scheduling.service';
 import {
@@ -52,6 +56,7 @@ import {
   InitializeProjectMetricsDto,
   CreateWorklogMappingRuleDto,
   UpdateWorklogMappingRuleDto,
+  CommitWorklogImportDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -224,6 +229,49 @@ export class TaskWorkflowController {
   @Delete('worklog-mapping-rules/:id')
   deleteWorklogMappingRule(@Param('id', ParseIntPipe) id: number) {
     return this.taskWorkflowService.deleteWorklogMappingRule(id);
+  }
+
+
+  // ===== Worklog Import Endpoints =====
+
+  @Post('worklog-import/preview')
+  @UseInterceptors(FileInterceptor('file'))
+  previewWorklogImport(
+    @UploadedFile() file: any,
+    @Body('projectId') projectIdRaw: string,
+  ) {
+    const projectId = Number(projectIdRaw);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (!projectId) {
+      throw new BadRequestException('projectId is required');
+    }
+    return this.taskWorkflowService.previewWorklogImport(projectId, file);
+  }
+
+  @Post('worklog-import/commit')
+  commitWorklogImport(@Body() dto: CommitWorklogImportDto) {
+    return this.taskWorkflowService.commitWorklogImport(dto);
+  }
+
+  @Get('worklog-import/:batchId')
+  getWorklogImportBatch(@Param('batchId', ParseIntPipe) batchId: number) {
+    return this.taskWorkflowService.getWorklogImportBatch(batchId);
+  }
+
+  @Get('worklog-import/:batchId/unselected/export')
+  async exportUnselectedWorklogImport(
+    @Param('batchId', ParseIntPipe) batchId: number,
+    @Res() res: Response,
+  ) {
+    const csv = await this.taskWorkflowService.exportUnselectedWorklogImport(batchId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=worklog-import-unselected-${batchId}.csv`,
+    );
+    res.send(csv);
   }
 
   // ===== Export Excel =====

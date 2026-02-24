@@ -777,3 +777,16 @@ export class UpdateWorklogMappingRuleDto {
   @IsBoolean()
   isActive?: boolean;
 }
+
+// ===== Worklog Import DTOs =====
+
+export class CommitWorklogImportDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  batchId: number;
+
+  @IsArray()
+  @Type(() => Number)
+  selectedItemIds: number[];
+}

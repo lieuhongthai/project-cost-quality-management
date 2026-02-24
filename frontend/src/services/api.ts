@@ -34,6 +34,7 @@ import type {
   ProjectMetricInsights,
   ProjectMetricTypeSummary,
   WorklogMappingRule,
+  WorklogImportBatchDetail,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -241,6 +242,25 @@ export const taskWorkflowApi = {
   }) => api.put<WorklogMappingRule>(`/task-workflow/worklog-mapping-rules/${id}`, data),
   deleteWorklogMappingRule: (id: number) =>
     api.delete(`/task-workflow/worklog-mapping-rules/${id}`),
+
+  // Worklog Import
+  previewWorklogImport: (projectId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('projectId', String(projectId));
+    formData.append('file', file);
+    return api.post<WorklogImportBatchDetail>('/task-workflow/worklog-import/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getWorklogImportBatch: (batchId: number) =>
+    api.get<WorklogImportBatchDetail>(`/task-workflow/worklog-import/${batchId}`),
+  commitWorklogImport: (data: { batchId: number; selectedItemIds: number[] }) =>
+    api.post<{ batchId: number; success: number; failed: number; skipped: number; total: number }>(
+      '/task-workflow/worklog-import/commit',
+      data,
+    ),
+  exportUnselectedWorklogImport: (batchId: number) =>
+    api.get(`/task-workflow/worklog-import/${batchId}/unselected/export`, { responseType: 'blob' }),
 
   // Workflow Steps
   getSteps: (stageId: number) =>
