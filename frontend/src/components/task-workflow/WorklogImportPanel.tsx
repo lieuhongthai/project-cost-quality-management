@@ -20,6 +20,7 @@ import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import { Modal } from '@/components/common/Modal';
+import { useTranslation } from 'react-i18next';
 
 interface WorklogImportPanelProps {
   projectId: number;
@@ -32,6 +33,7 @@ interface ItemOverride {
 }
 
 export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [batchDetail, setBatchDetail] = useState<WorklogImportBatchDetail | null>(null);
@@ -58,7 +60,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
   const previewMutation = useMutation({
     mutationFn: () => {
-      if (!selectedFile) throw new Error('Please select a CSV file');
+      if (!selectedFile) throw new Error(t('worklogImport.errors.selectCsv', { defaultValue: 'Please select a CSV file' }));
       return taskWorkflowApi.previewWorklogImport(projectId, selectedFile);
     },
     onSuccess: (response) => {
@@ -74,7 +76,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
   const commitMutation = useMutation({
     mutationFn: async () => {
-      if (!batchDetail) throw new Error('No preview data');
+      if (!batchDetail) throw new Error(t('worklogImport.errors.noPreviewData', { defaultValue: 'No preview data' }));
       const overridePayload = Object.entries(overrides)
         .map(([itemId, value]) => ({ itemId: Number(itemId), ...value }))
         .filter((x) => x.stageId || x.stepId || x.screenFunctionId);
@@ -127,7 +129,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      if (!batchDetail) throw new Error('No batch to export');
+      if (!batchDetail) throw new Error(t('worklogImport.errors.noBatchToExport', { defaultValue: 'No batch to export' }));
       const response = await taskWorkflowApi.exportUnselectedWorklogImport(batchDetail.batch.id);
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
@@ -222,44 +224,44 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   return (
     <Card>
       <CardContent>
-        <Typography variant="h6" sx={{ mb: 1 }}>Import CSV Worklog</Typography>
+        <Typography variant="h6" sx={{ mb: 1 }}>{t('worklogImport.title', { defaultValue: 'Import CSV Worklog' })}</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Upload CSV để preview, chọn record cần import vào StepScreenFunctionMember, sau đó xác nhận commit.
+          {t('worklogImport.description', { defaultValue: 'Upload CSV to preview, select records to import into StepScreenFunctionMember, then confirm commit.' })}
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
           <input type="file" accept=".csv,text/csv" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
           <Button variant="contained" onClick={() => previewMutation.mutate()} disabled={!selectedFile || previewMutation.isPending}>
-            Preview
+            {t('worklogImport.actions.preview', { defaultValue: 'Preview' })}
           </Button>
           {batchDetail && (
             <>
               <Button variant="contained" color="success" onClick={() => commitMutation.mutate()} disabled={selectedIds.length === 0 || commitMutation.isPending}>
-                Commit Selected ({selectedIds.length})
+                {t('worklogImport.actions.commitSelected', { defaultValue: 'Commit Selected' })} ({selectedIds.length})
               </Button>
               <Button variant="outlined" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
-                Export Unselected
+                {t('worklogImport.actions.exportUnselected', { defaultValue: 'Export Unselected' })}
               </Button>
             </>
           )}
         </Box>
 
-        {previewMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>Preview failed</Alert>}
-        {commitMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>Commit failed</Alert>}
+        {previewMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>{t('worklogImport.errors.previewFailed', { defaultValue: 'Preview failed' })}</Alert>}
+        {commitMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>{t('worklogImport.errors.commitFailed', { defaultValue: 'Commit failed' })}</Alert>}
 
         {commitResult && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Commit result: success {commitResult.success}, failed {commitResult.failed}, skipped {commitResult.skipped}, total {commitResult.total}
+            {t('worklogImport.commitResult', { defaultValue: 'Commit result: success {{success}}, failed {{failed}}, skipped {{skipped}}, total {{total}}', success: commitResult.success, failed: commitResult.failed, skipped: commitResult.skipped, total: commitResult.total })}
           </Alert>
         )}
 
         {batchDetail && (
           <>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-              <Chip label={`Total: ${batchDetail.summary.total}`} />
-              <Chip color="success" label={`Ready: ${batchDetail.summary.ready}`} />
-              <Chip color="warning" label={`Needs review: ${batchDetail.summary.needsReview}`} />
-              <Chip color="error" label={`Unmapped: ${batchDetail.summary.unmapped}`} />
+              <Chip label={t('worklogImport.summary.total', { defaultValue: 'Total: {{value}}', value: batchDetail.summary.total })} />
+              <Chip color="success" label={t('worklogImport.summary.ready', { defaultValue: 'Ready: {{value}}', value: batchDetail.summary.ready })} />
+              <Chip color="warning" label={t('worklogImport.summary.needsReview', { defaultValue: 'Needs review: {{value}}', value: batchDetail.summary.needsReview })} />
+              <Chip color="error" label={t('worklogImport.summary.unmapped', { defaultValue: 'Unmapped: {{value}}', value: batchDetail.summary.unmapped })} />
             </Box>
 
             <Box sx={{ mb: 1 }}>
@@ -268,27 +270,27 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 indeterminate={!allSelected && selectedIds.length > 0}
                 onChange={(e) => setSelectedIds(e.target.checked ? selectableIds : [])}
               />
-              Select all rows with enough mapping data (member + step + screen/function)
+              {t('worklogImport.selectAllMappable', { defaultValue: 'Select all rows with enough mapping data (member + step + screen/function)' })}
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Nhấn <strong>Edit</strong> để mở popup chỉnh Stage/Step/Screen Function cho từng dòng.
+              {t('worklogImport.hintUseEditModal', { defaultValue: 'Click Edit to open popup for Stage/Step/Screen Function mapping per row.' })}
             </Typography>
 
             <TableContainer component={Paper} sx={{ maxHeight: 460 }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Select</TableCell>
-                    <TableCell>Day</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Work detail</TableCell>
-                    <TableCell>Member</TableCell>
-                    <TableCell>Stage / Step</TableCell>
-                    <TableCell>Screen/Function</TableCell>
-                    <TableCell>Minutes</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Reason</TableCell>
-                    <TableCell align="center">Action</TableCell>
+                    <TableCell>{t('worklogImport.table.select', { defaultValue: 'Select' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.day', { defaultValue: 'Day' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.email', { defaultValue: 'Email' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.workDetail', { defaultValue: 'Work detail' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.member', { defaultValue: 'Member' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.minutes', { defaultValue: 'Minutes' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.status', { defaultValue: 'Status' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.reason', { defaultValue: 'Reason' })}</TableCell>
+                    <TableCell align="center">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -324,7 +326,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                         </TableCell>
                         <TableCell sx={{ maxWidth: 260 }}>{item.reason || '-'}</TableCell>
                         <TableCell align="center" sx={{ minWidth: 120 }}>
-                          <Button size="small" variant="outlined" onClick={() => openEditModal(item)}>Edit</Button>
+                          <Button size="small" variant="outlined" onClick={() => openEditModal(item)}>{t('common.edit')}</Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -338,12 +340,12 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         <Modal
           isOpen={!!editingItem}
           onClose={closeEditModal}
-          title={`Edit mapping for row #${editingItem?.rowNumber || '-'}`}
+          title={t('worklogImport.editModal.title', { defaultValue: 'Edit mapping for row #{{row}}', row: editingItem?.rowNumber || '-' })}
           size="sm"
           footer={(
             <>
-              <Button color="inherit" onClick={closeEditModal}>Cancel</Button>
-              <Button variant="contained" onClick={saveEditModal}>Save</Button>
+              <Button color="inherit" onClick={closeEditModal}>{t('common.cancel')}</Button>
+              <Button variant="contained" onClick={saveEditModal}>{t('common.save')}</Button>
             </>
           )}
         >
@@ -354,7 +356,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
             <TextField
               select
               size="small"
-              label="Stage"
+              label={t('taskWorkflow.stage', { defaultValue: 'Stage' })}
               value={editDraft.stageId || ''}
               onChange={(e) => setEditDraft((prev) => ({
                 ...prev,
@@ -371,7 +373,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
             <TextField
               select
               size="small"
-              label="Step"
+              label={t('taskWorkflow.step', { defaultValue: 'Step' })}
               value={editDraft.stepId || ''}
               onChange={(e) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(e.target.value) }))}
             >
@@ -385,7 +387,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
               <TextField
                 select
                 size="small"
-                label="Screen/Function"
+                label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}
                 fullWidth
                 value={editDraft.screenFunctionId || ''}
                 onChange={(e) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(e.target.value) }))}

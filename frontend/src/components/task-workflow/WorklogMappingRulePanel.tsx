@@ -18,12 +18,14 @@ import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TableSortLabel from '@mui/material/TableSortLabel';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   projectId: number;
 }
 
 export function WorklogMappingRulePanel({ projectId }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [keyword, setKeyword] = useState('');
   const [stageId, setStageId] = useState<number | ''>('');
@@ -73,7 +75,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
 
   const aiSuggestMutation = useMutation({
     mutationFn: () => {
-      if (!aiFile) throw new Error('Please choose csv file');
+      if (!aiFile) throw new Error(t('worklogMapping.errors.selectCsv', { defaultValue: 'Please choose CSV file' }));
       return taskWorkflowApi.aiSuggestWorklogMappingRules(projectId, aiFile, false);
     },
     onSuccess: (res) => {
@@ -152,32 +154,32 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
         <Typography variant="h6" sx={{ mb: 2 }}>Worklog Keyword Mapping (Stage → Step)</Typography>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
-          <TextField label="Keyword" size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-          <TextField select label="Stage" size="small" value={stageId} onChange={(e) => { setStageId(Number(e.target.value)); setStepId(''); }}>
+          <TextField label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })} size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+          <TextField select label={t('taskWorkflow.stage', { defaultValue: 'Stage' })} size="small" value={stageId} onChange={(e) => { setStageId(Number(e.target.value)); setStepId(''); }}>
             {stageOptions.map((stage: any) => <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>)}
           </TextField>
-          <TextField select label="Step" size="small" value={stepId} onChange={(e) => setStepId(Number(e.target.value))}>
+          <TextField select label={t('taskWorkflow.step', { defaultValue: 'Step' })} size="small" value={stepId} onChange={(e) => setStepId(Number(e.target.value))}>
             {stepOptions.map((step: any) => <MenuItem key={step.id} value={step.id}>{step.name}</MenuItem>)}
           </TextField>
-          <TextField type="number" label="Priority" size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
-          <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || !stageId || !stepId || createMutation.isPending}>Add</Button>
+          <TextField type="number" label={t('common.priority', { defaultValue: 'Priority' })} size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
+          <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || !stageId || !stepId || createMutation.isPending}>{t('common.add')}</Button>
         </Box>
 
         <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mb: 2 }}>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>AI suggest keywords from CSV</Typography>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>{t('worklogMapping.ai.title', { defaultValue: 'AI suggest keywords from CSV' })}</Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <input type="file" accept=".csv,text/csv" onChange={(e) => setAiFile(e.target.files?.[0] || null)} />
-            <Button variant="outlined" onClick={() => aiSuggestMutation.mutate()} disabled={!aiFile || aiSuggestMutation.isPending}>Suggest</Button>
+            <Button variant="outlined" onClick={() => aiSuggestMutation.mutate()} disabled={!aiFile || aiSuggestMutation.isPending}>{t('worklogMapping.ai.suggest', { defaultValue: 'Suggest' })}</Button>
             <Button
               variant="contained"
               color="success"
               onClick={() => applyAiMutation.mutate()}
               disabled={selectedSuggestions.length === 0 || applyAiMutation.isPending}
             >
-              Apply selected ({selectedSuggestions.length})
+              {t('worklogMapping.ai.applySelected', { defaultValue: 'Apply selected' })} ({selectedSuggestions.length})
             </Button>
           </Box>
-          {aiSuggestMutation.isError && <Alert severity="error" sx={{ mt: 1 }}>AI suggest failed</Alert>}
+          {aiSuggestMutation.isError && <Alert severity="error" sx={{ mt: 1 }}>{t('worklogMapping.ai.failed', { defaultValue: 'AI suggest failed' })}</Alert>}
           {aiSuggestions.length > 0 && (
             <TableContainer component={Paper} sx={{ maxHeight: 240, mt: 1 }}>
               <Table size="small" stickyHeader>
@@ -204,8 +206,8 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                         active={sortBy === 'keyword'}
                         direction={sortBy === 'keyword' ? sortDirection : 'asc'}
                         onClick={() => handleSort('keyword')}
-                      >
-                        Keyword
+                       >
+                        {t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -213,12 +215,12 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                         active={sortBy === 'stageStep'}
                         direction={sortBy === 'stageStep' ? sortDirection : 'asc'}
                         onClick={() => handleSort('stageStep')}
-                      >
-                        Stage/Step
+                       >
+                        {t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>Confidence</TableCell>
-                    <TableCell>Reason</TableCell>
+                    <TableCell>{t('worklogMapping.ai.confidence', { defaultValue: 'Confidence' })}</TableCell>
+                    <TableCell>{t('worklogImport.table.reason', { defaultValue: 'Reason' })}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -258,11 +260,11 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Keyword</TableCell>
-                <TableCell>Stage/Step</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Action</TableCell>
+                <TableCell>{t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}</TableCell>
+                <TableCell>{t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}</TableCell>
+                <TableCell>{t('common.priority', { defaultValue: 'Priority' })}</TableCell>
+                <TableCell>{t('common.status')}</TableCell>
+                <TableCell align="right">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -271,9 +273,9 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                   <TableCell>{rule.keyword}</TableCell>
                   <TableCell>{rule.stage?.name || rule.stageId} / {rule.step?.name || rule.stepId}</TableCell>
                   <TableCell>{rule.priority}</TableCell>
-                  <TableCell>{rule.isActive ? 'Active' : 'Inactive'}</TableCell>
+                  <TableCell>{rule.isActive ? t('common.active', { defaultValue: 'Active' }) : t('common.inactive', { defaultValue: 'Inactive' })}</TableCell>
                   <TableCell align="right">
-                    <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>Delete</Button>
+                    <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>{t('common.delete')}</Button>
                   </TableCell>
                 </TableRow>
               ))}
