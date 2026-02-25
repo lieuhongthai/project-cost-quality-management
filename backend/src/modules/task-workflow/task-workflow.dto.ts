@@ -780,6 +780,29 @@ export class UpdateWorklogMappingRuleDto {
 
 // ===== Worklog Import DTOs =====
 
+
+export class WorklogImportOverrideItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  itemId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stageId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stepId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  screenFunctionId?: number;
+}
+
 export class CommitWorklogImportDto {
   @IsNotEmpty()
   @Type(() => Number)
@@ -789,6 +812,12 @@ export class CommitWorklogImportDto {
   @IsArray()
   @Type(() => Number)
   selectedItemIds: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorklogImportOverrideItemDto)
+  overrides?: WorklogImportOverrideItemDto[];
 }
 
 export class AiSuggestWorklogRulesResultDto {
