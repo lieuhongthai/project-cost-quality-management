@@ -311,14 +311,14 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                           <Checkbox checked={selectedIds.includes(item.id)} disabled={!canSelect} onChange={(e) => toggleSelected(item.id, e.target.checked)} />
                         </TableCell>
                         <TableCell>{item.day || '-'}</TableCell>
-                        <TableCell>{item.email || '-'}</TableCell>
+                        <TableCell sx={{ minWidth: 100, wordBreak: 'break-all' }}>{item.email || '-'}</TableCell>
                         <TableCell sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</TableCell>
                         <TableCell>{item.member?.name || '-'}</TableCell>
-                        <TableCell sx={{ minWidth: 220 }}>
+                        <TableCell sx={{ minWidth: 100 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
                           <Typography variant="caption" color="text.secondary">{stepName}</Typography>
                         </TableCell>
-                        <TableCell sx={{ minWidth: 220 }}>
+                        <TableCell sx={{ minWidth: 100 }}>
                           <Typography variant="body2">{screenFunctionName}</Typography>
                         </TableCell>
                         <TableCell>{item.minutes || 0}</TableCell>
