@@ -36,6 +36,8 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [selectedSuggestionKeys, setSelectedSuggestionKeys] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'keyword' | 'stageStep'>('keyword');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [ruleSortBy, setRuleSortBy] = useState<'keyword' | 'stageStep'>('keyword');
+  const [ruleSortDirection, setRuleSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: config } = useQuery({
     queryKey: ['workflowConfig', projectId],
@@ -122,6 +124,32 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     } else {
       setSortBy(field);
       setSortDirection('asc');
+    }
+  };
+
+  const sortedRules = useMemo(() => {
+    const rows = [...(rules || [])];
+    rows.sort((a: any, b: any) => {
+      const stageA = a.stage?.name || String(a.stageId || '');
+      const stepA = a.step?.name || String(a.stepId || '');
+      const stageB = b.stage?.name || String(b.stageId || '');
+      const stepB = b.step?.name || String(b.stepId || '');
+
+      const valueA = ruleSortBy === 'keyword' ? String(a.keyword || '').toLowerCase() : `${stageA} / ${stepA}`.toLowerCase();
+      const valueB = ruleSortBy === 'keyword' ? String(b.keyword || '').toLowerCase() : `${stageB} / ${stepB}`.toLowerCase();
+
+      const compared = valueA.localeCompare(valueB);
+      return ruleSortDirection === 'asc' ? compared : -compared;
+    });
+    return rows;
+  }, [rules, ruleSortBy, ruleSortDirection]);
+
+  const handleRuleSort = (field: 'keyword' | 'stageStep') => {
+    if (ruleSortBy === field) {
+      setRuleSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setRuleSortBy(field);
+      setRuleSortDirection('asc');
     }
   };
 
@@ -260,15 +288,31 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>{t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}</TableCell>
-                <TableCell>{t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}</TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={ruleSortBy === 'keyword'}
+                    direction={ruleSortBy === 'keyword' ? ruleSortDirection : 'asc'}
+                    onClick={() => handleRuleSort('keyword')}
+                  >
+                    {t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={ruleSortBy === 'stageStep'}
+                    direction={ruleSortBy === 'stageStep' ? ruleSortDirection : 'asc'}
+                    onClick={() => handleRuleSort('stageStep')}
+                  >
+                    {t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell>{t('common.priority', { defaultValue: 'Priority' })}</TableCell>
                 <TableCell>{t('common.status')}</TableCell>
                 <TableCell align="right">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {(rules || []).map((rule: any) => (
+              {sortedRules.map((rule: any) => (
                 <TableRow key={rule.id}>
                   <TableCell>{rule.keyword}</TableCell>
                   <TableCell>{rule.stage?.name || rule.stageId} / {rule.step?.name || rule.stepId}</TableCell>
