@@ -902,8 +902,20 @@ Rules:
         : 0,
     };
 
-    const totalProjectHours = sfSummary.totalCurrentEstimate_hours;
-    const totalProjectMD = sfSummary.totalCurrentEstimate_manDays;
+    // When SFs have no estimates yet, derive total effort from complexity counts
+    // (Simple=8h, Medium=24h, Complex=56h — same as template fallback)
+    const complexityBasedHours = screenFunctions.reduce((sum, sf) => {
+      const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
+      return sum + mult;
+    }, 0) || 160; // fallback 160h (1 man-month) if no SFs
+
+    const totalProjectHours = sfSummary.totalCurrentEstimate_hours > 0
+      ? sfSummary.totalCurrentEstimate_hours
+      : complexityBasedHours;
+    const totalProjectMD = +(totalProjectHours / workingHoursPerDay).toFixed(2);
+    const effortDataSource = sfSummary.totalCurrentEstimate_hours > 0
+      ? `from existing screen function estimates`
+      : `ESTIMATED from complexity (${screenFunctions.length} functions: ${sfSummary.byComplexity.Simple} Simple×8h + ${sfSummary.byComplexity.Medium} Medium×24h + ${sfSummary.byComplexity.Complex} Complex×56h). Screen functions have not been individually estimated yet.`;
 
     return `
 Estimate the effort (in man-hours) for each workflow stage below.
@@ -912,8 +924,9 @@ Each stage represents a phase in the software development lifecycle.
 CRITICAL UNIT NOTICE:
 - All "manDays" values in the data are in MAN-DAYS (MD), NOT hours
 - 1 MD = ${workingHoursPerDay} hours
-- The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours
+- The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours (${effortDataSource})
 - Your "estimatedEffortHours" responses MUST be in HOURS
+- IMPORTANT: Even if screen functions show 0 current estimates, use the derived total above as your baseline
 
 Project: ${project.name}
 Project Start Date: ${projectStartDate}
@@ -954,7 +967,9 @@ Respond with a JSON object in this exact format:
 
 Rules:
 - The sum of all stage estimatedEffortHours should be close to the total project hours (${totalProjectHours}h = ${totalProjectMD} MD)
+- NEVER return 0 for any stage. Every stage requires at least some effort.
 - Distribute effort using typical ratios: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
+- For stages with non-standard names (e.g., "Other", custom stages), allocate remaining effort proportionally
 - Adjust distribution based on project complexity (Simple/Medium/Complex mix of screen functions)
 - Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort
 - If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's effort
