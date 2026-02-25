@@ -2190,6 +2190,18 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     const normalizedDetail = this.normalizeWorkDetailForKeywordMatching(workDetail);
     if (!normalizedDetail) return undefined;
 
+    const escapeRegExp = (value: string): string =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const hasTermMatch = (detail: string, term: string): boolean => {
+      // Prefer whole-word / phrase boundary match to avoid overly broad substring matches.
+      if (/^[a-z0-9 _-]+$/i.test(term)) {
+        const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(term)}([^a-z0-9]|$)`, 'i');
+        return pattern.test(detail);
+      }
+      return detail.includes(term);
+    };
+
     let best: { rule: WorklogMappingRule; score: number } | null = null;
 
     for (const rule of rules) {
@@ -2203,10 +2215,19 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       if (terms.length === 0) continue;
 
-      const allMatched = terms.every((term) => normalizedDetail.includes(term));
+      const allMatched = terms.every((term) => hasTermMatch(normalizedDetail, term));
       if (!allMatched) continue;
 
-      const score = terms.length * 10 + Math.min(8, rawKeyword.length / 8);
+      // Ranking strategy:
+      // 1) more combined terms wins,
+      // 2) higher configured priority wins,
+      // 3) exact phrase of full keyword gets small bonus,
+      // 4) newer rule (bigger id) wins tie so user can override old generic rules.
+      const priority = Number(rule.priority || 0);
+      const exactKeywordBonus = hasTermMatch(normalizedDetail, rawKeyword.replace(/\+/g, ' ')) ? 50 : 0;
+      const recencyBonus = Number(rule.id || 0) / 10000;
+      const score = terms.length * 1000 + priority * 10 + exactKeywordBonus + recencyBonus;
+
       if (!best || score > best.score) {
         best = { rule, score };
       }
