@@ -2441,6 +2441,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
             stepScreenFunctionId: stepScreenFunction.id,
             memberId: item.memberId,
             actualEffort: item.effortHours || 0,
+            progress: 100,
             note: item.workDetail,
             actualStartDate: item.day,
             actualEndDate: item.day,
@@ -2450,6 +2451,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         if (!created) {
           await assignment.update({
             actualEffort: Number((Number(assignment.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
+            progress: 100,
             note: [assignment.note, `${item.day || ''}: ${item.workDetail || ''}`].filter(Boolean).join('\n'),
             actualStartDate: assignment.actualStartDate || item.day,
             actualEndDate: item.day || assignment.actualEndDate,
