@@ -20,6 +20,7 @@ import {
   ApplyAIEstimationDto,
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
+  AIReEstimateDto,
 } from './ai-scheduling.dto';
 import { AIPlanAllDto } from './ai-plan-all.dto';
 import {
@@ -676,5 +677,10 @@ export class TaskWorkflowController {
   @Post('ai/plan-all')
   planAll(@Body() dto: AIPlanAllDto) {
     return this.aiSchedulingService.planAll(dto);
+  }
+
+  @Post('ai/re-estimate-uncompleted')
+  reEstimateUncompleted(@Body() dto: AIReEstimateDto) {
+    return this.aiSchedulingService.reEstimateUncompleted(dto);
   }
 }

@@ -17,6 +17,7 @@ import {
   ApplyAIEstimationDto,
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
+  AIReEstimateDto,
 } from './ai-scheduling.dto';
 import { AIPlanAllDto } from './ai-plan-all.dto';
 
@@ -1070,6 +1071,251 @@ Rules:
         `Parallel factor: ${parallelFactor} members working simultaneously`,
         'Stages are sequential (each stage starts after the previous one ends)',
       ],
+    };
+  }
+
+  // ===== Re-Estimation (Mid-Project) =====
+
+  async reEstimateUncompleted(dto: AIReEstimateDto) {
+    const { projectId, stageIds, language = 'English' } = dto;
+
+    // Fetch all active stages with their current progress/effort data
+    const allStages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (allStages.length === 0) {
+      throw new BadRequestException('No workflow stages found for this project');
+    }
+
+    // Filter to uncompleted stages (progress < 100)
+    let targetStages = allStages.filter(s => s.progress < 100);
+
+    // If specific stageIds provided, further filter
+    if (stageIds && stageIds.length > 0) {
+      targetStages = targetStages.filter(s => stageIds.includes(s.id));
+    }
+
+    if (targetStages.length === 0) {
+      throw new BadRequestException('All stages are already completed. No stages need re-estimation.');
+    }
+
+    // Save original estimates for comparison
+    const originalEstimates = targetStages.map(s => ({
+      stageId: s.id,
+      stageName: s.name,
+      originalEstimatedHours: s.estimatedEffort || 0,
+      currentActualHours: s.actualEffort || 0,
+      currentProgress: s.progress || 0,
+    }));
+
+    // Fetch context data
+    const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
+    const members = await this.memberService.findActiveByProject(projectId);
+    const project = await this.projectService.findOne(projectId);
+    const settings = await this.projectService.getSettings(projectId);
+    const historicalData = await this.getHistoricalData(projectId);
+    const stageContext = await this.getStageContext(targetStages);
+
+    const prompt = this.buildReEstimatePrompt(
+      targetStages,
+      stageContext,
+      originalEstimates,
+      screenFunctions,
+      members,
+      historicalData,
+      settings,
+      project,
+    );
+
+    try {
+      const languageInstruction = this.getLanguageInstruction(language);
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a software project re-estimation expert. Analyze actual effort spent versus original estimates to produce calibrated estimates for remaining uncompleted stages. ${languageInstruction} You MUST respond with a valid JSON object.`,
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || '{}');
+
+      // Merge with original estimates for diff comparison
+      if (result.estimates) {
+        result.estimates = result.estimates.map((est: any) => {
+          const orig = originalEstimates.find(o => o.stageId === est.stageId);
+          return {
+            ...est,
+            originalEstimatedHours: orig?.originalEstimatedHours || 0,
+            currentActualHours: orig?.currentActualHours || 0,
+            currentProgress: orig?.currentProgress || 0,
+            diffHours: est.estimatedEffortHours - (orig?.originalEstimatedHours || 0),
+          };
+        });
+      }
+
+      return { success: true, source: 'AI', data: result };
+    } catch (error) {
+      console.error('AI re-estimation error:', error);
+      return {
+        success: true,
+        source: 'Template',
+        data: this.generateTemplateReEstimation(targetStages, originalEstimates, settings),
+      };
+    }
+  }
+
+  private buildReEstimatePrompt(
+    stages: WorkflowStage[],
+    stageContext: Array<any>,
+    originalEstimates: Array<any>,
+    screenFunctions: ScreenFunction[],
+    members: Member[],
+    historicalData: any,
+    settings: any,
+    project: any,
+  ): string {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    const stageData = stages.map(s => {
+      const ctx = stageContext.find(c => c.stageId === s.id);
+      const orig = originalEstimates.find(o => o.stageId === s.id);
+      const remainingPct = 100 - (s.progress || 0);
+      const paceRatio = s.progress > 0 && (orig?.originalEstimatedHours || 0) > 0
+        ? +((s.actualEffort || 0) / ((orig.originalEstimatedHours * s.progress) / 100)).toFixed(2)
+        : null;
+
+      return {
+        id: s.id,
+        name: s.name,
+        originalEstimatedHours: orig?.originalEstimatedHours || 0,
+        actualEffortSoFar: s.actualEffort || 0,
+        progressPercent: s.progress || 0,
+        remainingPercent: remainingPct,
+        paceRatio_actualVsEstimated: paceRatio,
+        stepCount: ctx?.stepCount || 0,
+        linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
+      };
+    });
+
+    // Overall calibration factor from stages with real data
+    const stagesWithData = stages.filter(s => s.progress > 0 && (s.estimatedEffort || 0) > 0 && (s.actualEffort || 0) > 0);
+    const calibrationFactor = stagesWithData.length > 0
+      ? +(stagesWithData.reduce((sum, s) => {
+          const estimatedSoFar = (s.estimatedEffort * s.progress) / 100;
+          return sum + (estimatedSoFar > 0 ? (s.actualEffort / estimatedSoFar) : 1);
+        }, 0) / stagesWithData.length).toFixed(2)
+      : 1.0;
+
+    return JSON.stringify({
+      task: 'Re-estimate uncompleted workflow stages using actual progress data',
+      calibrationContext: {
+        overallCalibrationFactor: calibrationFactor,
+        interpretation: calibrationFactor > 1
+          ? `Project is running ${((calibrationFactor - 1) * 100).toFixed(0)}% OVER estimate — increase remaining estimates`
+          : calibrationFactor < 1
+          ? `Project is running ${((1 - calibrationFactor) * 100).toFixed(0)}% UNDER estimate — estimates may decrease`
+          : 'Project is on track with estimates',
+        historicalData,
+      },
+      stagesToReEstimate: stageData,
+      teamSize: members.length,
+      workingHoursPerDay,
+      workingDaysPerMonth,
+      projectScope: {
+        totalScreenFunctions: screenFunctions.length,
+        byComplexity: {
+          Simple: screenFunctions.filter(sf => sf.complexity === 'Simple').length,
+          Medium: screenFunctions.filter(sf => sf.complexity === 'Medium').length,
+          Complex: screenFunctions.filter(sf => sf.complexity === 'Complex').length,
+        },
+      },
+      instructions: [
+        'For each stage, provide a revised total estimatedEffortHours',
+        'If paceRatio > 1: the stage is going over budget; extrapolate remaining effort using the pace ratio',
+        'If paceRatio is null (not started): apply the overallCalibrationFactor to the original estimate',
+        'Provide clear reasoning for each change',
+        'Return confidence level: high/medium/low',
+      ],
+      requiredOutputFormat: {
+        estimates: [
+          {
+            stageId: 'number',
+            stageName: 'string',
+            estimatedEffortHours: 'number (revised TOTAL hours for this stage)',
+            confidence: 'high | medium | low',
+            reasoning: 'string explaining the revision vs original',
+          },
+        ],
+        totalRevisedHours: 'number',
+        totalRevisedManMonths: 'number',
+        calibrationInsight: 'string summarizing overall project performance',
+        assumptions: ['string array'],
+      },
+    }, null, 2);
+  }
+
+  private generateTemplateReEstimation(
+    stages: WorkflowStage[],
+    originalEstimates: Array<any>,
+    settings: any,
+  ) {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    // Calculate calibration factor from stages with real data
+    const stagesWithData = stages.filter(s => s.progress > 0 && (s.estimatedEffort || 0) > 0 && (s.actualEffort || 0) > 0);
+    let calibrationFactor = 1.0;
+    if (stagesWithData.length > 0) {
+      const totalEstimatedSoFar = stagesWithData.reduce((sum, s) => sum + (s.estimatedEffort * s.progress) / 100, 0);
+      const totalActualSoFar = stagesWithData.reduce((sum, s) => sum + s.actualEffort, 0);
+      if (totalEstimatedSoFar > 0) calibrationFactor = totalActualSoFar / totalEstimatedSoFar;
+    }
+
+    const estimates = stages.map(s => {
+      const orig = originalEstimates.find(o => o.stageId === s.id);
+      const origHours = orig?.originalEstimatedHours || 0;
+      const actualSoFar = s.actualEffort || 0;
+      const progress = s.progress || 0;
+
+      let revisedHours: number;
+      if (progress > 0 && origHours > 0) {
+        const paceRatio = actualSoFar / ((origHours * progress) / 100);
+        const remainingEstimated = (origHours * (100 - progress)) / 100;
+        revisedHours = Math.round(actualSoFar + remainingEstimated * paceRatio);
+      } else {
+        revisedHours = Math.round(origHours * calibrationFactor);
+      }
+
+      return {
+        stageId: s.id,
+        stageName: s.name,
+        estimatedEffortHours: revisedHours,
+        originalEstimatedHours: origHours,
+        currentActualHours: actualSoFar,
+        currentProgress: progress,
+        diffHours: revisedHours - origHours,
+        confidence: 'low' as const,
+        reasoning: `Template: calibration factor ${calibrationFactor.toFixed(2)}x applied`,
+      };
+    });
+
+    const totalRevisedHours = estimates.reduce((sum, e) => sum + e.estimatedEffortHours, 0);
+
+    return {
+      estimates,
+      totalRevisedHours,
+      totalRevisedManMonths: +(totalRevisedHours / (workingHoursPerDay * workingDaysPerMonth)).toFixed(2),
+      calibrationInsight: `Template-based: overall calibration factor is ${calibrationFactor.toFixed(2)}x`,
+      assumptions: ['Template-based re-estimation (AI unavailable)', `Calibration factor: ${calibrationFactor.toFixed(2)}`],
     };
   }
 

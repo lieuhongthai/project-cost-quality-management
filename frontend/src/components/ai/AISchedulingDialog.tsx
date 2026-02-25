@@ -1,9 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, screenFunctionApi, memberApi, projectApi } from '@/services/api';
 import { Modal, Button, LoadingSpinner } from '@/components/common';
-import { BrainCircuit, CalendarDays, Sparkles, CheckCircle2, AlertCircle, Info, Layers } from 'lucide-react';
+import {
+  BrainCircuit,
+  CalendarDays,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  Layers,
+  TrendingUp,
+  RefreshCw,
+} from 'lucide-react';
 
 interface AISchedulingDialogProps {
   open: boolean;
@@ -12,7 +22,7 @@ interface AISchedulingDialogProps {
   stages: Array<{ id: number; name: string }>;
 }
 
-type TabType = 'estimate' | 'schedule';
+type TabType = 'estimate' | 'schedule' | 'variance';
 
 function ReadinessItem({ ready, label, detail }: { ready: boolean; label: string; detail: string }) {
   return (
@@ -32,6 +42,22 @@ function ReadinessItem({ ready, label, detail }: { ready: boolean; label: string
   );
 }
 
+function VarianceBadge({ variance }: { variance: number }) {
+  if (variance === 0) return <span className="text-xs text-gray-400">—</span>;
+  const isOver = variance > 0;
+  const absVal = Math.abs(variance);
+  const color = absVal <= 10
+    ? 'bg-green-100 text-green-700'
+    : absVal <= 25
+    ? 'bg-yellow-100 text-yellow-700'
+    : 'bg-red-100 text-red-700';
+  return (
+    <span className={`px-2 py-0.5 rounded text-xs font-medium ${color}`}>
+      {isOver ? '+' : '-'}{absVal}%
+    </span>
+  );
+}
+
 export function AISchedulingDialog({ open, onClose, projectId, stages }: AISchedulingDialogProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('estimate');
@@ -41,6 +67,14 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
   const [estimationResult, setEstimationResult] = useState<any>(null);
   const [stageEstimationResult, setStageEstimationResult] = useState<any>(null);
   const [scheduleResult, setScheduleResult] = useState<any>(null);
+
+  // Feature 2: Editable copies of AI results (for inline edit before Apply)
+  const [editedEstimates, setEditedEstimates] = useState<any[]>([]);
+  const [editedStageEstimates, setEditedStageEstimates] = useState<any[]>([]);
+
+  // Feature 3: Re-estimation state
+  const [reEstimationResult, setReEstimationResult] = useState<any>(null);
+  const [editedReEstimates, setEditedReEstimates] = useState<any[]>([]);
 
   // Fetch data for readiness check
   const { data: screenFunctions } = useQuery({
@@ -69,6 +103,35 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
     },
     enabled: open,
   });
+
+  // Feature 1: Fetch stages overview for Variance Dashboard
+  const { data: stagesOverview } = useQuery({
+    queryKey: ['stagesOverview', projectId],
+    queryFn: async () => {
+      const res = await taskWorkflowApi.getStagesOverview(projectId);
+      return res.data;
+    },
+    enabled: open,
+  });
+
+  // Initialize editable estimates when AI results arrive (Feature 2)
+  useEffect(() => {
+    if (estimationResult?.data?.estimates) {
+      setEditedEstimates(estimationResult.data.estimates.map((e: any) => ({ ...e })));
+    }
+  }, [estimationResult]);
+
+  useEffect(() => {
+    if (stageEstimationResult?.data?.estimates) {
+      setEditedStageEstimates(stageEstimationResult.data.estimates.map((e: any) => ({ ...e })));
+    }
+  }, [stageEstimationResult]);
+
+  useEffect(() => {
+    if (reEstimationResult?.data?.estimates) {
+      setEditedReEstimates(reEstimationResult.data.estimates.map((e: any) => ({ ...e })));
+    }
+  }, [reEstimationResult]);
 
   // Calculate readiness
   const sfCount = screenFunctions?.length || 0;
@@ -112,30 +175,33 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
     },
   });
 
+  // Feature 2: Apply uses editedEstimates instead of raw AI result
   const applyEstimationMutation = useMutation({
     mutationFn: () => {
-      if (!estimationResult?.data?.estimates) return Promise.resolve(null);
+      if (!editedEstimates.length) return Promise.resolve(null);
       return taskWorkflowApi.aiApplyEstimation({
         projectId,
-        estimates: estimationResult.data.estimates.map((e: any) => ({
+        estimates: editedEstimates.map((e: any) => ({
           screenFunctionId: e.screenFunctionId,
-          estimatedEffortHours: e.estimatedEffortHours,
+          estimatedEffortHours: Number(e.estimatedEffortHours),
         })),
       });
     },
     onSuccess: () => {
       setEstimationResult(null);
+      setEditedEstimates([]);
     },
   });
 
+  // Feature 2: Apply uses editedStageEstimates
   const applyStageEstimationMutation = useMutation({
     mutationFn: () => {
-      if (!stageEstimationResult?.data?.estimates) return Promise.resolve(null);
+      if (!editedStageEstimates.length) return Promise.resolve(null);
       return taskWorkflowApi.aiApplyStageEstimation({
         projectId,
-        estimates: stageEstimationResult.data.estimates.map((e: any) => ({
+        estimates: editedStageEstimates.map((e: any) => ({
           stageId: e.stageId,
-          estimatedEffortHours: e.estimatedEffortHours,
+          estimatedEffortHours: Number(e.estimatedEffortHours),
           startDate: e.suggestedStartDate,
           endDate: e.suggestedEndDate,
         })),
@@ -143,6 +209,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
     },
     onSuccess: () => {
       setStageEstimationResult(null);
+      setEditedStageEstimates([]);
     },
   });
 
@@ -163,6 +230,61 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
       setScheduleResult(null);
     },
   });
+
+  // Feature 3: Re-estimation mutations
+  const reEstimateMutation = useMutation({
+    mutationFn: () =>
+      taskWorkflowApi.aiReEstimateUncompleted({ projectId, language }),
+    onSuccess: (res) => {
+      setReEstimationResult(res.data);
+    },
+  });
+
+  const applyReEstimationMutation = useMutation({
+    mutationFn: () => {
+      if (!editedReEstimates.length) return Promise.resolve(null);
+      return taskWorkflowApi.aiApplyStageEstimation({
+        projectId,
+        estimates: editedReEstimates.map((e: any) => ({
+          stageId: e.stageId,
+          estimatedEffortHours: Number(e.estimatedEffortHours),
+        })),
+      });
+    },
+    onSuccess: () => {
+      setReEstimationResult(null);
+      setEditedReEstimates([]);
+    },
+  });
+
+  // Helpers for editable cells (Feature 2)
+  const updateEditedEstimate = (idx: number, field: string, value: any) => {
+    setEditedEstimates(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  const updateEditedStageEstimate = (idx: number, field: string, value: any) => {
+    setEditedStageEstimates(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  const updateEditedReEstimate = (idx: number, field: string, value: any) => {
+    setEditedReEstimates(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  // Variance dashboard computations (Feature 1)
+  const varianceData = stagesOverview?.map((stage: any) => {
+    const estimated = stage.estimatedEffort || 0;
+    const actual = stage.actualEffort || 0;
+    const variance = estimated > 0
+      ? Math.round(((actual - estimated) / estimated) * 100)
+      : 0;
+    return { ...stage, variance };
+  }) || [];
+
+  const totalEstimated = varianceData.reduce((s: number, r: any) => s + (r.estimatedEffort || 0), 0);
+  const totalActual = varianceData.reduce((s: number, r: any) => s + (r.actualEffort || 0), 0);
+  const overallVariance = totalEstimated > 0
+    ? Math.round(((totalActual - totalEstimated) / totalEstimated) * 100)
+    : 0;
 
   if (!open) return null;
 
@@ -193,6 +315,17 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
             <CalendarDays className="w-4 h-4 inline mr-1.5" />
             {t('ai.generateSchedule')}
           </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'variance'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab('variance')}
+          >
+            <TrendingUp className="w-4 h-4 inline mr-1.5" />
+            {t('ai.varianceDashboard')}
+          </button>
         </div>
 
         {/* Language selector */}
@@ -209,7 +342,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
           </select>
         </div>
 
-        {/* Estimate Tab */}
+        {/* ===== ESTIMATE TAB ===== */}
         {activeTab === 'estimate' && (
           <div>
             {/* Estimate Mode Selector */}
@@ -238,53 +371,26 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
               </button>
             </div>
 
-            {/* Screen Function Estimation */}
+            {/* ---- Screen Function Estimation ---- */}
             {estimateMode === 'screenFunction' && (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
                   {t('ai.estimateDescription')}
                 </p>
 
-                {/* Prerequisites / Readiness Check */}
                 <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-3">
                     <Info className="w-4 h-4 text-blue-500" />
                     <h4 className="text-sm font-semibold text-slate-700">{t('ai.prereq.title')}</h4>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-                    <ReadinessItem
-                      ready={sfCount > 0}
-                      label={t('ai.prereq.screenFunctions', { count: sfCount })}
-                      detail={t('ai.prereq.screenFunctionsDetail')}
-                    />
-                    <ReadinessItem
-                      ready={activeMembers > 0}
-                      label={t('ai.prereq.activeMembers', { count: activeMembers })}
-                      detail={t('ai.prereq.activeMembersDetail')}
-                    />
-                    <ReadinessItem
-                      ready={sfWithComplexity > 0 || sfCount === 0}
-                      label={t('ai.prereq.complexity', { count: sfWithComplexity, total: sfCount })}
-                      detail={t('ai.prereq.complexityDetail')}
-                    />
-                    <ReadinessItem
-                      ready={membersWithRole === memberCount && memberCount > 0}
-                      label={t('ai.prereq.memberRoles', { count: membersWithRole, total: memberCount })}
-                      detail={t('ai.prereq.memberRolesDetail')}
-                    />
-                    <ReadinessItem
-                      ready={membersWithSkills > 0}
-                      label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })}
-                      detail={t('ai.prereq.memberSkillsDetail')}
-                    />
-                    <ReadinessItem
-                      ready={hasSettings}
-                      label={t('ai.prereq.projectSettings')}
-                      detail={t('ai.prereq.projectSettingsDetail')}
-                    />
+                    <ReadinessItem ready={sfCount > 0} label={t('ai.prereq.screenFunctions', { count: sfCount })} detail={t('ai.prereq.screenFunctionsDetail')} />
+                    <ReadinessItem ready={activeMembers > 0} label={t('ai.prereq.activeMembers', { count: activeMembers })} detail={t('ai.prereq.activeMembersDetail')} />
+                    <ReadinessItem ready={sfWithComplexity > 0 || sfCount === 0} label={t('ai.prereq.complexity', { count: sfWithComplexity, total: sfCount })} detail={t('ai.prereq.complexityDetail')} />
+                    <ReadinessItem ready={membersWithRole === memberCount && memberCount > 0} label={t('ai.prereq.memberRoles', { count: membersWithRole, total: memberCount })} detail={t('ai.prereq.memberRolesDetail')} />
+                    <ReadinessItem ready={membersWithSkills > 0} label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })} detail={t('ai.prereq.memberSkillsDetail')} />
+                    <ReadinessItem ready={hasSettings} label={t('ai.prereq.projectSettings')} detail={t('ai.prereq.projectSettingsDetail')} />
                   </div>
-
                   {!estimateReady && (
                     <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
                       {t('ai.prereq.estimateNotReady')}
@@ -292,10 +398,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                   )}
                 </div>
 
-                <Button
-                  onClick={() => estimateMutation.mutate()}
-                  disabled={estimateMutation.isPending || !estimateReady}
-                >
+                <Button onClick={() => estimateMutation.mutate()} disabled={estimateMutation.isPending || !estimateReady}>
                   <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
                   {estimateMutation.isPending ? t('ai.analyzing') : t('ai.runEstimation')}
                 </Button>
@@ -309,14 +412,17 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
 
                 {estimationResult && (
                   <div className="mt-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold">{t('ai.estimationResults')}</h3>
-                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                        {t('ai.source')}: {estimationResult.source}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                          {t('ai.source')}: {estimationResult.source}
+                        </span>
+                        <span className="text-xs text-gray-500 italic">{t('ai.editHint')}</span>
+                      </div>
                     </div>
 
-                    {estimationResult.data?.estimates && (
+                    {editedEstimates.length > 0 && (
                       <>
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-sm border border-gray-200 rounded-lg">
@@ -329,10 +435,21 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                              {estimationResult.data.estimates.map((est: any, idx: number) => (
-                                <tr key={idx}>
+                              {editedEstimates.map((est: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-gray-50">
                                   <td className="px-3 py-2">{est.screenFunctionName}</td>
-                                  <td className="px-3 py-2 text-right font-medium">{est.estimatedEffortHours}h</td>
+                                  <td className="px-3 py-2 text-right">
+                                    {/* Feature 2: Inline editable hours */}
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.5}
+                                      value={est.estimatedEffortHours}
+                                      onChange={e => updateEditedEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                      className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                    />
+                                    <span className="ml-1 text-gray-500 text-xs">h</span>
+                                  </td>
                                   <td className="px-3 py-2 text-center">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                                       est.confidence === 'high' ? 'bg-green-100 text-green-700' :
@@ -349,9 +466,11 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                             <tfoot className="bg-gray-50 font-medium">
                               <tr>
                                 <td className="px-3 py-2">{t('ai.total')}</td>
-                                <td className="px-3 py-2 text-right">{estimationResult.data.totalEstimatedHours}h</td>
+                                <td className="px-3 py-2 text-right">
+                                  {editedEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) || 0), 0).toFixed(1)}h
+                                </td>
                                 <td colSpan={2} className="px-3 py-2 text-gray-500 text-xs">
-                                  ~{estimationResult.data.totalEstimatedManMonths} man-months
+                                  ~{((editedEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) || 0), 0)) / ((settings?.workingHoursPerDay || 8) * (settings?.workingDaysPerMonth || 20))).toFixed(2)} man-months
                                 </td>
                               </tr>
                             </tfoot>
@@ -359,17 +478,13 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                         </div>
 
                         <div className="mt-4 flex gap-2">
-                          <Button
-                            onClick={() => applyEstimationMutation.mutate()}
-                            disabled={applyEstimationMutation.isPending}
-                          >
+                          <Button onClick={() => applyEstimationMutation.mutate()} disabled={applyEstimationMutation.isPending}>
                             {applyEstimationMutation.isPending ? t('ai.applying') : t('ai.applyEstimates')}
                           </Button>
-                          <Button variant="secondary" onClick={() => setEstimationResult(null)}>
+                          <Button variant="secondary" onClick={() => { setEstimationResult(null); setEditedEstimates([]); }}>
                             {t('ai.discard')}
                           </Button>
                         </div>
-
                         {applyEstimationMutation.isSuccess && (
                           <p className="mt-2 text-sm text-green-600">{t('ai.estimatesApplied')}</p>
                         )}
@@ -391,43 +506,24 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
               </div>
             )}
 
-            {/* Stage Estimation */}
+            {/* ---- Stage Estimation ---- */}
             {estimateMode === 'stage' && (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
                   {t('ai.stageEstimateDescription')}
                 </p>
 
-                {/* Prerequisites for Stage Estimation */}
                 <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-3">
                     <Info className="w-4 h-4 text-blue-500" />
                     <h4 className="text-sm font-semibold text-slate-700">{t('ai.prereq.titleStage')}</h4>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-                    <ReadinessItem
-                      ready={hasStages}
-                      label={t('ai.prereq.stages', { count: stages.length })}
-                      detail={t('ai.prereq.stagesEstimateDetail')}
-                    />
-                    <ReadinessItem
-                      ready={sfCount > 0}
-                      label={t('ai.prereq.screenFunctions', { count: sfCount })}
-                      detail={t('ai.prereq.sfForStageDetail')}
-                    />
-                    <ReadinessItem
-                      ready={activeMembers > 0}
-                      label={t('ai.prereq.activeMembers', { count: activeMembers })}
-                      detail={t('ai.prereq.activeMembersDetail')}
-                    />
-                    <ReadinessItem
-                      ready={hasSettings}
-                      label={t('ai.prereq.projectSettings')}
-                      detail={t('ai.prereq.projectSettingsDetail')}
-                    />
+                    <ReadinessItem ready={hasStages} label={t('ai.prereq.stages', { count: stages.length })} detail={t('ai.prereq.stagesEstimateDetail')} />
+                    <ReadinessItem ready={sfCount > 0} label={t('ai.prereq.screenFunctions', { count: sfCount })} detail={t('ai.prereq.sfForStageDetail')} />
+                    <ReadinessItem ready={activeMembers > 0} label={t('ai.prereq.activeMembers', { count: activeMembers })} detail={t('ai.prereq.activeMembersDetail')} />
+                    <ReadinessItem ready={hasSettings} label={t('ai.prereq.projectSettings')} detail={t('ai.prereq.projectSettingsDetail')} />
                   </div>
-
                   {!stageEstimateReady && (
                     <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
                       {t('ai.prereq.stageEstimateNotReady')}
@@ -435,31 +531,44 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                   )}
                 </div>
 
-                <Button
-                  onClick={() => stageEstimateMutation.mutate()}
-                  disabled={stageEstimateMutation.isPending || !stageEstimateReady}
-                >
-                  <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
-                  {stageEstimateMutation.isPending ? t('ai.analyzing') : t('ai.runStageEstimation')}
-                </Button>
+                <div className="flex gap-2 flex-wrap">
+                  <Button onClick={() => stageEstimateMutation.mutate()} disabled={stageEstimateMutation.isPending || !stageEstimateReady}>
+                    <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
+                    {stageEstimateMutation.isPending ? t('ai.analyzing') : t('ai.runStageEstimation')}
+                  </Button>
 
-                {stageEstimateMutation.isPending && (
+                  {/* Feature 3: Re-estimate uncompleted stages */}
+                  <Button
+                    variant="secondary"
+                    onClick={() => reEstimateMutation.mutate()}
+                    disabled={reEstimateMutation.isPending || !stageEstimateReady}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1.5 inline" />
+                    {reEstimateMutation.isPending ? t('ai.analyzing') : t('ai.reEstimate')}
+                  </Button>
+                </div>
+
+                {(stageEstimateMutation.isPending || reEstimateMutation.isPending) && (
                   <div className="mt-4 flex items-center gap-2">
                     <LoadingSpinner size="sm" />
                     <span className="text-sm text-gray-500">{t('ai.processingAI')}</span>
                   </div>
                 )}
 
+                {/* Stage Estimation Results (with inline edit) */}
                 {stageEstimationResult && (
                   <div className="mt-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold">{t('ai.stageEstimationResults')}</h3>
-                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                        {t('ai.source')}: {stageEstimationResult.source}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                          {t('ai.source')}: {stageEstimationResult.source}
+                        </span>
+                        <span className="text-xs text-gray-500 italic">{t('ai.editHint')}</span>
+                      </div>
                     </div>
 
-                    {stageEstimationResult.data?.estimates && (
+                    {editedStageEstimates.length > 0 && (
                       <>
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-sm border border-gray-200 rounded-lg">
@@ -475,13 +584,39 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                              {stageEstimationResult.data.estimates.map((est: any, idx: number) => (
-                                <tr key={idx}>
+                              {editedStageEstimates.map((est: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-gray-50">
                                   <td className="px-3 py-2 font-medium">{est.stageName}</td>
-                                  <td className="px-3 py-2 text-right font-medium">{est.estimatedEffortHours}h</td>
+                                  <td className="px-3 py-2 text-right">
+                                    {/* Feature 2: Inline editable hours */}
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={1}
+                                      value={est.estimatedEffortHours}
+                                      onChange={e => updateEditedStageEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                      className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                    />
+                                    <span className="ml-1 text-gray-500 text-xs">h</span>
+                                  </td>
                                   <td className="px-3 py-2 text-center text-gray-500">{est.effortDistribution}</td>
-                                  <td className="px-3 py-2 text-center text-xs">{est.suggestedStartDate || '-'}</td>
-                                  <td className="px-3 py-2 text-center text-xs">{est.suggestedEndDate || '-'}</td>
+                                  {/* Feature 2: Inline editable start/end dates */}
+                                  <td className="px-3 py-2 text-center">
+                                    <input
+                                      type="date"
+                                      value={est.suggestedStartDate || ''}
+                                      onChange={e => updateEditedStageEstimate(idx, 'suggestedStartDate', e.target.value)}
+                                      className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    <input
+                                      type="date"
+                                      value={est.suggestedEndDate || ''}
+                                      onChange={e => updateEditedStageEstimate(idx, 'suggestedEndDate', e.target.value)}
+                                      className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                    />
+                                  </td>
                                   <td className="px-3 py-2 text-center">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                                       est.confidence === 'high' ? 'bg-green-100 text-green-700' :
@@ -498,10 +633,12 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                             <tfoot className="bg-gray-50 font-medium">
                               <tr>
                                 <td className="px-3 py-2">{t('ai.total')}</td>
-                                <td className="px-3 py-2 text-right">{stageEstimationResult.data.totalEstimatedHours}h</td>
+                                <td className="px-3 py-2 text-right">
+                                  {editedStageEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) || 0), 0).toFixed(0)}h
+                                </td>
                                 <td className="px-3 py-2 text-center">100%</td>
                                 <td colSpan={4} className="px-3 py-2 text-gray-500 text-xs">
-                                  ~{stageEstimationResult.data.totalEstimatedManMonths} man-months
+                                  ~{(editedStageEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) || 0), 0) / ((settings?.workingHoursPerDay || 8) * (settings?.workingDaysPerMonth || 20))).toFixed(2)} man-months
                                 </td>
                               </tr>
                             </tfoot>
@@ -509,17 +646,13 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                         </div>
 
                         <div className="mt-4 flex gap-2">
-                          <Button
-                            onClick={() => applyStageEstimationMutation.mutate()}
-                            disabled={applyStageEstimationMutation.isPending}
-                          >
+                          <Button onClick={() => applyStageEstimationMutation.mutate()} disabled={applyStageEstimationMutation.isPending}>
                             {applyStageEstimationMutation.isPending ? t('ai.applying') : t('ai.applyStageEstimates')}
                           </Button>
-                          <Button variant="secondary" onClick={() => setStageEstimationResult(null)}>
+                          <Button variant="secondary" onClick={() => { setStageEstimationResult(null); setEditedStageEstimates([]); }}>
                             {t('ai.discard')}
                           </Button>
                         </div>
-
                         {applyStageEstimationMutation.isSuccess && (
                           <p className="mt-2 text-sm text-green-600">{t('ai.stageEstimatesApplied')}</p>
                         )}
@@ -538,58 +671,141 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                     )}
                   </div>
                 )}
+
+                {/* Feature 3: Re-estimation Results */}
+                {reEstimationResult && !stageEstimationResult && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-semibold">{t('ai.reEstimateResults')}</h3>
+                      <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                        {t('ai.source')}: {reEstimationResult.source}
+                      </span>
+                    </div>
+
+                    {reEstimationResult.data?.calibrationInsight && (
+                      <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded text-sm text-purple-800">
+                        <Info className="w-4 h-4 inline mr-1.5" />
+                        {reEstimationResult.data.calibrationInsight}
+                      </div>
+                    )}
+
+                    {editedReEstimates.length > 0 && (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm border border-gray-200 rounded-lg">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left">{t('ai.stageName')}</th>
+                                <th className="px-3 py-2 text-right">{t('ai.originalHours')}</th>
+                                <th className="px-3 py-2 text-right">{t('ai.actualSoFar')}</th>
+                                <th className="px-3 py-2 text-center">{t('ai.progress')}</th>
+                                <th className="px-3 py-2 text-right">{t('ai.revisedHours')}</th>
+                                <th className="px-3 py-2 text-center">{t('ai.diff')}</th>
+                                <th className="px-3 py-2 text-left">{t('ai.reasoning')}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {editedReEstimates.map((est: any, idx: number) => {
+                                const diff = Number(est.estimatedEffortHours) - (est.originalEstimatedHours || 0);
+                                return (
+                                  <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 font-medium">{est.stageName}</td>
+                                    <td className="px-3 py-2 text-right text-gray-500">{est.originalEstimatedHours || 0}h</td>
+                                    <td className="px-3 py-2 text-right text-blue-600">{est.currentActualHours || 0}h</td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded">
+                                        {est.currentProgress || 0}%
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                      {/* Feature 2: Editable revised hours */}
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        value={est.estimatedEffortHours}
+                                        onChange={e => updateEditedReEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                        className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                      />
+                                      <span className="ml-1 text-gray-500 text-xs">h</span>
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className={`text-xs font-medium ${diff > 0 ? 'text-red-600' : diff < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {diff > 0 ? `+${diff.toFixed(0)}` : diff < 0 ? diff.toFixed(0) : '±0'}h
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-500 text-xs">{est.reasoning}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="bg-gray-50 font-medium">
+                              <tr>
+                                <td className="px-3 py-2">{t('ai.total')}</td>
+                                <td className="px-3 py-2 text-right text-gray-500">
+                                  {editedReEstimates.reduce((s, e) => s + (e.originalEstimatedHours || 0), 0)}h
+                                </td>
+                                <td className="px-3 py-2 text-right text-blue-600">
+                                  {editedReEstimates.reduce((s, e) => s + (e.currentActualHours || 0), 0)}h
+                                </td>
+                                <td></td>
+                                <td className="px-3 py-2 text-right">
+                                  {editedReEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) || 0), 0).toFixed(0)}h
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {(() => {
+                                    const totalDiff = editedReEstimates.reduce((s, e) => s + (Number(e.estimatedEffortHours) - (e.originalEstimatedHours || 0)), 0);
+                                    return <span className={`text-xs font-medium ${totalDiff > 0 ? 'text-red-600' : totalDiff < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                      {totalDiff > 0 ? `+${totalDiff.toFixed(0)}` : totalDiff.toFixed(0)}h
+                                    </span>;
+                                  })()}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <Button onClick={() => applyReEstimationMutation.mutate()} disabled={applyReEstimationMutation.isPending}>
+                            {applyReEstimationMutation.isPending ? t('ai.applying') : t('ai.applyReEstimates')}
+                          </Button>
+                          <Button variant="secondary" onClick={() => { setReEstimationResult(null); setEditedReEstimates([]); }}>
+                            {t('ai.discard')}
+                          </Button>
+                        </div>
+                        {applyReEstimationMutation.isSuccess && (
+                          <p className="mt-2 text-sm text-green-600">{t('ai.reEstimatesApplied')}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Schedule Tab */}
+        {/* ===== SCHEDULE TAB ===== */}
         {activeTab === 'schedule' && (
           <div>
             <p className="text-sm text-gray-600 mb-4">
               {t('ai.scheduleDescription')}
             </p>
 
-            {/* Prerequisites / Readiness Check */}
             <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Info className="w-4 h-4 text-blue-500" />
                 <h4 className="text-sm font-semibold text-slate-700">{t('ai.prereq.titleSchedule')}</h4>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-                <ReadinessItem
-                  ready={hasStages}
-                  label={t('ai.prereq.stages', { count: stages.length })}
-                  detail={t('ai.prereq.stagesDetail')}
-                />
-                <ReadinessItem
-                  ready={activeMembers > 0}
-                  label={t('ai.prereq.activeMembers', { count: activeMembers })}
-                  detail={t('ai.prereq.activeMembersScheduleDetail')}
-                />
-                <ReadinessItem
-                  ready={sfCount > 0}
-                  label={t('ai.prereq.stepScreenLinks')}
-                  detail={t('ai.prereq.stepScreenLinksDetail')}
-                />
-                <ReadinessItem
-                  ready={membersWithRate > 0}
-                  label={t('ai.prereq.hourlyRates', { count: membersWithRate, total: memberCount })}
-                  detail={t('ai.prereq.hourlyRatesDetail')}
-                />
-                <ReadinessItem
-                  ready={hasSettings}
-                  label={t('ai.prereq.workingCalendar')}
-                  detail={t('ai.prereq.workingCalendarDetail')}
-                />
-                <ReadinessItem
-                  ready={membersWithSkills > 0}
-                  label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })}
-                  detail={t('ai.prereq.memberSkillsScheduleDetail')}
-                />
+                <ReadinessItem ready={hasStages} label={t('ai.prereq.stages', { count: stages.length })} detail={t('ai.prereq.stagesDetail')} />
+                <ReadinessItem ready={activeMembers > 0} label={t('ai.prereq.activeMembers', { count: activeMembers })} detail={t('ai.prereq.activeMembersScheduleDetail')} />
+                <ReadinessItem ready={sfCount > 0} label={t('ai.prereq.stepScreenLinks')} detail={t('ai.prereq.stepScreenLinksDetail')} />
+                <ReadinessItem ready={membersWithRate > 0} label={t('ai.prereq.hourlyRates', { count: membersWithRate, total: memberCount })} detail={t('ai.prereq.hourlyRatesDetail')} />
+                <ReadinessItem ready={hasSettings} label={t('ai.prereq.workingCalendar')} detail={t('ai.prereq.workingCalendarDetail')} />
+                <ReadinessItem ready={membersWithSkills > 0} label={t('ai.prereq.memberSkills', { count: membersWithSkills, total: memberCount })} detail={t('ai.prereq.memberSkillsScheduleDetail')} />
               </div>
-
               {!scheduleReady && (
                 <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
                   {t('ai.prereq.scheduleNotReady')}
@@ -612,10 +828,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
               </select>
             </div>
 
-            <Button
-              onClick={() => scheduleMutation.mutate()}
-              disabled={scheduleMutation.isPending || !selectedStageId || !scheduleReady}
-            >
+            <Button onClick={() => scheduleMutation.mutate()} disabled={scheduleMutation.isPending || !selectedStageId || !scheduleReady}>
               <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
               {scheduleMutation.isPending ? t('ai.analyzing') : t('ai.runSchedule')}
             </Button>
@@ -684,10 +897,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                     )}
 
                     <div className="mt-4 flex gap-2">
-                      <Button
-                        onClick={() => applyScheduleMutation.mutate()}
-                        disabled={applyScheduleMutation.isPending}
-                      >
+                      <Button onClick={() => applyScheduleMutation.mutate()} disabled={applyScheduleMutation.isPending}>
                         {applyScheduleMutation.isPending ? t('ai.applying') : t('ai.applySchedule')}
                       </Button>
                       <Button variant="secondary" onClick={() => setScheduleResult(null)}>
@@ -709,10 +919,145 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
           </div>
         )}
 
+        {/* ===== VARIANCE DASHBOARD TAB (Feature 1) ===== */}
+        {activeTab === 'variance' && (
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              {t('ai.varianceDescription')}
+            </p>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                <p className="text-xs text-blue-600 font-medium mb-1">{t('ai.totalEstimated')}</p>
+                <p className="text-lg font-bold text-blue-800">{totalEstimated.toFixed(0)}h</p>
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
+                <p className="text-xs text-slate-600 font-medium mb-1">{t('ai.totalActual')}</p>
+                <p className="text-lg font-bold text-slate-800">{totalActual.toFixed(0)}h</p>
+              </div>
+              <div className={`p-3 border rounded-lg text-center ${
+                overallVariance === 0 ? 'bg-gray-50 border-gray-200' :
+                Math.abs(overallVariance) <= 10 ? 'bg-green-50 border-green-200' :
+                Math.abs(overallVariance) <= 25 ? 'bg-yellow-50 border-yellow-200' :
+                'bg-red-50 border-red-200'
+              }`}>
+                <p className="text-xs font-medium mb-1">{t('ai.overallVariance')}</p>
+                <p className={`text-lg font-bold ${
+                  overallVariance === 0 ? 'text-gray-600' :
+                  Math.abs(overallVariance) <= 10 ? 'text-green-700' :
+                  Math.abs(overallVariance) <= 25 ? 'text-yellow-700' :
+                  'text-red-700'
+                }`}>
+                  {overallVariance > 0 ? `+${overallVariance}` : overallVariance}%
+                </p>
+              </div>
+            </div>
+
+            {varianceData.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <TrendingUp className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">{t('ai.noVarianceData')}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left">{t('ai.stageName')}</th>
+                      <th className="px-3 py-2 text-right">{t('ai.estimated')}</th>
+                      <th className="px-3 py-2 text-right">{t('ai.actual')}</th>
+                      <th className="px-3 py-2 text-center">{t('ai.variance')}</th>
+                      <th className="px-3 py-2 text-center">{t('ai.progress')}</th>
+                      <th className="px-3 py-2 text-center">{t('ai.status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {varianceData.map((row: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-medium">
+                          <div className="flex items-center gap-2">
+                            {row.color && (
+                              <span
+                                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: row.color }}
+                              />
+                            )}
+                            {row.name}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {row.estimatedEffort > 0 ? `${row.estimatedEffort.toFixed(0)}h` : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {row.actualEffort > 0 ? `${row.actualEffort.toFixed(0)}h` : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {row.estimatedEffort > 0
+                            ? <VarianceBadge variance={row.variance} />
+                            : <span className="text-xs text-gray-300">{t('ai.noEstimate')}</span>
+                          }
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="flex items-center gap-1.5 justify-center">
+                            <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className="bg-blue-500 h-1.5 rounded-full"
+                                style={{ width: `${Math.min(100, row.progress || 0)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500">{row.progress || 0}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            row.status === 'Good' ? 'bg-green-100 text-green-700' :
+                            row.status === 'Warning' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 font-medium">
+                    <tr>
+                      <td className="px-3 py-2">{t('ai.total')}</td>
+                      <td className="px-3 py-2 text-right">{totalEstimated.toFixed(0)}h</td>
+                      <td className="px-3 py-2 text-right">{totalActual.toFixed(0)}h</td>
+                      <td className="px-3 py-2 text-center">
+                        <VarianceBadge variance={overallVariance} />
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-green-100 border border-green-300" />
+                {t('ai.varianceLegend.good')} (≤10%)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300" />
+                {t('ai.varianceLegend.warning')} (11–25%)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-red-100 border border-red-300" />
+                {t('ai.varianceLegend.critical')} (&gt;25%)
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Error display */}
-        {(estimateMutation.isError || stageEstimateMutation.isError || scheduleMutation.isError) && (
+        {(estimateMutation.isError || stageEstimateMutation.isError || scheduleMutation.isError || reEstimateMutation.isError) && (
           <div className="mt-4 p-3 bg-red-50 rounded text-sm text-red-700">
-            {t('ai.error')}: {(estimateMutation.error || stageEstimateMutation.error || scheduleMutation.error)?.message || t('ai.unknownError')}
+            {t('ai.error')}: {(estimateMutation.error || stageEstimateMutation.error || scheduleMutation.error || reEstimateMutation.error)?.message || t('ai.unknownError')}
           </div>
         )}
       </div>

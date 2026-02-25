@@ -421,6 +421,10 @@ export const taskWorkflowApi = {
   // Plan All: one-click AI estimation + scheduling for entire project
   aiPlanAll: (data: { projectId: number; language?: string; autoApply?: boolean }) =>
     api.post('/task-workflow/ai/plan-all', data),
+
+  // Re-estimate uncompleted stages using actual effort data
+  aiReEstimateUncompleted: (data: { projectId: number; stageIds?: number[]; language?: string }) =>
+    api.post('/task-workflow/ai/re-estimate-uncompleted', data),
 };
 
 export const iamApi = {
