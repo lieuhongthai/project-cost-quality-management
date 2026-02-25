@@ -19,6 +19,10 @@ import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 interface WorklogImportPanelProps {
   projectId: number;
@@ -36,7 +40,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const [batchDetail, setBatchDetail] = useState<WorklogImportBatchDetail | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [overrides, setOverrides] = useState<Record<number, ItemOverride>>({});
-  const [editingItemIds, setEditingItemIds] = useState<number[]>([]);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<ItemOverride>({});
   const [commitResult, setCommitResult] = useState<null | {
     success: number;
     failed: number;
@@ -64,7 +69,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
       setBatchDetail(data);
       setSelectedIds(data.items.filter((item) => item.isSelected).map((item) => item.id));
       setOverrides({});
-      setEditingItemIds([]);
+      setEditingItemId(null);
+      setEditDraft({});
       setCommitResult(null);
     },
   });
@@ -116,6 +122,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
           screenFunctionId: createdId,
         },
       }));
+      if (editingItemId === itemId) {
+        setEditDraft((prev) => ({ ...prev, screenFunctionId: createdId }));
+      }
     },
   });
 
@@ -167,23 +176,6 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     }));
   };
 
-  const startEditing = (itemId: number) => {
-    setEditingItemIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]));
-  };
-
-  const stopEditing = (itemId: number) => {
-    setEditingItemIds((prev) => prev.filter((id) => id !== itemId));
-  };
-
-  const cancelEditing = (itemId: number) => {
-    setOverrides((prev) => {
-      const next = { ...prev };
-      delete next[itemId];
-      return next;
-    });
-    stopEditing(itemId);
-  };
-
   const parseOptionalNumber = (value: string): number | undefined => {
     if (!value) return undefined;
     const n = Number(value);
@@ -205,6 +197,30 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
       .trim();
     return normalized.slice(0, 120) || `Imported Function ${Date.now()}`;
   };
+
+  const openEditModal = (item: any) => {
+    setEditingItemId(item.id);
+    setEditDraft({
+      stageId: getEffectiveValue(item.id, 'stageId', item.stageId),
+      stepId: getEffectiveValue(item.id, 'stepId', item.stepId),
+      screenFunctionId: getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId),
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingItemId(null);
+    setEditDraft({});
+  };
+
+  const saveEditModal = () => {
+    if (!editingItemId) return;
+    updateOverride(editingItemId, editDraft);
+    closeEditModal();
+  };
+
+  const editingItem = batchDetail?.items.find((item) => item.id === editingItemId) || null;
+  const editingStage = stageOptions.find((s: any) => s.id === Number(editDraft.stageId));
+  const editingStepOptions = editingStage?.steps || [];
 
   return (
     <Card>
@@ -258,7 +274,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
               Select all rows with enough mapping data (member + step + screen/function)
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Chỉ khi nhấn <strong>Edit</strong> ở từng dòng thì mới có thể chỉnh Stage/Step/Screen Function.
+              Nhấn <strong>Edit</strong> để mở popup chỉnh Stage/Step/Screen Function cho từng dòng.
             </Typography>
 
             <TableContainer component={Paper} sx={{ maxHeight: 460 }}>
@@ -270,8 +286,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                     <TableCell>Email</TableCell>
                     <TableCell>Work detail</TableCell>
                     <TableCell>Member</TableCell>
-                    <TableCell>Stage</TableCell>
-                    <TableCell>Step</TableCell>
+                    <TableCell>Stage / Step</TableCell>
                     <TableCell>Screen/Function</TableCell>
                     <TableCell>Minutes</TableCell>
                     <TableCell>Status</TableCell>
@@ -285,7 +300,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                     const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
                     const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
                     const stage = stageOptions.find((s: any) => s.id === Number(effectiveStageId));
-                    const stepOptions = stage?.steps || [];
+                    const stepName = stage?.steps?.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-';
+                    const screenFunctionName =
+                      (screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name || item.screenFunction?.name || '-';
                     const canSelect = itemCanSelect(item);
 
                     return (
@@ -297,96 +314,20 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                         <TableCell>{item.email || '-'}</TableCell>
                         <TableCell sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</TableCell>
                         <TableCell>{item.member?.name || '-'}</TableCell>
-                        <TableCell sx={{ minWidth: 170 }}>
-                          {editingItemIds.includes(item.id) ? (
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
-                              value={effectiveStageId || ''}
-                              onChange={(e) => {
-                                const nextStageId = parseOptionalNumber(e.target.value);
-                                updateOverride(item.id, { stageId: nextStageId, stepId: undefined });
-                              }}
-                            >
-                              <MenuItem value="">-</MenuItem>
-                              {stageOptions.map((s: any) => (
-                                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                              ))}
-                            </TextField>
-                          ) : (
-                            <Typography variant="body2" sx={{ py: 1 }}>{stage?.name || '-'}</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 170 }}>
-                          {editingItemIds.includes(item.id) ? (
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
-                              value={effectiveStepId || ''}
-                              onChange={(e) => updateOverride(item.id, { stepId: parseOptionalNumber(e.target.value) })}
-                            >
-                              <MenuItem value="">-</MenuItem>
-                              {stepOptions.map((sp: any) => (
-                                <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
-                              ))}
-                            </TextField>
-                          ) : (
-                            <Typography variant="body2" sx={{ py: 1 }}>
-                              {stepOptions.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-'}
-                            </Typography>
-                          )}
+                        <TableCell sx={{ minWidth: 220 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{stepName}</Typography>
                         </TableCell>
                         <TableCell sx={{ minWidth: 220 }}>
-                          {editingItemIds.includes(item.id) ? (
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <TextField
-                                select
-                                size="small"
-                                fullWidth
-                                value={effectiveScreenFunctionId || ''}
-                                onChange={(e) => updateOverride(item.id, { screenFunctionId: parseOptionalNumber(e.target.value) })}
-                              >
-                                <MenuItem value="">-</MenuItem>
-                                {(screenFunctions || []).map((sf: any) => (
-                                  <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
-                                ))}
-                              </TextField>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() =>
-                                  createScreenFunctionMutation.mutate({
-                                    itemId: item.id,
-                                    suggestedName: buildSuggestedScreenFunctionName(item.workDetail),
-                                  })
-                                }
-                                disabled={createScreenFunctionMutation.isPending}
-                              >
-                                +
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Typography variant="body2" sx={{ py: 1 }}>
-                              {(screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name || item.screenFunction?.name || '-'}
-                            </Typography>
-                          )}
+                          <Typography variant="body2">{screenFunctionName}</Typography>
                         </TableCell>
                         <TableCell>{item.minutes || 0}</TableCell>
                         <TableCell>
                           <Chip size="small" color={getStatusColor(item.status) as any} label={item.status} />
                         </TableCell>
                         <TableCell sx={{ maxWidth: 260 }}>{item.reason || '-'}</TableCell>
-                        <TableCell align="center" sx={{ minWidth: 180 }}>
-                          {!editingItemIds.includes(item.id) ? (
-                            <Button size="small" variant="outlined" onClick={() => startEditing(item.id)}>Edit</Button>
-                          ) : (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                              <Button size="small" variant="contained" onClick={() => stopEditing(item.id)}>Done</Button>
-                              <Button size="small" variant="text" color="inherit" onClick={() => cancelEditing(item.id)}>Cancel</Button>
-                            </Box>
-                          )}
+                        <TableCell align="center" sx={{ minWidth: 120 }}>
+                          <Button size="small" variant="outlined" onClick={() => openEditModal(item)}>Edit</Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -396,6 +337,79 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
             </TableContainer>
           </>
         )}
+
+        <Dialog open={!!editingItem} onClose={closeEditModal} fullWidth maxWidth="sm">
+          <DialogTitle>Edit mapping for row #{editingItem?.rowNumber || '-'}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {editingItem?.workDetail || '-'}
+            </Typography>
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              <TextField
+                select
+                size="small"
+                label="Stage"
+                value={editDraft.stageId || ''}
+                onChange={(e) => setEditDraft((prev) => ({
+                  ...prev,
+                  stageId: parseOptionalNumber(e.target.value),
+                  stepId: undefined,
+                }))}
+              >
+                <MenuItem value="">-</MenuItem>
+                {stageOptions.map((s: any) => (
+                  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                size="small"
+                label="Step"
+                value={editDraft.stepId || ''}
+                onChange={(e) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(e.target.value) }))}
+              >
+                <MenuItem value="">-</MenuItem>
+                {editingStepOptions.map((sp: any) => (
+                  <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
+                ))}
+              </TextField>
+
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Screen/Function"
+                  fullWidth
+                  value={editDraft.screenFunctionId || ''}
+                  onChange={(e) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(e.target.value) }))}
+                >
+                  <MenuItem value="">-</MenuItem>
+                  {(screenFunctions || []).map((sf: any) => (
+                    <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
+                  ))}
+                </TextField>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() =>
+                    editingItem && createScreenFunctionMutation.mutate({
+                      itemId: editingItem.id,
+                      suggestedName: buildSuggestedScreenFunctionName(editingItem.workDetail),
+                    })
+                  }
+                  disabled={createScreenFunctionMutation.isPending || !editingItem}
+                >
+                  +
+                </Button>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button color="inherit" onClick={closeEditModal}>Cancel</Button>
+            <Button variant="contained" onClick={saveEditModal}>Save</Button>
+          </DialogActions>
+        </Dialog>
       </CardContent>
     </Card>
   );
