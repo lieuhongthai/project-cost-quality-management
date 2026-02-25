@@ -45,6 +45,6 @@ export class ScreenFunctionDefaultMember extends Model {
   @BelongsTo(() => ScreenFunction, { onDelete: 'CASCADE' })
   screenFunction: ScreenFunction;
 
-  @BelongsTo(() => Member)
+  @BelongsTo(() => Member, { onDelete: 'CASCADE' })
   member: Member;
 }

@@ -41,6 +41,8 @@ import {
   WorklogMappingRulePanel,
 } from "@/components/task-workflow";
 import { MetricsDashboard } from "@/components/metrics";
+import { AISchedulingDialog } from "@/components/ai/AISchedulingDialog";
+import { AIPlanAllDialog } from "@/components/ai/AIPlanAllDialog";
 import { format } from "date-fns";
 import type {
   ScreenFunction,
@@ -110,6 +112,8 @@ function ProjectDetail() {
     search: "",
   });
   const [expandedStages, setExpandedStages] = useState<number | null>(null);
+  const [showAIScheduling, setShowAIScheduling] = useState(false);
+  const [showAIPlanAll, setShowAIPlanAll] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [metricSummaryFilter, setMetricSummaryFilter] = useState<{
     search: string;
@@ -2254,11 +2258,21 @@ function ProjectDetail() {
       )}
 
       {activeTab === "stages" && (
-        <StagesOverviewPanel
-          projectId={parseInt(projectId)}
-          effortUnit={effortUnit}
-          workSettings={settingsForm}
-        />
+        <div>
+          <div className="flex justify-end gap-2 mb-4">
+            <Button variant="primary" onClick={() => setShowAIPlanAll(true)}>
+              {t('ai.planAll', 'AI Plan Everything')}
+            </Button>
+            <Button variant="secondary" onClick={() => setShowAIScheduling(true)}>
+              {t('ai.advancedOptions', 'Advanced AI Options')}
+            </Button>
+          </div>
+          <StagesOverviewPanel
+            projectId={parseInt(projectId)}
+            effortUnit={effortUnit}
+            workSettings={settingsForm}
+          />
+        </div>
       )}
 
       {activeTab === "task-workflow" && (
@@ -3387,6 +3401,22 @@ function ProjectDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* AI Scheduling Dialog */}
+      <AISchedulingDialog
+        open={showAIScheduling}
+        onClose={() => setShowAIScheduling(false)}
+        projectId={parseInt(projectId)}
+        stages={(stagesOverview || []).map((s: any) => ({ id: s.id, name: s.name }))}
+      />
+
+      {/* AI Plan All Dialog */}
+      <AIPlanAllDialog
+        open={showAIPlanAll}
+        onClose={() => setShowAIPlanAll(false)}
+        projectId={parseInt(projectId)}
+        stages={(stagesOverview || []).map((s: any) => ({ id: s.id, name: s.name }))}
+      />
     </div>
   );
 }

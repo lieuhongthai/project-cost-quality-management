@@ -1427,6 +1427,62 @@ export class TaskWorkflowService {
     return { created: totalCreated, skipped: totalSkipped, membersAssigned: totalMembersAssigned, details };
   }
 
+  /**
+   * Auto-link a single screen function to all steps of all active stages in the project.
+   * Creates StepScreenFunction records for each step × screenFunction combination.
+   */
+  async linkScreenFunctionToAllStages(projectId: number, screenFunctionId: number): Promise<{
+    created: number;
+    skipped: number;
+  }> {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (stages.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+
+    const stageIds = stages.map(s => s.id);
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stageIds }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (steps.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+
+    const stepIds = steps.map(s => s.id);
+
+    // Check existing links
+    const existingSSFs = await this.stepScreenFunctionRepository.findAll({
+      where: {
+        stepId: { [Op.in]: stepIds },
+        screenFunctionId,
+      },
+    });
+    const existingSet = new Set(existingSSFs.map(ssf => ssf.stepId));
+
+    const newItems: Array<{ stepId: number; screenFunctionId: number; estimatedEffort: number }> = [];
+    for (const step of steps) {
+      if (!existingSet.has(step.id)) {
+        newItems.push({
+          stepId: step.id,
+          screenFunctionId,
+          estimatedEffort: 0,
+        });
+      }
+    }
+
+    if (newItems.length > 0) {
+      await this.stepScreenFunctionRepository.bulkCreate(newItems as any[]);
+    }
+
+    return { created: newItems.length, skipped: existingSSFs.length };
+  }
+
   // ===== Metric Type Methods =====
 
   async findAllMetricTypes(projectId: number): Promise<MetricType[]> {
