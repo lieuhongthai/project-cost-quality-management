@@ -806,7 +806,9 @@
     "actions": {
       "preview": "Preview",
       "commitSelected": "Commit Selected",
-      "exportUnselected": "Export Unselected"
+      "exportUnselected": "Export Unselected",
+      "clearExistingTasks": "Clear all existing tasks before import",
+      "clearExistingTasksHint": "Warning: this will remove all existing Step/Screen assignments in current project before import."
     },
     "errors": {
       "selectCsv": "Please select a CSV file",

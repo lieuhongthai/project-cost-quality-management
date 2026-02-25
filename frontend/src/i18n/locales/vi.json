@@ -807,7 +807,9 @@
     "actions": {
       "preview": "Xem trước",
       "commitSelected": "Commit đã chọn",
-      "exportUnselected": "Xuất record chưa chọn"
+      "exportUnselected": "Xuất record chưa chọn",
+      "clearExistingTasks": "Dọn dẹp toàn bộ task hiện có trước khi import",
+      "clearExistingTasksHint": "Cảnh báo: thao tác này sẽ xóa toàn bộ liên kết Step/Screen hiện có trong project trước khi import."
     },
     "errors": {
       "selectCsv": "Vui lòng chọn file CSV",

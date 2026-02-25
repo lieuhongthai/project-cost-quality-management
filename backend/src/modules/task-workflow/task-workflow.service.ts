@@ -2444,6 +2444,10 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
     }
 
+    if (dto.clearExistingTasks) {
+      await this.clearProjectWorkflowTasksForImport(batch.projectId);
+    }
+
     const selectedSet = new Set(dto.selectedItemIds || []);
     const overridesMap = new Map<number, WorklogImportOverrideItemDto>(
       (dto.overrides || []).map((o) => [o.itemId, o]),
@@ -2548,6 +2552,26 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     }
 
     return { batchId: dto.batchId, success, failed, skipped, total: items.length };
+  }
+
+  private async clearProjectWorkflowTasksForImport(projectId: number): Promise<void> {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId },
+      attributes: ['id'],
+    });
+    const stageIds = stages.map((s) => s.id);
+    if (stageIds.length === 0) return;
+
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stageIds } },
+      attributes: ['id'],
+    });
+    const stepIds = steps.map((s) => s.id);
+    if (stepIds.length === 0) return;
+
+    await this.stepScreenFunctionRepository.destroy({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
   }
 
   async exportUnselectedWorklogImport(batchId: number): Promise<string> {
