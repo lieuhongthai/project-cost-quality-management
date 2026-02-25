@@ -4,3 +4,6 @@ export { StagesOverviewPanel } from './StagesOverviewPanel';
 export { StageEditModal } from './StageEditModal';
 export { StepScreenFunctionEditModal } from './StepScreenFunctionEditModal';
 export { MetricConfigPanel } from './MetricConfigPanel';
+
+export { WorklogImportPanel } from './WorklogImportPanel';
+export { WorklogMappingRulePanel } from './WorklogMappingRulePanel';
