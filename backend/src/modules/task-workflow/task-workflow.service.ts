@@ -46,6 +46,7 @@ import {
   CreateWorklogMappingRuleDto,
   UpdateWorklogMappingRuleDto,
   CommitWorklogImportDto,
+  WorklogImportOverrideItemDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
 import OpenAI from 'openai';
@@ -2421,6 +2422,9 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     }
 
     const selectedSet = new Set(dto.selectedItemIds || []);
+    const overridesMap = new Map<number, WorklogImportOverrideItemDto>(
+      (dto.overrides || []).map((o) => [o.itemId, o]),
+    );
     const items = await this.worklogImportItemRepository.findAll({ where: { batchId: dto.batchId } });
 
     let success = 0;
@@ -2435,6 +2439,34 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         await item.update({ status: 'skipped', reason: item.reason || 'Not selected by user' });
         skipped += 1;
         continue;
+      }
+
+      const override = overridesMap.get(item.id);
+      if (override) {
+        const updatePayload: any = {};
+
+        if (override.stepId) {
+          const step = await this.findStepById(override.stepId);
+          updatePayload.stepId = step.id;
+          updatePayload.stageId = step.stageId;
+        } else if (override.stageId) {
+          await this.findStageById(override.stageId);
+          updatePayload.stageId = override.stageId;
+        }
+
+        if (override.screenFunctionId) {
+          const sf = await this.screenFunctionRepository.findByPk(override.screenFunctionId);
+          if (!sf || sf.projectId !== batch.projectId) {
+            await item.update({ status: 'error', reason: 'Invalid screen function override' });
+            failed += 1;
+            continue;
+          }
+          updatePayload.screenFunctionId = sf.id;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await item.update(updatePayload);
+        }
       }
 
       if (!item.memberId || !item.stepId || !item.screenFunctionId) {

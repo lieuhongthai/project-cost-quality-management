@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { taskWorkflowApi } from '@/services/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
 import type { WorklogImportBatchDetail } from '@/types';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -17,21 +17,41 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 
 interface WorklogImportPanelProps {
   projectId: number;
 }
 
+interface ItemOverride {
+  stageId?: number;
+  stepId?: number;
+  screenFunctionId?: number;
+}
+
 export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [batchDetail, setBatchDetail] = useState<WorklogImportBatchDetail | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [overrides, setOverrides] = useState<Record<number, ItemOverride>>({});
   const [commitResult, setCommitResult] = useState<null | {
     success: number;
     failed: number;
     skipped: number;
     total: number;
   }>(null);
+
+  const { data: config } = useQuery({
+    queryKey: ['workflowConfig', projectId],
+    queryFn: async () => (await taskWorkflowApi.getConfiguration(projectId)).data,
+  });
+
+  const { data: screenFunctions } = useQuery({
+    queryKey: ['screenFunctions', projectId],
+    queryFn: async () => (await screenFunctionApi.getByProject(projectId)).data,
+  });
 
   const previewMutation = useMutation({
     mutationFn: () => {
@@ -42,6 +62,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
       const data = response.data;
       setBatchDetail(data);
       setSelectedIds(data.items.filter((item) => item.isSelected).map((item) => item.id));
+      setOverrides({});
       setCommitResult(null);
     },
   });
@@ -49,9 +70,14 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const commitMutation = useMutation({
     mutationFn: async () => {
       if (!batchDetail) throw new Error('No preview data');
+      const overridePayload = Object.entries(overrides)
+        .map(([itemId, value]) => ({ itemId: Number(itemId), ...value }))
+        .filter((x) => x.stageId || x.stepId || x.screenFunctionId);
+
       const response = await taskWorkflowApi.commitWorklogImport({
         batchId: batchDetail.batch.id,
         selectedItemIds: selectedIds,
+        overrides: overridePayload,
       });
       const refreshed = await taskWorkflowApi.getWorklogImportBatch(batchDetail.batch.id);
       setBatchDetail(refreshed.data);
@@ -59,6 +85,35 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     },
     onSuccess: (response) => {
       setCommitResult(response.data);
+    },
+  });
+
+  const createScreenFunctionMutation = useMutation({
+    mutationFn: async ({ itemId, suggestedName }: { itemId: number; suggestedName: string }) => {
+      const defaultOrder = (screenFunctions?.length || 0) + 1;
+      const response = await screenFunctionApi.create({
+        projectId,
+        name: suggestedName,
+        type: 'Function',
+        priority: 'Medium',
+        complexity: 'Medium',
+        estimatedEffort: 0,
+        actualEffort: 0,
+        progress: 0,
+        status: 'Not Started',
+        displayOrder: defaultOrder,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['screenFunctions', projectId] });
+      return { itemId, createdId: response.data.id };
+    },
+    onSuccess: ({ itemId, createdId }) => {
+      setOverrides((prev) => ({
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          screenFunctionId: createdId,
+        },
+      }));
     },
   });
 
@@ -78,9 +133,20 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     },
   });
 
+  const stageOptions = config?.stages || [];
+
+  const getEffectiveValue = (itemId: number, key: keyof ItemOverride, fallback?: number) =>
+    overrides[itemId]?.[key] ?? fallback;
+
+  const itemCanSelect = (item: any) => {
+    const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
+    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
+    return !!item.memberId && !!effectiveStepId && !!effectiveScreenFunctionId;
+  };
+
   const selectableIds = useMemo(
-    () => batchDetail?.items.filter((item) => item.status === 'ready' || item.status === 'needs_review').map((item) => item.id) || [],
-    [batchDetail],
+    () => batchDetail?.items.filter((item) => itemCanSelect(item)).map((item) => item.id) || [],
+    [batchDetail, overrides],
   );
 
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
@@ -89,11 +155,30 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
 
+  const updateOverride = (itemId: number, patch: ItemOverride) => {
+    setOverrides((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        ...patch,
+      },
+    }));
+  };
+
   const getStatusColor = (status: string) => {
     if (status === 'ready' || status === 'committed') return 'success';
     if (status === 'needs_review') return 'warning';
     if (status === 'error' || status === 'unmapped') return 'error';
     return 'default';
+  };
+
+  const buildSuggestedScreenFunctionName = (workDetail?: string) => {
+    const normalized = (workDetail || '')
+      .replace(/\bgsl-\d+\b/gi, '')
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return normalized.slice(0, 120) || `Imported Function ${Date.now()}`;
   };
 
   return (
@@ -105,33 +190,16 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-          />
-          <Button
-            variant="contained"
-            onClick={() => previewMutation.mutate()}
-            disabled={!selectedFile || previewMutation.isPending}
-          >
+          <input type="file" accept=".csv,text/csv" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+          <Button variant="contained" onClick={() => previewMutation.mutate()} disabled={!selectedFile || previewMutation.isPending}>
             Preview
           </Button>
           {batchDetail && (
             <>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={() => commitMutation.mutate()}
-                disabled={selectedIds.length === 0 || commitMutation.isPending}
-              >
+              <Button variant="contained" color="success" onClick={() => commitMutation.mutate()} disabled={selectedIds.length === 0 || commitMutation.isPending}>
                 Commit Selected ({selectedIds.length})
               </Button>
-              <Button
-                variant="outlined"
-                onClick={() => exportMutation.mutate()}
-                disabled={exportMutation.isPending}
-              >
+              <Button variant="outlined" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
                 Export Unselected
               </Button>
             </>
@@ -162,10 +230,10 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 indeterminate={!allSelected && selectedIds.length > 0}
                 onChange={(e) => setSelectedIds(e.target.checked ? selectableIds : [])}
               />
-              Select all ready / needs_review
+              Select all rows with enough mapping data (member + step + screen/function)
             </Box>
 
-            <TableContainer component={Paper} sx={{ maxHeight: 420 }}>
+            <TableContainer component={Paper} sx={{ maxHeight: 460 }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
@@ -174,7 +242,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                     <TableCell>Email</TableCell>
                     <TableCell>Work detail</TableCell>
                     <TableCell>Member</TableCell>
-                    <TableCell>Stage/Step</TableCell>
+                    <TableCell>Stage</TableCell>
+                    <TableCell>Step</TableCell>
+                    <TableCell>Screen/Function</TableCell>
                     <TableCell>Minutes</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Reason</TableCell>
@@ -182,21 +252,82 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 </TableHead>
                 <TableBody>
                   {batchDetail.items.map((item) => {
-                    const canSelect = item.status === 'ready' || item.status === 'needs_review';
+                    const effectiveStageId = getEffectiveValue(item.id, 'stageId', item.stageId);
+                    const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
+                    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
+                    const stage = stageOptions.find((s: any) => s.id === Number(effectiveStageId));
+                    const stepOptions = stage?.steps || [];
+                    const canSelect = itemCanSelect(item);
+
                     return (
                       <TableRow key={item.id}>
                         <TableCell>
-                          <Checkbox
-                            checked={selectedIds.includes(item.id)}
-                            disabled={!canSelect}
-                            onChange={(e) => toggleSelected(item.id, e.target.checked)}
-                          />
+                          <Checkbox checked={selectedIds.includes(item.id)} disabled={!canSelect} onChange={(e) => toggleSelected(item.id, e.target.checked)} />
                         </TableCell>
                         <TableCell>{item.day || '-'}</TableCell>
                         <TableCell>{item.email || '-'}</TableCell>
-                        <TableCell sx={{ maxWidth: 300 }}>{item.workDetail || '-'}</TableCell>
+                        <TableCell sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</TableCell>
                         <TableCell>{item.member?.name || '-'}</TableCell>
-                        <TableCell>{item.stage?.name || '-'} / {item.step?.name || '-'}</TableCell>
+                        <TableCell sx={{ minWidth: 170 }}>
+                          <TextField
+                            select
+                            size="small"
+                            fullWidth
+                            value={effectiveStageId || ''}
+                            onChange={(e) => {
+                              const nextStageId = Number(e.target.value);
+                              updateOverride(item.id, { stageId: nextStageId, stepId: undefined });
+                            }}
+                          >
+                            <MenuItem value="">-</MenuItem>
+                            {stageOptions.map((s: any) => (
+                              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                            ))}
+                          </TextField>
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 170 }}>
+                          <TextField
+                            select
+                            size="small"
+                            fullWidth
+                            value={effectiveStepId || ''}
+                            onChange={(e) => updateOverride(item.id, { stepId: Number(e.target.value) })}
+                          >
+                            <MenuItem value="">-</MenuItem>
+                            {stepOptions.map((sp: any) => (
+                              <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
+                            ))}
+                          </TextField>
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 220 }}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <TextField
+                              select
+                              size="small"
+                              fullWidth
+                              value={effectiveScreenFunctionId || ''}
+                              onChange={(e) => updateOverride(item.id, { screenFunctionId: Number(e.target.value) })}
+                            >
+                              <MenuItem value="">-</MenuItem>
+                              {(screenFunctions || []).map((sf: any) => (
+                                <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
+                              ))}
+                            </TextField>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() =>
+                                createScreenFunctionMutation.mutate({
+                                  itemId: item.id,
+                                  suggestedName: buildSuggestedScreenFunctionName(item.workDetail),
+                                })
+                              }
+                              disabled={createScreenFunctionMutation.isPending}
+                            >
+                              +
+                            </Button>
+                          </Box>
+                        </TableCell>
                         <TableCell>{item.minutes || 0}</TableCell>
                         <TableCell>
                           <Chip size="small" color={getStatusColor(item.status) as any} label={item.status} />
