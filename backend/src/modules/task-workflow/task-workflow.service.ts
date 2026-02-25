@@ -637,9 +637,8 @@ export class TaskWorkflowService {
 
     // Calculate totals - only actualEffort and progress, NOT estimatedEffort
     const totalTasks = stepScreenFunctions.length;
-    const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
     const progressPercentage = totalTasks > 0
-      ? Math.round((completedTasks / totalTasks) * 100)
+      ? Math.round(stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.progress || 0), 0) / totalTasks)
       : 0;
     const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
 
@@ -1212,10 +1211,12 @@ export class TaskWorkflowService {
       // Average progress (simple average)
       const avgProgress = members.reduce((sum, m) => sum + (m.progress || 0), 0) / members.length;
 
+      const roundedProgress = Math.round(avgProgress);
       await ssf.update({
         estimatedEffort: totalEstimatedEffort,
         actualEffort: totalActualEffort,
-        progress: Math.round(avgProgress),
+        progress: roundedProgress,
+        status: roundedProgress >= 100 ? 'Completed' : roundedProgress <= 0 ? 'Not Started' : 'In Progress',
       });
     }
 
@@ -1263,17 +1264,18 @@ export class TaskWorkflowService {
       (sum, ssf) => sum + (ssf.actualEffort || 0), 0,
     );
 
-    // Calculate progress based on completed tasks
+    // Calculate progress as average of linked StepScreenFunction progresses
     const totalTasks = stepScreenFunctions.length;
-    const completedTasks = stepScreenFunctions.filter(
-      ssf => ssf.status === 'Completed',
-    ).length;
-    const progressPercentage = Math.round((completedTasks / totalTasks) * 100);
+    const progressPercentage = totalTasks > 0
+      ? Math.round(stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.progress || 0), 0) / totalTasks)
+      : 0;
 
-    // Determine status from StepScreenFunction statuses
-    const allCompleted = stepScreenFunctions.every(ssf => ssf.status === 'Completed');
+    // Determine status from StepScreenFunction progress/status
+    const allCompleted = stepScreenFunctions.every(
+      ssf => (ssf.progress || 0) >= 100 || ssf.status === 'Completed',
+    );
     const allNotStarted = stepScreenFunctions.every(
-      ssf => ssf.status === 'Not Started',
+      ssf => (ssf.progress || 0) <= 0 && ssf.status === 'Not Started',
     );
 
     let status: string;
@@ -2514,10 +2516,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           });
         }
 
-        await stepScreenFunction.update({
-          actualEffort: Number((Number(stepScreenFunction.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
-          status: 'In Progress',
-        });
+        await this.recalculateStepScreenFunctionFromMembers(stepScreenFunction.id);
 
         await item.update({ status: 'committed', reason: null as any });
         success += 1;
