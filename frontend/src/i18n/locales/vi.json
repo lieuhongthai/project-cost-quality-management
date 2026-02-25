@@ -798,6 +798,70 @@
     "confirmDeleteStep": "Bạn có chắc muốn xóa bước này? Tất cả dữ liệu workflow của bước sẽ bị mất.",
     "notLinked": "Chưa liên kết với task trong giai đoạn"
   },
+  "worklogImport": {
+    "title": "Import CSV Worklog",
+    "description": "Tải lên file CSV để xem trước, chọn các record cần import vào StepScreenFunctionMember, sau đó xác nhận commit.",
+    "actions": {
+      "preview": "Xem trước",
+      "commitSelected": "Commit đã chọn",
+      "exportUnselected": "Xuất record chưa chọn",
+      "clearExistingTasks": "Dọn dẹp toàn bộ task hiện có trước khi import",
+      "clearExistingTasksHint": "Cảnh báo: thao tác này sẽ xóa toàn bộ liên kết Step/Screen hiện có trong project trước khi import."
+    },
+    "errors": {
+      "selectCsv": "Vui lòng chọn file CSV",
+      "noPreviewData": "Không có dữ liệu xem trước",
+      "noBatchToExport": "Không có batch để xuất",
+      "previewFailed": "Xem trước thất bại",
+      "commitFailed": "Commit thất bại"
+    },
+    "commitResult": "Kết quả commit: thành công {{success}}, lỗi {{failed}}, bỏ qua {{skipped}}, tổng {{total}}",
+    "summary": {
+      "total": "Tổng: {{value}}",
+      "ready": "Sẵn sàng: {{value}}",
+      "needsReview": "Cần xem lại: {{value}}",
+      "unmapped": "Chưa map: {{value}}"
+    },
+    "selectAllMappable": "Chọn tất cả dòng có đủ dữ liệu mapping (member + step + screen/function)",
+    "hintUseEditModal": "Nhấn Edit để mở popup chỉnh Stage/Step/Screen Function cho từng dòng.",
+    "table": {
+      "select": "Chọn",
+      "day": "Ngày",
+      "email": "Email",
+      "workDetail": "Nội dung công việc",
+      "member": "Thành viên",
+      "stageStep": "Stage / Step",
+      "screenFunction": "Màn hình/Chức năng",
+      "minutes": "Phút",
+      "status": "Trạng thái",
+      "reason": "Lý do",
+      "action": "Thao tác"
+    },
+    "editModal": {
+      "title": "Chỉnh mapping cho dòng #{{row}}"
+    }
+  },
+  "worklogMapping": {
+    "title": "Mapping từ khóa Worklog (Stage → Step)",
+    "description": "Thiết lập mapping từ khóa sang stage/step để parse workDetail từ CSV.",
+    "form": {
+      "keyword": "Từ khóa"
+    },
+    "errors": {
+      "selectCsv": "Vui lòng chọn file CSV"
+    },
+    "table": {
+      "keyword": "Từ khóa",
+      "stageStep": "Stage/Step"
+    },
+    "ai": {
+      "title": "AI gợi ý từ khóa từ CSV",
+      "suggest": "Gợi ý",
+      "applySelected": "Áp dụng mục đã chọn",
+      "failed": "AI gợi ý thất bại",
+      "confidence": "Độ tin cậy"
+    }
+  },
   "stages": {
     "title": "Giai đoạn",
     "overviewTab": "Tổng quan Giai đoạn",

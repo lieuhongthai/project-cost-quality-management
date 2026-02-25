@@ -9,8 +9,12 @@ import {
   Query,
   ParseIntPipe,
   Res,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TaskWorkflowService } from './task-workflow.service';
 import {
   CreateWorkflowStageDto,
@@ -40,6 +44,9 @@ import {
   UpdateTaskMemberMetricDto,
   BulkUpsertTaskMemberMetricDto,
   InitializeProjectMetricsDto,
+  CreateWorklogMappingRuleDto,
+  UpdateWorklogMappingRuleDto,
+  CommitWorklogImportDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
 
@@ -183,6 +190,99 @@ export class TaskWorkflowController {
   @Get('configuration/project/:projectId')
   getWorkflowConfiguration(@Param('projectId', ParseIntPipe) projectId: number) {
     return this.taskWorkflowService.getWorkflowConfiguration(projectId);
+  }
+
+
+  // ===== Worklog Mapping Rule Endpoints =====
+
+  @Get('worklog-mapping-rules/project/:projectId')
+  getWorklogMappingRules(@Param('projectId', ParseIntPipe) projectId: number) {
+    return this.taskWorkflowService.getWorklogMappingRules(projectId);
+  }
+
+  @Post('worklog-mapping-rules')
+  createWorklogMappingRule(@Body() dto: CreateWorklogMappingRuleDto) {
+    return this.taskWorkflowService.createWorklogMappingRule(dto);
+  }
+
+  @Put('worklog-mapping-rules/:id')
+  updateWorklogMappingRule(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWorklogMappingRuleDto,
+  ) {
+    return this.taskWorkflowService.updateWorklogMappingRule(id, dto);
+  }
+
+  @Delete('worklog-mapping-rules/:id')
+  deleteWorklogMappingRule(@Param('id', ParseIntPipe) id: number) {
+    return this.taskWorkflowService.deleteWorklogMappingRule(id);
+  }
+
+
+
+  @Post('worklog-mapping-rules/ai-suggest')
+  @UseInterceptors(FileInterceptor('file'))
+  async aiSuggestWorklogMappingRules(
+    @UploadedFile() file: any,
+    @Body('projectId') projectIdRaw: string,
+    @Body('autoCreate') autoCreateRaw?: string,
+  ) {
+    const projectId = Number(projectIdRaw);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (!projectId) {
+      throw new BadRequestException('projectId is required');
+    }
+
+    const autoCreate = autoCreateRaw === 'true' || autoCreateRaw === '1';
+    return this.taskWorkflowService.aiSuggestWorklogMappingRules(
+      projectId,
+      file,
+      autoCreate,
+    );
+  }
+
+  // ===== Worklog Import Endpoints =====
+
+  @Post('worklog-import/preview')
+  @UseInterceptors(FileInterceptor('file'))
+  previewWorklogImport(
+    @UploadedFile() file: any,
+    @Body('projectId') projectIdRaw: string,
+  ) {
+    const projectId = Number(projectIdRaw);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (!projectId) {
+      throw new BadRequestException('projectId is required');
+    }
+    return this.taskWorkflowService.previewWorklogImport(projectId, file);
+  }
+
+  @Post('worklog-import/commit')
+  commitWorklogImport(@Body() dto: CommitWorklogImportDto) {
+    return this.taskWorkflowService.commitWorklogImport(dto);
+  }
+
+  @Get('worklog-import/:batchId')
+  getWorklogImportBatch(@Param('batchId', ParseIntPipe) batchId: number) {
+    return this.taskWorkflowService.getWorklogImportBatch(batchId);
+  }
+
+  @Get('worklog-import/:batchId/unselected/export')
+  async exportUnselectedWorklogImport(
+    @Param('batchId', ParseIntPipe) batchId: number,
+    @Res() res: Response,
+  ) {
+    const csv = await this.taskWorkflowService.exportUnselectedWorklogImport(batchId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=worklog-import-unselected-${batchId}.csv`,
+    );
+    res.send(csv);
   }
 
   // ===== Export Excel =====

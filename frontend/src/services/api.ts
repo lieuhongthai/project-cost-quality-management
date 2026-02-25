@@ -33,6 +33,8 @@ import type {
   StageSFStat,
   ProjectMetricInsights,
   ProjectMetricTypeSummary,
+  WorklogMappingRule,
+  WorklogImportBatchDetail,
 } from '../types';
 import type { AuthResponse, AuthUser } from '../types/auth';
 
@@ -210,6 +212,58 @@ export const taskWorkflowApi = {
     api.post<{ created: number; skipped: number; membersAssigned: number; details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }> }>(
       `/task-workflow/stages/${stageId}/quick-link`, { type, assignMembers }
     ),
+
+  // Worklog Mapping Rules
+  getWorklogMappingRules: (projectId: number) =>
+    api.get<WorklogMappingRule[]>(`/task-workflow/worklog-mapping-rules/project/${projectId}`),
+  createWorklogMappingRule: (data: {
+    projectId: number;
+    keyword: string;
+    stageId: number;
+    stepId: number;
+    priority?: number;
+    isActive?: boolean;
+  }) => api.post<WorklogMappingRule>('/task-workflow/worklog-mapping-rules', data),
+  updateWorklogMappingRule: (id: number, data: {
+    keyword?: string;
+    stageId?: number;
+    stepId?: number;
+    priority?: number;
+    isActive?: boolean;
+  }) => api.put<WorklogMappingRule>(`/task-workflow/worklog-mapping-rules/${id}`, data),
+  deleteWorklogMappingRule: (id: number) =>
+    api.delete(`/task-workflow/worklog-mapping-rules/${id}`),
+
+  aiSuggestWorklogMappingRules: (projectId: number, file: File, autoCreate = false) => {
+    const formData = new FormData();
+    formData.append('projectId', String(projectId));
+    formData.append('autoCreate', autoCreate ? 'true' : 'false');
+    formData.append('file', file);
+    return api.post<{ totalWorkDetails: number; suggestions: Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>; created: number; source: string }>(
+      '/task-workflow/worklog-mapping-rules/ai-suggest',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+  },
+
+  // Worklog Import
+  previewWorklogImport: (projectId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('projectId', String(projectId));
+    formData.append('file', file);
+    return api.post<WorklogImportBatchDetail>('/task-workflow/worklog-import/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getWorklogImportBatch: (batchId: number) =>
+    api.get<WorklogImportBatchDetail>(`/task-workflow/worklog-import/${batchId}`),
+  commitWorklogImport: (data: { batchId: number; selectedItemIds: number[]; overrides?: Array<{ itemId: number; stageId?: number; stepId?: number; screenFunctionId?: number }>; clearExistingTasks?: boolean }) =>
+    api.post<{ batchId: number; success: number; failed: number; skipped: number; total: number }>(
+      '/task-workflow/worklog-import/commit',
+      data,
+    ),
+  exportUnselectedWorklogImport: (batchId: number) =>
+    api.get(`/task-workflow/worklog-import/${batchId}/unselected/export`, { responseType: 'blob' }),
 
   // Workflow Steps
   getSteps: (stageId: number) =>

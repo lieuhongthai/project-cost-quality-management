@@ -7,6 +7,9 @@ import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { MetricType, DEFAULT_METRIC_TYPES, DEFAULT_METRIC_CATEGORIES } from './metric-type.model';
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
+import { WorklogMappingRule } from './worklog-mapping-rule.model';
+import { WorklogImportBatch } from './worklog-import-batch.model';
+import { WorklogImportItem } from './worklog-import-item.model';
 import { ScreenFunction } from '../screen-function/screen-function.model';
 import { ScreenFunctionDefaultMember } from '../screen-function/screen-function-default-member.model';
 import { Member } from '../member/member.model';
@@ -40,11 +43,17 @@ import {
   UpdateTaskMemberMetricDto,
   BulkUpsertTaskMemberMetricDto,
   InitializeProjectMetricsDto,
+  CreateWorklogMappingRuleDto,
+  UpdateWorklogMappingRuleDto,
+  CommitWorklogImportDto,
+  WorklogImportOverrideItemDto,
 } from './task-workflow.dto';
 import { Op } from 'sequelize';
+import OpenAI from 'openai';
 
 @Injectable()
 export class TaskWorkflowService {
+  private openai: OpenAI;
   constructor(
     @Inject('WORKFLOW_STAGE_REPOSITORY')
     private stageRepository: typeof WorkflowStage,
@@ -64,9 +73,17 @@ export class TaskWorkflowService {
     private metricCategoryRepository: typeof MetricCategory,
     @Inject('TASK_MEMBER_METRIC_REPOSITORY')
     private taskMemberMetricRepository: typeof TaskMemberMetric,
+    @Inject('WORKLOG_MAPPING_RULE_REPOSITORY')
+    private worklogMappingRuleRepository: typeof WorklogMappingRule,
+    @Inject('WORKLOG_IMPORT_BATCH_REPOSITORY')
+    private worklogImportBatchRepository: typeof WorklogImportBatch,
+    @Inject('WORKLOG_IMPORT_ITEM_REPOSITORY')
+    private worklogImportItemRepository: typeof WorklogImportItem,
     @Inject(forwardRef(() => ProjectService))
     private projectService: ProjectService,
-  ) {}
+  ) {
+    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+  }
 
   // ===== Workflow Stage Methods =====
 
@@ -620,9 +637,8 @@ export class TaskWorkflowService {
 
     // Calculate totals - only actualEffort and progress, NOT estimatedEffort
     const totalTasks = stepScreenFunctions.length;
-    const completedTasks = stepScreenFunctions.filter(ssf => ssf.status === 'Completed').length;
     const progressPercentage = totalTasks > 0
-      ? Math.round((completedTasks / totalTasks) * 100)
+      ? Math.round(stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.progress || 0), 0) / totalTasks)
       : 0;
     const actualEffort = stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.actualEffort || 0), 0);
 
@@ -1195,10 +1211,12 @@ export class TaskWorkflowService {
       // Average progress (simple average)
       const avgProgress = members.reduce((sum, m) => sum + (m.progress || 0), 0) / members.length;
 
+      const roundedProgress = Math.round(avgProgress);
       await ssf.update({
         estimatedEffort: totalEstimatedEffort,
         actualEffort: totalActualEffort,
-        progress: Math.round(avgProgress),
+        progress: roundedProgress,
+        status: roundedProgress >= 100 ? 'Completed' : roundedProgress <= 0 ? 'Not Started' : 'In Progress',
       });
     }
 
@@ -1246,17 +1264,18 @@ export class TaskWorkflowService {
       (sum, ssf) => sum + (ssf.actualEffort || 0), 0,
     );
 
-    // Calculate progress based on completed tasks
+    // Calculate progress as average of linked StepScreenFunction progresses
     const totalTasks = stepScreenFunctions.length;
-    const completedTasks = stepScreenFunctions.filter(
-      ssf => ssf.status === 'Completed',
-    ).length;
-    const progressPercentage = Math.round((completedTasks / totalTasks) * 100);
+    const progressPercentage = totalTasks > 0
+      ? Math.round(stepScreenFunctions.reduce((sum, ssf) => sum + (ssf.progress || 0), 0) / totalTasks)
+      : 0;
 
-    // Determine status from StepScreenFunction statuses
-    const allCompleted = stepScreenFunctions.every(ssf => ssf.status === 'Completed');
+    // Determine status from StepScreenFunction progress/status
+    const allCompleted = stepScreenFunctions.every(
+      ssf => (ssf.progress || 0) >= 100 || ssf.status === 'Completed',
+    );
     const allNotStarted = stepScreenFunctions.every(
-      ssf => ssf.status === 'Not Started',
+      ssf => (ssf.progress || 0) <= 0 && ssf.status === 'Not Started',
     );
 
     let status: string;
@@ -1877,4 +1896,816 @@ export class TaskWorkflowService {
     // Re-fetch with categories included
     return { metricTypes: await this.findAllMetricTypes(dto.projectId) };
   }
+
+
+  // ===== Worklog Mapping Rule Methods =====
+
+  async getWorklogMappingRules(projectId: number): Promise<WorklogMappingRule[]> {
+    return this.worklogMappingRuleRepository.findAll({
+      where: { projectId },
+      include: [
+        { model: WorkflowStage, as: 'stage' },
+        { model: WorkflowStep, as: 'step' },
+      ],
+      order: [['priority', 'DESC'], ['id', 'ASC']],
+    });
+  }
+
+  async createWorklogMappingRule(
+    dto: CreateWorklogMappingRuleDto,
+  ): Promise<WorklogMappingRule> {
+    await this.findStageById(dto.stageId);
+    await this.findStepById(dto.stepId);
+
+    const normalizedKeyword = dto.keyword.trim();
+    const existed = await this.worklogMappingRuleRepository.findOne({
+      where: {
+        projectId: dto.projectId,
+        stageId: dto.stageId,
+        stepId: dto.stepId,
+        keyword: { [Op.iLike]: normalizedKeyword },
+      },
+    });
+
+    // Idempotent create: if the exact mapping already exists, return it instead of creating duplicate rows.
+    if (existed) {
+      return existed;
+    }
+
+    return this.worklogMappingRuleRepository.create({
+      projectId: dto.projectId,
+      keyword: normalizedKeyword,
+      stageId: dto.stageId,
+      stepId: dto.stepId,
+      priority: dto.priority ?? 100,
+      isActive: dto.isActive ?? true,
+    } as any);
+  }
+
+  async updateWorklogMappingRule(
+    id: number,
+    dto: UpdateWorklogMappingRuleDto,
+  ): Promise<WorklogMappingRule> {
+    const rule = await this.worklogMappingRuleRepository.findByPk(id);
+    if (!rule) {
+      throw new NotFoundException(`Worklog mapping rule with ID ${id} not found`);
+    }
+
+    if (dto.stageId) {
+      await this.findStageById(dto.stageId);
+    }
+    if (dto.stepId) {
+      await this.findStepById(dto.stepId);
+    }
+
+    await rule.update({
+      ...dto,
+      keyword: dto.keyword?.trim() ?? rule.keyword,
+    });
+
+    return rule;
+  }
+
+  async deleteWorklogMappingRule(id: number): Promise<void> {
+    const rule = await this.worklogMappingRuleRepository.findByPk(id);
+    if (!rule) {
+      throw new NotFoundException(`Worklog mapping rule with ID ${id} not found`);
+    }
+    await rule.destroy();
+  }
+
+
+
+  async aiSuggestWorklogMappingRules(
+    projectId: number,
+    file: any,
+    autoCreate = false,
+  ): Promise<any> {
+    const csvContent = file.buffer.toString('utf-8');
+    const rows = this.parseCsv(csvContent);
+    const stages = await this.findAllStages(projectId);
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stages.map((s) => s.id) }, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    const stageStepPairs = stages.flatMap((stage) =>
+      steps
+        .filter((step) => step.stageId === stage.id)
+        .map((step) => ({ stageId: stage.id, stageName: stage.name, stepId: step.id, stepName: step.name })),
+    );
+
+    const workDetails = Array.from(
+      new Set(rows.map((r) => (r.workDetail || '').trim()).filter((v) => v.length > 0)),
+    ).slice(0, 200);
+
+    let suggestions = await this.aiGenerateKeywordSuggestions(stageStepPairs, workDetails);
+    if (suggestions.length === 0) {
+      suggestions = this.heuristicKeywordSuggestions(stageStepPairs, workDetails);
+    }
+
+    const existingRules = await this.worklogMappingRuleRepository.findAll({ where: { projectId } });
+    const exists = new Set(existingRules.map((r) => `${r.keyword.toLowerCase()}|${r.stageId}|${r.stepId}`));
+
+    const deduped = suggestions.filter((s) => {
+      const key = `${s.keyword.toLowerCase()}|${s.stageId}|${s.stepId}`;
+      if (exists.has(key)) return false;
+      exists.add(key);
+      return true;
+    });
+
+    let created = 0;
+    if (autoCreate && deduped.length > 0) {
+      for (const s of deduped) {
+        await this.worklogMappingRuleRepository.create({
+          projectId,
+          keyword: s.keyword,
+          stageId: s.stageId,
+          stepId: s.stepId,
+          priority: Math.round(100 * s.confidence),
+          isActive: true,
+        } as any);
+        created += 1;
+      }
+    }
+
+    return {
+      totalWorkDetails: workDetails.length,
+      suggestions: deduped,
+      created,
+      source: process.env.OPENAI_API_KEY ? 'ai_or_fallback' : 'heuristic',
+    };
+  }
+
+  private async aiGenerateKeywordSuggestions(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    workDetails: string[],
+  ): Promise<Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>> {
+    if (!process.env.OPENAI_API_KEY) return [];
+
+    const prompt = `Given workflow stage-step pairs and work detail samples, propose keyword mapping rules.
+
+StageStepPairs:
+${JSON.stringify(stageStepPairs)}
+
+WorkDetails:
+${JSON.stringify(workDetails)}
+
+Return ONLY valid JSON array.
+Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence": number, "reason": string}.
+- confidence in range 0..1
+- keyword should be short and reusable`;
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a workflow mapping assistant.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1400,
+      });
+
+      const content = completion.choices?.[0]?.message?.content || '[]';
+      const parsed = JSON.parse(content);
+      if (!Array.isArray(parsed)) return [];
+
+      const validStageSteps = new Set(stageStepPairs.map((p) => `${p.stageId}|${p.stepId}`));
+
+      return parsed
+        .filter((x: any) => typeof x?.keyword === 'string' && Number.isFinite(Number(x?.stageId)) && Number.isFinite(Number(x?.stepId)))
+        .map((x: any) => ({
+          keyword: x.keyword.trim(),
+          stageId: Number(x.stageId),
+          stepId: Number(x.stepId),
+          confidence: Math.max(0, Math.min(1, Number(x.confidence ?? 0.7))),
+          reason: x.reason || 'AI suggestion',
+        }))
+        .filter((x: any) => x.keyword.length > 1 && validStageSteps.has(`${x.stageId}|${x.stepId}`));
+    } catch {
+      return [];
+    }
+  }
+
+  private heuristicKeywordSuggestions(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    workDetails: string[],
+  ): Array<{ keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }> {
+    const candidates = new Map<string, { keyword: string; stageId: number; stepId: number; confidence: number; reason?: string }>();
+
+    for (const detail of workDetails) {
+      const normalized = this.normalizeWorkDetailForKeywordMatching(detail);
+      const bracketTokens = Array.from(normalized.matchAll(/\[([^\]]+)\]/g))
+        .map((m) => m[1].trim())
+        .filter((v) => v.length >= 2 && !/^gsl-\d+$/i.test(v));
+      const words = normalized
+        .replace(/[^\p{L}0-9\s-]/gu, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 2 && !/^gsl-\d+$/i.test(w))
+        .slice(0, 10);
+      const tokens = [...new Set([...bracketTokens, ...words])];
+
+      if (tokens.length === 0) continue;
+
+      const target = this.bestStageStepByText(stageStepPairs, normalized);
+      if (!target) continue;
+
+      for (const token of tokens.slice(0, 4)) {
+        const key = `${token}|${target.stageId}|${target.stepId}`;
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            keyword: token,
+            stageId: target.stageId,
+            stepId: target.stepId,
+            confidence: 0.55,
+            reason: 'Heuristic from workDetail tokens',
+          });
+        }
+      }
+
+      const comboCandidates: string[] = [];
+      for (let i = 0; i < Math.min(tokens.length, 4); i++) {
+        for (let j = i + 1; j < Math.min(tokens.length, 5); j++) {
+          comboCandidates.push(`${tokens[i]}+${tokens[j]}`);
+        }
+      }
+
+      for (const combo of comboCandidates.slice(0, 6)) {
+        const key = `${combo}|${target.stageId}|${target.stepId}`;
+        if (!candidates.has(key)) {
+          candidates.set(key, {
+            keyword: combo,
+            stageId: target.stageId,
+            stepId: target.stepId,
+            confidence: 0.65,
+            reason: 'Heuristic combined keywords',
+          });
+        }
+      }
+    }
+
+    return Array.from(candidates.values()).slice(0, 80);
+  }
+
+  private bestStageStepByText(
+    stageStepPairs: Array<{ stageId: number; stageName: string; stepId: number; stepName: string }>,
+    text: string,
+  ): { stageId: number; stepId: number } | null {
+    let best: { stageId: number; stepId: number; score: number } | null = null;
+
+    for (const pair of stageStepPairs) {
+      let score = 0;
+      const stageName = pair.stageName.toLowerCase();
+      const stepName = pair.stepName.toLowerCase();
+      if (text.includes(stageName)) score += 2;
+      if (text.includes(stepName)) score += 3;
+
+      const stageWords = stageName.split(/\s+/).filter((w) => w.length > 2);
+      const stepWords = stepName.split(/\s+/).filter((w) => w.length > 2);
+      score += stageWords.filter((w) => text.includes(w)).length * 0.4;
+      score += stepWords.filter((w) => text.includes(w)).length * 0.8;
+
+      if (!best || score > best.score) {
+        best = { stageId: pair.stageId, stepId: pair.stepId, score };
+      }
+    }
+
+    return best && best.score > 0 ? { stageId: best.stageId, stepId: best.stepId } : null;
+  }
+
+
+  private normalizeWorkDetailForKeywordMatching(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .replace(/\bgsl-\d+\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private findBestMappingRule(
+    rules: WorklogMappingRule[],
+    workDetail: string,
+  ): WorklogMappingRule | undefined {
+    const normalizedDetail = this.normalizeWorkDetailForKeywordMatching(workDetail);
+    if (!normalizedDetail) return undefined;
+
+    const escapeRegExp = (value: string): string =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const hasTermMatch = (detail: string, term: string): boolean => {
+      // Prefer whole-word / phrase boundary match to avoid overly broad substring matches.
+      if (/^[a-z0-9 _-]+$/i.test(term)) {
+        const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(term)}([^a-z0-9]|$)`, 'i');
+        return pattern.test(detail);
+      }
+      return detail.includes(term);
+    };
+
+    let best: { rule: WorklogMappingRule; score: number } | null = null;
+
+    for (const rule of rules) {
+      const rawKeyword = (rule.keyword || '').trim().toLowerCase();
+      if (!rawKeyword) continue;
+
+      const terms = rawKeyword
+        .split('+')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0 && !/^gsl-\d+$/i.test(term));
+
+      if (terms.length === 0) continue;
+
+      const allMatched = terms.every((term) => hasTermMatch(normalizedDetail, term));
+      if (!allMatched) continue;
+
+      // Ranking strategy:
+      // 1) more combined terms wins,
+      // 2) higher configured priority wins,
+      // 3) exact phrase of full keyword gets small bonus,
+      // 4) newer rule (bigger id) wins tie so user can override old generic rules.
+      const priority = Number(rule.priority || 0);
+      const exactKeywordBonus = hasTermMatch(normalizedDetail, rawKeyword.replace(/\+/g, ' ')) ? 50 : 0;
+      const recencyBonus = Number(rule.id || 0) / 10000;
+      const score = terms.length * 1000 + priority * 10 + exactKeywordBonus + recencyBonus;
+
+      if (!best || score > best.score) {
+        best = { rule, score };
+      }
+    }
+
+    return best?.rule;
+  }
+
+
+  // ===== Worklog Import Methods =====
+
+  async previewWorklogImport(projectId: number, file: any): Promise<any> {
+    const csvContent = file.buffer.toString('utf-8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length === 0) {
+      throw new BadRequestException('CSV has no data');
+    }
+
+    const requiredColumns = ['day', 'fullName', 'email', 'phase_name', 'workDetail', 'workTime', 'minutes'];
+    const headers = Object.keys(rows[0]);
+    const missing = requiredColumns.filter((col) => !headers.includes(col));
+    if (missing.length > 0) {
+      throw new BadRequestException(`Missing required columns: ${missing.join(', ')}`);
+    }
+
+    const project = await this.projectService.findOne(projectId);
+    const workingHoursPerDay = project?.settings?.workingHoursPerDay || 8;
+
+    const members = await Member.findAll({ where: { projectId } });
+    const memberByEmail = new Map(members.map((m) => [(m.email || '').toLowerCase(), m]));
+
+    const rules = await this.worklogMappingRuleRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['priority', 'DESC'], ['id', 'ASC']],
+    });
+
+    const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
+
+    const batch = await this.worklogImportBatchRepository.create({
+      projectId,
+      sourceFileName: file.originalname || 'worklog.csv',
+    } as any);
+
+    const itemsToCreate: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rawDay = row.day?.trim();
+      const day = this.normalizeDate(rawDay);
+      const fullName = row.fullName?.trim();
+      const email = row.email?.trim().toLowerCase();
+      const phaseName = row.phase_name?.trim();
+      const workDetail = row.workDetail?.trim();
+      const workTime = row.workTime?.trim();
+      const minutesRaw = row.minutes?.trim();
+
+      const minutes = Number(minutesRaw) || this.parseWorkTimeToMinutes(workTime);
+      const effortHours = Number((minutes / 60).toFixed(2));
+      const effortDays = Number((effortHours / workingHoursPerDay).toFixed(3));
+
+      const member = email ? memberByEmail.get(email) : undefined;
+
+      const matchedRule = this.findBestMappingRule(rules, workDetail || '');
+
+      const screenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
+
+      const confidence = this.calculateConfidence({
+        hasMember: !!member,
+        hasRule: !!matchedRule,
+        hasScreenFunction: !!screenFunction,
+      });
+
+      let status = 'unmapped';
+      let reason = '';
+      if (!member) {
+        reason = 'Member email is not in this project';
+      } else if (!matchedRule) {
+        status = 'needs_review';
+        reason = 'No stage/step mapping rule matched';
+      } else if (!screenFunction) {
+        status = 'needs_review';
+        reason = 'No screen function matched from workDetail';
+      } else {
+        status = 'ready';
+      }
+
+      if (rawDay && !day) {
+        status = 'needs_review';
+        reason = reason
+          ? `${reason}; Invalid day format: ${rawDay}`
+          : `Invalid day format: ${rawDay}`;
+      }
+
+      itemsToCreate.push({
+        batchId: batch.id,
+        rowNumber: i + 2,
+        rawRow: row,
+        day,
+        fullName,
+        email,
+        phaseName,
+        workDetail,
+        workTime,
+        minutes,
+        effortHours,
+        effortDays,
+        memberId: member?.id,
+        stageId: matchedRule?.stageId,
+        stepId: matchedRule?.stepId,
+        screenFunctionId: screenFunction?.id,
+        confidence,
+        status,
+        isSelected: status === 'ready',
+        reason,
+      });
+    }
+
+    await this.worklogImportItemRepository.bulkCreate(itemsToCreate as any[]);
+
+    return this.getWorklogImportBatch(batch.id);
+  }
+
+  async getWorklogImportBatch(batchId: number): Promise<any> {
+    const batch = await this.worklogImportBatchRepository.findByPk(batchId);
+    if (!batch) {
+      throw new NotFoundException(`Worklog import batch with ID ${batchId} not found`);
+    }
+
+    const items = await this.worklogImportItemRepository.findAll({
+      where: { batchId },
+      include: [
+        { model: Member, as: 'member' },
+        { model: WorkflowStage, as: 'stage' },
+        { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
+      ],
+      order: [['rowNumber', 'ASC']],
+    });
+
+    const summary = {
+      total: items.length,
+      ready: items.filter((i) => i.status === 'ready').length,
+      needsReview: items.filter((i) => i.status === 'needs_review').length,
+      unmapped: items.filter((i) => i.status === 'unmapped').length,
+      selected: items.filter((i) => i.isSelected).length,
+    };
+
+    return {
+      batch,
+      summary,
+      items,
+    };
+  }
+
+  async commitWorklogImport(dto: CommitWorklogImportDto): Promise<any> {
+    const batch = await this.worklogImportBatchRepository.findByPk(dto.batchId);
+    if (!batch) {
+      throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
+    }
+
+    if (dto.clearExistingTasks) {
+      await this.clearProjectWorkflowTasksForImport(batch.projectId);
+    }
+
+    const selectedSet = new Set(dto.selectedItemIds || []);
+    const overridesMap = new Map<number, WorklogImportOverrideItemDto>(
+      (dto.overrides || []).map((o) => [o.itemId, o]),
+    );
+    const items = await this.worklogImportItemRepository.findAll({ where: { batchId: dto.batchId } });
+
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const item of items) {
+      const isSelected = selectedSet.has(item.id);
+      await item.update({ isSelected });
+
+      if (!isSelected) {
+        await item.update({ status: 'skipped', reason: item.reason || 'Not selected by user' });
+        skipped += 1;
+        continue;
+      }
+
+      const override = overridesMap.get(item.id);
+      if (override) {
+        const updatePayload: any = {};
+
+        if (override.stepId) {
+          const step = await this.findStepById(override.stepId);
+          updatePayload.stepId = step.id;
+          updatePayload.stageId = step.stageId;
+        } else if (override.stageId) {
+          await this.findStageById(override.stageId);
+          updatePayload.stageId = override.stageId;
+        }
+
+        if (override.screenFunctionId) {
+          const sf = await this.screenFunctionRepository.findByPk(override.screenFunctionId);
+          if (!sf || sf.projectId !== batch.projectId) {
+            await item.update({ status: 'error', reason: 'Invalid screen function override' });
+            failed += 1;
+            continue;
+          }
+          updatePayload.screenFunctionId = sf.id;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await item.update(updatePayload);
+        }
+      }
+
+      if (!item.memberId || !item.stepId || !item.screenFunctionId) {
+        await item.update({ status: 'error', reason: 'Missing mapping data for commit' });
+        failed += 1;
+        continue;
+      }
+
+      try {
+        const [stepScreenFunction] = await this.stepScreenFunctionRepository.findOrCreate({
+          where: {
+            stepId: item.stepId,
+            screenFunctionId: item.screenFunctionId,
+          },
+          defaults: {
+            stepId: item.stepId,
+            screenFunctionId: item.screenFunctionId,
+            actualEffort: item.effortHours || 0,
+          } as any,
+        });
+
+        const [assignment, created] = await this.stepScreenFunctionMemberRepository.findOrCreate({
+          where: {
+            stepScreenFunctionId: stepScreenFunction.id,
+            memberId: item.memberId,
+          },
+          defaults: {
+            stepScreenFunctionId: stepScreenFunction.id,
+            memberId: item.memberId,
+            actualEffort: item.effortHours || 0,
+            progress: 100,
+            note: item.workDetail,
+            actualStartDate: item.day,
+            actualEndDate: item.day,
+          } as any,
+        });
+
+        if (!created) {
+          await assignment.update({
+            actualEffort: Number((Number(assignment.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
+            progress: 100,
+            note: [assignment.note, `${item.day || ''}: ${item.workDetail || ''}`].filter(Boolean).join('\n'),
+            actualStartDate: assignment.actualStartDate || item.day,
+            actualEndDate: item.day || assignment.actualEndDate,
+          });
+        }
+
+        await this.recalculateStepScreenFunctionFromMembers(stepScreenFunction.id);
+
+        await item.update({ status: 'committed', reason: null as any });
+        success += 1;
+      } catch (error: any) {
+        await item.update({ status: 'error', reason: error?.message || 'Commit failed' });
+        failed += 1;
+      }
+    }
+
+    return { batchId: dto.batchId, success, failed, skipped, total: items.length };
+  }
+
+  private async clearProjectWorkflowTasksForImport(projectId: number): Promise<void> {
+    const stages = await this.stageRepository.findAll({
+      where: { projectId },
+      attributes: ['id'],
+    });
+    const stageIds = stages.map((s) => s.id);
+    if (stageIds.length === 0) return;
+
+    const steps = await this.stepRepository.findAll({
+      where: { stageId: { [Op.in]: stageIds } },
+      attributes: ['id'],
+    });
+    const stepIds = steps.map((s) => s.id);
+    if (stepIds.length === 0) return;
+
+    await this.stepScreenFunctionRepository.destroy({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+  }
+
+  async exportUnselectedWorklogImport(batchId: number): Promise<string> {
+    const items = await this.worklogImportItemRepository.findAll({
+      where: {
+        batchId,
+        [Op.or]: [{ isSelected: false }, { status: 'error' }, { status: 'unmapped' }, { status: 'needs_review' }, { status: 'skipped' }],
+      },
+      order: [['rowNumber', 'ASC']],
+    });
+
+    const headers = ['day', 'fullName', 'email', 'phase_name', 'workDetail', 'workTime', 'minutes', 'status', 'reason'];
+    const lines = [headers.join(',')];
+
+    for (const item of items) {
+      const row = [
+        item.day || '',
+        item.fullName || '',
+        item.email || '',
+        item.phaseName || '',
+        item.workDetail || '',
+        item.workTime || '',
+        item.minutes?.toString() || '',
+        item.status || '',
+        item.reason || '',
+      ].map((v) => this.escapeCsv(v));
+      lines.push(row.join(','));
+    }
+
+    return lines.join('\n');
+  }
+
+  private parseWorkTimeToMinutes(workTime?: string): number {
+    if (!workTime) return 0;
+    const m = workTime.match(/^(\d+):(\d{1,2})$/);
+    if (!m) return 0;
+    return Number(m[1]) * 60 + Number(m[2]);
+  }
+
+  private calculateConfidence(input: { hasMember: boolean; hasRule: boolean; hasScreenFunction: boolean }): number {
+    let score = 0;
+    if (input.hasMember) score += 0.4;
+    if (input.hasRule) score += 0.35;
+    if (input.hasScreenFunction) score += 0.25;
+    return Number(score.toFixed(2));
+  }
+
+  private findScreenFunction(screenFunctions: ScreenFunction[], workDetail: string): ScreenFunction | undefined {
+    const text = workDetail.toLowerCase();
+    const ticketMatch = workDetail.match(/[A-Za-z]+-\d+/);
+    if (ticketMatch) {
+      const ticket = ticketMatch[0].toLowerCase();
+      const byTicket = screenFunctions.find((sf) =>
+        (sf.name || '').toLowerCase().includes(ticket) ||
+        (sf.description || '').toLowerCase().includes(ticket),
+      );
+      if (byTicket) return byTicket;
+    }
+
+    return screenFunctions.find((sf) => {
+      const name = (sf.name || '').toLowerCase();
+      return name.length > 4 && text.includes(name);
+    });
+  }
+
+  private escapeCsv(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+
+  private parseCsv(content: string): Array<Record<string, string>> {
+    const rows = this.parseCsvRows(content);
+    if (rows.length < 2) return [];
+
+    const headers = rows[0].map((header) => header.trim());
+    const dataRows: Array<Record<string, string>> = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
+      const row: Record<string, string> = {};
+      headers.forEach((header, idx) => {
+        row[header] = (values[idx] || '').trim();
+      });
+
+      if (Object.values(row).some((value) => value !== '')) {
+        dataRows.push(row);
+      }
+    }
+
+    return dataRows;
+  }
+
+  private parseCsvRows(content: string): string[][] {
+    const text = content.replace(/^\uFEFF/, '');
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentValue = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          currentValue += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        currentRow.push(currentValue);
+        currentValue = '';
+      } else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && next === '\n') {
+          i++;
+        }
+
+        currentRow.push(currentValue);
+        currentValue = '';
+
+        if (currentRow.some((value) => value !== '')) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+      } else {
+        currentValue += char;
+      }
+    }
+
+    currentRow.push(currentValue);
+    if (currentRow.some((value) => value !== '')) {
+      rows.push(currentRow);
+    }
+
+    return rows;
+  }
+  private parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    result.push(current);
+    return result.map((v) => v.trim());
+  }
+
+  private normalizeDate(value?: string): string | null {
+    if (!value) return null;
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const d = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? null : `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+
+    const slashMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) {
+      const dd = slashMatch[1];
+      const mm = slashMatch[2];
+      const yyyy = slashMatch[3];
+      const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? null : `${yyyy}-${mm}-${dd}`;
+    }
+
+    return null;
+  }
+
+
 }

@@ -720,3 +720,114 @@ export class InitializeProjectMetricsDto {
   @IsNumber()
   projectId: number;
 }
+
+// ===== Worklog Mapping Rule DTOs =====
+
+export class CreateWorklogMappingRuleDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  projectId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  keyword: string;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stageId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  stepId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  priority?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateWorklogMappingRuleDto {
+  @IsOptional()
+  @IsString()
+  keyword?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stageId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stepId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  priority?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+// ===== Worklog Import DTOs =====
+
+
+export class WorklogImportOverrideItemDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  itemId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stageId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  stepId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  screenFunctionId?: number;
+}
+
+export class CommitWorklogImportDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  batchId: number;
+
+  @IsArray()
+  @Type(() => Number)
+  selectedItemIds: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorklogImportOverrideItemDto)
+  overrides?: WorklogImportOverrideItemDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  clearExistingTasks?: boolean;
+}
+
+export class AiSuggestWorklogRulesResultDto {
+  keyword: string;
+  stageId: number;
+  stepId: number;
+  confidence: number;
+  reason?: string;
+}

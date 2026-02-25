@@ -6,6 +6,9 @@ import { StepScreenFunctionMember } from './step-screen-function-member.model';
 import { MetricType } from './metric-type.model';
 import { MetricCategory } from './metric-category.model';
 import { TaskMemberMetric } from './task-member-metric.model';
+import { WorklogMappingRule } from './worklog-mapping-rule.model';
+import { WorklogImportBatch } from './worklog-import-batch.model';
+import { WorklogImportItem } from './worklog-import-item.model';
 
 export const taskWorkflowProviders = [
   {
@@ -39,5 +42,17 @@ export const taskWorkflowProviders = [
   {
     provide: 'TASK_MEMBER_METRIC_REPOSITORY',
     useValue: TaskMemberMetric,
+  },
+  {
+    provide: 'WORKLOG_MAPPING_RULE_REPOSITORY',
+    useValue: WorklogMappingRule,
+  },
+  {
+    provide: 'WORKLOG_IMPORT_BATCH_REPOSITORY',
+    useValue: WorklogImportBatch,
+  },
+  {
+    provide: 'WORKLOG_IMPORT_ITEM_REPOSITORY',
+    useValue: WorklogImportItem,
   },
 ];
