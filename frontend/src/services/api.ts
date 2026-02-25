@@ -266,7 +266,7 @@ export const taskWorkflowApi = {
   },
   getWorklogImportBatch: (batchId: number) =>
     api.get<WorklogImportBatchDetail>(`/task-workflow/worklog-import/${batchId}`),
-  commitWorklogImport: (data: { batchId: number; selectedItemIds: number[]; overrides?: Array<{ itemId: number; stageId?: number; stepId?: number; screenFunctionId?: number }> }) =>
+  commitWorklogImport: (data: { batchId: number; selectedItemIds: number[]; overrides?: Array<{ itemId: number; stageId?: number; stepId?: number; screenFunctionId?: number }>; clearExistingTasks?: boolean }) =>
     api.post<{ batchId: number; success: number; failed: number; skipped: number; total: number }>(
       '/task-workflow/worklog-import/commit',
       data,

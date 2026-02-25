@@ -818,6 +818,10 @@ export class CommitWorklogImportDto {
   @ValidateNested({ each: true })
   @Type(() => WorklogImportOverrideItemDto)
   overrides?: WorklogImportOverrideItemDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  clearExistingTasks?: boolean;
 }
 
 export class AiSuggestWorklogRulesResultDto {
