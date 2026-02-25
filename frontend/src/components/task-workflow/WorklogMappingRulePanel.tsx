@@ -151,7 +151,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   return (
     <Card>
       <CardContent>
-        <Typography variant="h6" sx={{ mb: 2 }}>Worklog Keyword Mapping (Stage → Step)</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>{t('worklogMapping.title', { defaultValue: 'Worklog Keyword Mapping (Stage → Step)' })}</Typography>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
           <TextField label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })} size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
