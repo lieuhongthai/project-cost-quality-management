@@ -298,67 +298,80 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                         <TableCell sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</TableCell>
                         <TableCell>{item.member?.name || '-'}</TableCell>
                         <TableCell sx={{ minWidth: 170 }}>
-                          <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            disabled={!editingItemIds.includes(item.id)}
-                            value={effectiveStageId || ''}
-                            onChange={(e) => {
-                              const nextStageId = parseOptionalNumber(e.target.value);
-                              updateOverride(item.id, { stageId: nextStageId, stepId: undefined });
-                            }}
-                          >
-                            <MenuItem value="">-</MenuItem>
-                            {stageOptions.map((s: any) => (
-                              <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                            ))}
-                          </TextField>
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 170 }}>
-                          <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            disabled={!editingItemIds.includes(item.id)}
-                            value={effectiveStepId || ''}
-                            onChange={(e) => updateOverride(item.id, { stepId: parseOptionalNumber(e.target.value) })}
-                          >
-                            <MenuItem value="">-</MenuItem>
-                            {stepOptions.map((sp: any) => (
-                              <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
-                            ))}
-                          </TextField>
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 220 }}>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
+                          {editingItemIds.includes(item.id) ? (
                             <TextField
                               select
                               size="small"
                               fullWidth
-                              disabled={!editingItemIds.includes(item.id)}
-                              value={effectiveScreenFunctionId || ''}
-                              onChange={(e) => updateOverride(item.id, { screenFunctionId: parseOptionalNumber(e.target.value) })}
+                              value={effectiveStageId || ''}
+                              onChange={(e) => {
+                                const nextStageId = parseOptionalNumber(e.target.value);
+                                updateOverride(item.id, { stageId: nextStageId, stepId: undefined });
+                              }}
                             >
                               <MenuItem value="">-</MenuItem>
-                              {(screenFunctions || []).map((sf: any) => (
-                                <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
+                              {stageOptions.map((s: any) => (
+                                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
                               ))}
                             </TextField>
-                            <Button
+                          ) : (
+                            <Typography variant="body2" sx={{ py: 1 }}>{stage?.name || '-'}</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 170 }}>
+                          {editingItemIds.includes(item.id) ? (
+                            <TextField
+                              select
                               size="small"
-                              variant="outlined"
-                              onClick={() =>
-                                createScreenFunctionMutation.mutate({
-                                  itemId: item.id,
-                                  suggestedName: buildSuggestedScreenFunctionName(item.workDetail),
-                                })
-                              }
-                              disabled={createScreenFunctionMutation.isPending || !editingItemIds.includes(item.id)}
+                              fullWidth
+                              value={effectiveStepId || ''}
+                              onChange={(e) => updateOverride(item.id, { stepId: parseOptionalNumber(e.target.value) })}
                             >
-                              +
-                            </Button>
-                          </Box>
+                              <MenuItem value="">-</MenuItem>
+                              {stepOptions.map((sp: any) => (
+                                <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
+                              ))}
+                            </TextField>
+                          ) : (
+                            <Typography variant="body2" sx={{ py: 1 }}>
+                              {stepOptions.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-'}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 220 }}>
+                          {editingItemIds.includes(item.id) ? (
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={effectiveScreenFunctionId || ''}
+                                onChange={(e) => updateOverride(item.id, { screenFunctionId: parseOptionalNumber(e.target.value) })}
+                              >
+                                <MenuItem value="">-</MenuItem>
+                                {(screenFunctions || []).map((sf: any) => (
+                                  <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
+                                ))}
+                              </TextField>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() =>
+                                  createScreenFunctionMutation.mutate({
+                                    itemId: item.id,
+                                    suggestedName: buildSuggestedScreenFunctionName(item.workDetail),
+                                  })
+                                }
+                                disabled={createScreenFunctionMutation.isPending}
+                              >
+                                +
+                              </Button>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" sx={{ py: 1 }}>
+                              {(screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name || item.screenFunction?.name || '-'}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>{item.minutes || 0}</TableCell>
                         <TableCell>
