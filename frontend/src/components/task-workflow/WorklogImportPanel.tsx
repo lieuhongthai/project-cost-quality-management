@@ -19,10 +19,7 @@ import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
+import { Modal } from '@/components/common/Modal';
 
 interface WorklogImportPanelProps {
   projectId: number;
@@ -338,78 +335,82 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
           </>
         )}
 
-        <Dialog open={!!editingItem} onClose={closeEditModal} fullWidth maxWidth="sm">
-          <DialogTitle>Edit mapping for row #{editingItem?.rowNumber || '-'}</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {editingItem?.workDetail || '-'}
-            </Typography>
-            <Box sx={{ display: 'grid', gap: 2 }}>
+        <Modal
+          isOpen={!!editingItem}
+          onClose={closeEditModal}
+          title={`Edit mapping for row #${editingItem?.rowNumber || '-'}`}
+          size="sm"
+          footer={(
+            <>
+              <Button color="inherit" onClick={closeEditModal}>Cancel</Button>
+              <Button variant="contained" onClick={saveEditModal}>Save</Button>
+            </>
+          )}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {editingItem?.workDetail || '-'}
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            <TextField
+              select
+              size="small"
+              label="Stage"
+              value={editDraft.stageId || ''}
+              onChange={(e) => setEditDraft((prev) => ({
+                ...prev,
+                stageId: parseOptionalNumber(e.target.value),
+                stepId: undefined,
+              }))}
+            >
+              <MenuItem value="">-</MenuItem>
+              {stageOptions.map((s: any) => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Step"
+              value={editDraft.stepId || ''}
+              onChange={(e) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(e.target.value) }))}
+            >
+              <MenuItem value="">-</MenuItem>
+              {editingStepOptions.map((sp: any) => (
+                <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
+              ))}
+            </TextField>
+
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 select
                 size="small"
-                label="Stage"
-                value={editDraft.stageId || ''}
-                onChange={(e) => setEditDraft((prev) => ({
-                  ...prev,
-                  stageId: parseOptionalNumber(e.target.value),
-                  stepId: undefined,
-                }))}
+                label="Screen/Function"
+                fullWidth
+                value={editDraft.screenFunctionId || ''}
+                onChange={(e) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(e.target.value) }))}
               >
                 <MenuItem value="">-</MenuItem>
-                {stageOptions.map((s: any) => (
-                  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                {(screenFunctions || []).map((sf: any) => (
+                  <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
                 ))}
               </TextField>
-
-              <TextField
-                select
+              <Button
                 size="small"
-                label="Step"
-                value={editDraft.stepId || ''}
-                onChange={(e) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(e.target.value) }))}
+                variant="outlined"
+                onClick={() =>
+                  editingItem && createScreenFunctionMutation.mutate({
+                    itemId: editingItem.id,
+                    suggestedName: buildSuggestedScreenFunctionName(editingItem.workDetail),
+                  })
+                }
+                disabled={createScreenFunctionMutation.isPending || !editingItem}
               >
-                <MenuItem value="">-</MenuItem>
-                {editingStepOptions.map((sp: any) => (
-                  <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
-                ))}
-              </TextField>
-
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  select
-                  size="small"
-                  label="Screen/Function"
-                  fullWidth
-                  value={editDraft.screenFunctionId || ''}
-                  onChange={(e) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(e.target.value) }))}
-                >
-                  <MenuItem value="">-</MenuItem>
-                  {(screenFunctions || []).map((sf: any) => (
-                    <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
-                  ))}
-                </TextField>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() =>
-                    editingItem && createScreenFunctionMutation.mutate({
-                      itemId: editingItem.id,
-                      suggestedName: buildSuggestedScreenFunctionName(editingItem.workDetail),
-                    })
-                  }
-                  disabled={createScreenFunctionMutation.isPending || !editingItem}
-                >
-                  +
-                </Button>
-              </Box>
+                +
+              </Button>
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button color="inherit" onClick={closeEditModal}>Cancel</Button>
-            <Button variant="contained" onClick={saveEditModal}>Save</Button>
-          </DialogActions>
-        </Dialog>
+          </Box>
+        </Modal>
       </CardContent>
     </Card>
   );
