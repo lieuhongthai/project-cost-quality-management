@@ -856,20 +856,20 @@ Rules:
 
     const stageList = stages.map(s => {
       const ctx = stageContext.find(c => c.stageId === s.id);
-      // Note: all effort fields below are in MAN-DAYS (MD)
-      const existingMD = ctx?.totalEstimatedEffort || 0;
+      // Note: estimatedEffort fields are in MAN-HOURS (MH)
+      const existingHours = ctx?.totalEstimatedEffort || 0;
       return {
         id: s.id,
         name: s.name,
         displayOrder: s.displayOrder,
-        currentEstimatedEffort_manDays: s.estimatedEffort || 0,
-        currentEstimatedEffort_hours: (s.estimatedEffort || 0) * workingHoursPerDay,
+        currentEstimatedEffort_manDays: +((s.estimatedEffort || 0) / workingHoursPerDay).toFixed(2),
+        currentEstimatedEffort_hours: s.estimatedEffort || 0,
         currentStartDate: s.startDate || null,
         currentEndDate: s.endDate || null,
         stepCount: ctx?.stepCount || 0,
         linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
-        existingStepEffort_manDays: existingMD,
-        existingStepEffort_hours: existingMD * workingHoursPerDay,
+        existingStepEffort_manDays: +(existingHours / workingHoursPerDay).toFixed(2),
+        existingStepEffort_hours: existingHours,
       };
     });
 
@@ -885,9 +885,9 @@ Rules:
         Function: screenFunctions.filter(sf => sf.type === 'Function').length,
         Other: screenFunctions.filter(sf => sf.type === 'Other').length,
       },
-      // estimatedEffort is stored in MAN-DAYS (MD) in the database
-      totalCurrentEstimate_manDays: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0)).toFixed(2),
-      totalCurrentEstimate_hours: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0) * workingHoursPerDay).toFixed(0),
+      // estimatedEffort is stored in MAN-HOURS (MH) in the database
+      totalCurrentEstimate_hours: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0)).toFixed(0),
+      totalCurrentEstimate_manDays: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0) / workingHoursPerDay).toFixed(2),
     };
 
     const teamSummary = {
@@ -992,10 +992,10 @@ Rules:
     const nonWorkingDays = settings?.nonWorkingDays || [0, 6];
 
     // Calculate total SF effort as baseline
-    // estimatedEffort on ScreenFunction is stored in MAN-DAYS — convert to hours
-    const totalSFEffortMD = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
-    const totalSFEffortHours = totalSFEffortMD * workingHoursPerDay;
-    // If no SF effort, estimate based on count and complexity (already in hours)
+    // estimatedEffort on ScreenFunction is stored in MAN-HOURS — use directly
+    const totalSFEffortHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    const totalSFEffortMD = totalSFEffortHours / workingHoursPerDay;
+    // If no SF effort, estimate based on count and complexity (in hours)
     const baseTotalEffort = totalSFEffortHours > 0
       ? totalSFEffortHours
       : screenFunctions.reduce((sum, sf) => {
