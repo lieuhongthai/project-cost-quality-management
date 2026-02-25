@@ -36,6 +36,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const [batchDetail, setBatchDetail] = useState<WorklogImportBatchDetail | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [overrides, setOverrides] = useState<Record<number, ItemOverride>>({});
+  const [editingItemIds, setEditingItemIds] = useState<number[]>([]);
   const [commitResult, setCommitResult] = useState<null | {
     success: number;
     failed: number;
@@ -63,6 +64,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
       setBatchDetail(data);
       setSelectedIds(data.items.filter((item) => item.isSelected).map((item) => item.id));
       setOverrides({});
+      setEditingItemIds([]);
       setCommitResult(null);
     },
   });
@@ -165,6 +167,29 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     }));
   };
 
+  const startEditing = (itemId: number) => {
+    setEditingItemIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]));
+  };
+
+  const stopEditing = (itemId: number) => {
+    setEditingItemIds((prev) => prev.filter((id) => id !== itemId));
+  };
+
+  const cancelEditing = (itemId: number) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    stopEditing(itemId);
+  };
+
+  const parseOptionalNumber = (value: string): number | undefined => {
+    if (!value) return undefined;
+    const n = Number(value);
+    return Number.isNaN(n) ? undefined : n;
+  };
+
   const getStatusColor = (status: string) => {
     if (status === 'ready' || status === 'committed') return 'success';
     if (status === 'needs_review') return 'warning';
@@ -232,6 +257,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
               />
               Select all rows with enough mapping data (member + step + screen/function)
             </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Chỉ khi nhấn <strong>Edit</strong> ở từng dòng thì mới có thể chỉnh Stage/Step/Screen Function.
+            </Typography>
 
             <TableContainer component={Paper} sx={{ maxHeight: 460 }}>
               <Table stickyHeader size="small">
@@ -248,6 +276,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                     <TableCell>Minutes</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Reason</TableCell>
+                    <TableCell align="center">Action</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -273,9 +302,10 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                             select
                             size="small"
                             fullWidth
+                            disabled={!editingItemIds.includes(item.id)}
                             value={effectiveStageId || ''}
                             onChange={(e) => {
-                              const nextStageId = Number(e.target.value);
+                              const nextStageId = parseOptionalNumber(e.target.value);
                               updateOverride(item.id, { stageId: nextStageId, stepId: undefined });
                             }}
                           >
@@ -290,8 +320,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                             select
                             size="small"
                             fullWidth
+                            disabled={!editingItemIds.includes(item.id)}
                             value={effectiveStepId || ''}
-                            onChange={(e) => updateOverride(item.id, { stepId: Number(e.target.value) })}
+                            onChange={(e) => updateOverride(item.id, { stepId: parseOptionalNumber(e.target.value) })}
                           >
                             <MenuItem value="">-</MenuItem>
                             {stepOptions.map((sp: any) => (
@@ -305,8 +336,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                               select
                               size="small"
                               fullWidth
+                              disabled={!editingItemIds.includes(item.id)}
                               value={effectiveScreenFunctionId || ''}
-                              onChange={(e) => updateOverride(item.id, { screenFunctionId: Number(e.target.value) })}
+                              onChange={(e) => updateOverride(item.id, { screenFunctionId: parseOptionalNumber(e.target.value) })}
                             >
                               <MenuItem value="">-</MenuItem>
                               {(screenFunctions || []).map((sf: any) => (
@@ -322,7 +354,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                                   suggestedName: buildSuggestedScreenFunctionName(item.workDetail),
                                 })
                               }
-                              disabled={createScreenFunctionMutation.isPending}
+                              disabled={createScreenFunctionMutation.isPending || !editingItemIds.includes(item.id)}
                             >
                               +
                             </Button>
@@ -333,6 +365,16 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                           <Chip size="small" color={getStatusColor(item.status) as any} label={item.status} />
                         </TableCell>
                         <TableCell sx={{ maxWidth: 260 }}>{item.reason || '-'}</TableCell>
+                        <TableCell align="center" sx={{ minWidth: 180 }}>
+                          {!editingItemIds.includes(item.id) ? (
+                            <Button size="small" variant="outlined" onClick={() => startEditing(item.id)}>Edit</Button>
+                          ) : (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                              <Button size="small" variant="contained" onClick={() => stopEditing(item.id)}>Done</Button>
+                              <Button size="small" variant="text" color="inherit" onClick={() => cancelEditing(item.id)}>Cancel</Button>
+                            </Box>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
