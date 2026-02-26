@@ -13,6 +13,8 @@ import {
   Layers,
   TrendingUp,
   RefreshCw,
+  Pencil,
+  Lock,
 } from 'lucide-react';
 
 interface AISchedulingDialogProps {
@@ -71,10 +73,24 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
   // Feature 2: Editable copies of AI results (for inline edit before Apply)
   const [editedEstimates, setEditedEstimates] = useState<any[]>([]);
   const [editedStageEstimates, setEditedStageEstimates] = useState<any[]>([]);
+  // Edit mode toggles (off by default — user must explicitly enable)
+  const [isSFEditMode, setIsSFEditMode] = useState(false);
+  const [isStageEditMode, setIsStageEditMode] = useState(false);
+  const [isReEditMode, setIsReEditMode] = useState(false);
 
-  // Feature 3: Re-estimation state
+  // Feature 3 (updated): Re-estimation state
   const [reEstimationResult, setReEstimationResult] = useState<any>(null);
   const [editedReEstimates, setEditedReEstimates] = useState<any[]>([]);
+
+  // Stage selection for targeted estimation (new)
+  const [selectedStageIds, setSelectedStageIds] = useState<Set<number>>(
+    new Set(stages.map(s => s.id))
+  );
+
+  // Reset stage selection when stages prop changes
+  useEffect(() => {
+    setSelectedStageIds(new Set(stages.map(s => s.id)));
+  }, [stages]);
 
   // Fetch data for readiness check
   const { data: screenFunctions } = useQuery({
@@ -154,6 +170,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
       taskWorkflowApi.aiEstimateEffort({ projectId, language }),
     onSuccess: (res) => {
       setEstimationResult(res.data);
+      setIsSFEditMode(false);
     },
   });
 
@@ -168,10 +185,17 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
   });
 
   const stageEstimateMutation = useMutation({
-    mutationFn: () =>
-      taskWorkflowApi.aiEstimateStageEffort({ projectId, language }),
+    mutationFn: () => {
+      const stageIds = Array.from(selectedStageIds);
+      return taskWorkflowApi.aiEstimateStageEffort({
+        projectId,
+        language,
+        stageIds: stageIds.length < stages.length ? stageIds : undefined,
+      });
+    },
     onSuccess: (res) => {
       setStageEstimationResult(res.data);
+      setIsStageEditMode(false);
     },
   });
 
@@ -233,10 +257,17 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
 
   // Feature 3: Re-estimation mutations
   const reEstimateMutation = useMutation({
-    mutationFn: () =>
-      taskWorkflowApi.aiReEstimateUncompleted({ projectId, language }),
+    mutationFn: () => {
+      const stageIds = Array.from(selectedStageIds);
+      return taskWorkflowApi.aiReEstimateUncompleted({
+        projectId,
+        language,
+        stageIds: stageIds.length < stages.length ? stageIds : undefined,
+      });
+    },
     onSuccess: (res) => {
       setReEstimationResult(res.data);
+      setIsReEditMode(false);
     },
   });
 
@@ -418,7 +449,19 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                         <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
                           {t('ai.source')}: {estimationResult.source}
                         </span>
-                        <span className="text-xs text-gray-500 italic">{t('ai.editHint')}</span>
+                        {/* Edit mode toggle */}
+                        <button
+                          onClick={() => setIsSFEditMode(v => !v)}
+                          className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition-colors ${
+                            isSFEditMode
+                              ? 'bg-amber-50 border-amber-300 text-amber-700'
+                              : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+                          }`}
+                          title={isSFEditMode ? t('ai.editModeOn') : t('ai.editModeOff')}
+                        >
+                          {isSFEditMode ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                          {isSFEditMode ? t('ai.editingOn') : t('ai.editingOff')}
+                        </button>
                       </div>
                     </div>
 
@@ -439,15 +482,18 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                                 <tr key={idx} className="hover:bg-gray-50">
                                   <td className="px-3 py-2">{est.screenFunctionName}</td>
                                   <td className="px-3 py-2 text-right">
-                                    {/* Feature 2: Inline editable hours */}
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={0.5}
-                                      value={est.estimatedEffortHours}
-                                      onChange={e => updateEditedEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
-                                      className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
-                                    />
+                                    {isSFEditMode ? (
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={0.5}
+                                        value={est.estimatedEffortHours}
+                                        onChange={e => updateEditedEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                        className="w-20 text-right border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="font-medium">{est.estimatedEffortHours}</span>
+                                    )}
                                     <span className="ml-1 text-gray-500 text-xs">h</span>
                                   </td>
                                   <td className="px-3 py-2 text-center">
@@ -481,7 +527,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                           <Button onClick={() => applyEstimationMutation.mutate()} disabled={applyEstimationMutation.isPending}>
                             {applyEstimationMutation.isPending ? t('ai.applying') : t('ai.applyEstimates')}
                           </Button>
-                          <Button variant="secondary" onClick={() => { setEstimationResult(null); setEditedEstimates([]); }}>
+                          <Button variant="secondary" onClick={() => { setEstimationResult(null); setEditedEstimates([]); setIsSFEditMode(false); }}>
                             {t('ai.discard')}
                           </Button>
                         </div>
@@ -531,17 +577,82 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                   )}
                 </div>
 
+                {/* Stage selection checkboxes */}
+                {stages.length > 0 && (
+                  <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">{t('ai.selectStagesToEstimate')}</span>
+                      <div className="flex gap-2 text-xs">
+                        <button
+                          className="text-blue-600 hover:underline"
+                          onClick={() => setSelectedStageIds(new Set(stages.map(s => s.id)))}
+                        >
+                          {t('ai.selectAll')}
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <button
+                          className="text-gray-500 hover:underline"
+                          onClick={() => setSelectedStageIds(new Set())}
+                        >
+                          {t('ai.selectNone')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {stages.map(stage => {
+                        const checked = selectedStageIds.has(stage.id);
+                        return (
+                          <label
+                            key={stage.id}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs cursor-pointer select-none transition-colors ${
+                              checked
+                                ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
+                                : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={checked}
+                              onChange={e => {
+                                setSelectedStageIds(prev => {
+                                  const next = new Set(prev);
+                                  e.target.checked ? next.add(stage.id) : next.delete(stage.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className={`w-1.5 h-1.5 rounded-full ${checked ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                            {stage.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {selectedStageIds.size === 0 && (
+                      <p className="mt-2 text-xs text-amber-600">{t('ai.noStagesSelected')}</p>
+                    )}
+                    {selectedStageIds.size > 0 && selectedStageIds.size < stages.length && (
+                      <p className="mt-1.5 text-xs text-blue-600">
+                        {t('ai.stagesSelectedCount', { count: selectedStageIds.size, total: stages.length })}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2 flex-wrap">
-                  <Button onClick={() => stageEstimateMutation.mutate()} disabled={stageEstimateMutation.isPending || !stageEstimateReady}>
+                  <Button
+                    onClick={() => stageEstimateMutation.mutate()}
+                    disabled={stageEstimateMutation.isPending || !stageEstimateReady || selectedStageIds.size === 0}
+                  >
                     <BrainCircuit className="w-4 h-4 mr-1.5 inline" />
                     {stageEstimateMutation.isPending ? t('ai.analyzing') : t('ai.runStageEstimation')}
                   </Button>
 
-                  {/* Feature 3: Re-estimate uncompleted stages */}
+                  {/* Re-estimate uncompleted stages */}
                   <Button
                     variant="secondary"
                     onClick={() => reEstimateMutation.mutate()}
-                    disabled={reEstimateMutation.isPending || !stageEstimateReady}
+                    disabled={reEstimateMutation.isPending || !stageEstimateReady || selectedStageIds.size === 0}
                   >
                     <RefreshCw className="w-4 h-4 mr-1.5 inline" />
                     {reEstimateMutation.isPending ? t('ai.analyzing') : t('ai.reEstimate')}
@@ -555,7 +666,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                   </div>
                 )}
 
-                {/* Stage Estimation Results (with inline edit) */}
+                {/* Stage Estimation Results (with inline edit toggle) */}
                 {stageEstimationResult && (
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
@@ -564,7 +675,18 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                         <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
                           {t('ai.source')}: {stageEstimationResult.source}
                         </span>
-                        <span className="text-xs text-gray-500 italic">{t('ai.editHint')}</span>
+                        {/* Edit mode toggle */}
+                        <button
+                          onClick={() => setIsStageEditMode(v => !v)}
+                          className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition-colors ${
+                            isStageEditMode
+                              ? 'bg-amber-50 border-amber-300 text-amber-700'
+                              : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {isStageEditMode ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                          {isStageEditMode ? t('ai.editingOn') : t('ai.editingOff')}
+                        </button>
                       </div>
                     </div>
 
@@ -588,34 +710,44 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                                 <tr key={idx} className="hover:bg-gray-50">
                                   <td className="px-3 py-2 font-medium">{est.stageName}</td>
                                   <td className="px-3 py-2 text-right">
-                                    {/* Feature 2: Inline editable hours */}
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={1}
-                                      value={est.estimatedEffortHours}
-                                      onChange={e => updateEditedStageEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
-                                      className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
-                                    />
+                                    {isStageEditMode ? (
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        value={est.estimatedEffortHours}
+                                        onChange={e => updateEditedStageEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                        className="w-20 text-right border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="font-medium">{est.estimatedEffortHours}</span>
+                                    )}
                                     <span className="ml-1 text-gray-500 text-xs">h</span>
                                   </td>
                                   <td className="px-3 py-2 text-center text-gray-500">{est.effortDistribution}</td>
-                                  {/* Feature 2: Inline editable start/end dates */}
                                   <td className="px-3 py-2 text-center">
-                                    <input
-                                      type="date"
-                                      value={est.suggestedStartDate || ''}
-                                      onChange={e => updateEditedStageEstimate(idx, 'suggestedStartDate', e.target.value)}
-                                      className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-400 focus:outline-none"
-                                    />
+                                    {isStageEditMode ? (
+                                      <input
+                                        type="date"
+                                        value={est.suggestedStartDate || ''}
+                                        onChange={e => updateEditedStageEstimate(idx, 'suggestedStartDate', e.target.value)}
+                                        className="text-xs border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="text-xs">{est.suggestedStartDate || '—'}</span>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    <input
-                                      type="date"
-                                      value={est.suggestedEndDate || ''}
-                                      onChange={e => updateEditedStageEstimate(idx, 'suggestedEndDate', e.target.value)}
-                                      className="text-xs border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-400 focus:outline-none"
-                                    />
+                                    {isStageEditMode ? (
+                                      <input
+                                        type="date"
+                                        value={est.suggestedEndDate || ''}
+                                        onChange={e => updateEditedStageEstimate(idx, 'suggestedEndDate', e.target.value)}
+                                        className="text-xs border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                                      />
+                                    ) : (
+                                      <span className="text-xs">{est.suggestedEndDate || '—'}</span>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-center">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -649,7 +781,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                           <Button onClick={() => applyStageEstimationMutation.mutate()} disabled={applyStageEstimationMutation.isPending}>
                             {applyStageEstimationMutation.isPending ? t('ai.applying') : t('ai.applyStageEstimates')}
                           </Button>
-                          <Button variant="secondary" onClick={() => { setStageEstimationResult(null); setEditedStageEstimates([]); }}>
+                          <Button variant="secondary" onClick={() => { setStageEstimationResult(null); setEditedStageEstimates([]); setIsStageEditMode(false); }}>
                             {t('ai.discard')}
                           </Button>
                         </div>
@@ -677,9 +809,22 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold">{t('ai.reEstimateResults')}</h3>
-                      <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                        {t('ai.source')}: {reEstimationResult.source}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                          {t('ai.source')}: {reEstimationResult.source}
+                        </span>
+                        <button
+                          onClick={() => setIsReEditMode(v => !v)}
+                          className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition-colors ${
+                            isReEditMode
+                              ? 'bg-amber-50 border-amber-300 text-amber-700'
+                              : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {isReEditMode ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                          {isReEditMode ? t('ai.editingOn') : t('ai.editingOff')}
+                        </button>
+                      </div>
                     </div>
 
                     {reEstimationResult.data?.calibrationInsight && (
@@ -718,15 +863,18 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                                       </span>
                                     </td>
                                     <td className="px-3 py-2 text-right">
-                                      {/* Feature 2: Editable revised hours */}
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        step={1}
-                                        value={est.estimatedEffortHours}
-                                        onChange={e => updateEditedReEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
-                                        className="w-20 text-right border border-gray-300 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-blue-400 focus:outline-none"
-                                      />
+                                      {isReEditMode ? (
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step={1}
+                                          value={est.estimatedEffortHours}
+                                          onChange={e => updateEditedReEstimate(idx, 'estimatedEffortHours', parseFloat(e.target.value) || 0)}
+                                          className="w-20 text-right border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5 text-sm font-medium focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                                        />
+                                      ) : (
+                                        <span className="font-medium">{est.estimatedEffortHours}</span>
+                                      )}
                                       <span className="ml-1 text-gray-500 text-xs">h</span>
                                     </td>
                                     <td className="px-3 py-2 text-center">
@@ -770,7 +918,7 @@ export function AISchedulingDialog({ open, onClose, projectId, stages }: AISched
                           <Button onClick={() => applyReEstimationMutation.mutate()} disabled={applyReEstimationMutation.isPending}>
                             {applyReEstimationMutation.isPending ? t('ai.applying') : t('ai.applyReEstimates')}
                           </Button>
-                          <Button variant="secondary" onClick={() => { setReEstimationResult(null); setEditedReEstimates([]); }}>
+                          <Button variant="secondary" onClick={() => { setReEstimationResult(null); setEditedReEstimates([]); setIsReEditMode(false); }}>
                             {t('ai.discard')}
                           </Button>
                         </div>
