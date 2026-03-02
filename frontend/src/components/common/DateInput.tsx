@@ -137,6 +137,7 @@ export const DateInput: React.FC<DateInputProps> = ({
       dateFormat="yyyy/MM/dd"
       placeholderText={placeholder}
       disabled={disabled}
+      popperProps={{ strategy: 'fixed' }}
       // showYearPicker
       // showMonthYearPicker
       customInput={
