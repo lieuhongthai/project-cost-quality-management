@@ -362,18 +362,11 @@ input:-webkit-autofill:active {
    React DatePicker - Modern MUI-style Theme
    ========================================================================== */
 
-/* Popper container - must be above MUI Dialog (z-index 1300) */
+/* Popper container - must be above MUI Dialog (z-index 1300).
+   portalId renders the calendar into #datepicker-portal at document.body,
+   so this z-index applies in the global stacking context. */
 .react-datepicker-popper {
   z-index: 1400 !important;
-}
-
-/* Fix: tab-loop is injected as a sibling in the DOM and would occupy a grid/flex
-   cell, pushing adjacent inputs to the next row. Remove it from normal flow. */
-.react-datepicker__tab-loop {
-  position: fixed !important;
-  overflow: visible;
-  width: 0;
-  height: 0;
 }
 
 /* Main calendar container */
