@@ -117,3 +117,19 @@ export class ReorderItemDto {
   @IsNumber()
   displayOrder: number;
 }
+
+export class CopyScreenFunctionsDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  sourceProjectId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  targetProjectId: number;
+
+  @IsNotEmpty()
+  @IsArray()
+  screenFunctionIds: number[];
+}

@@ -146,6 +146,8 @@ export const screenFunctionApi = {
   reorder: (items: Array<{ id: number; displayOrder: number }>) =>
     api.put('/screen-functions/reorder', { items }),
   getSummary: (projectId: number) => api.get<ScreenFunctionSummary>(`/screen-functions/project/${projectId}/summary`),
+  copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; screenFunctionIds: number[] }) =>
+    api.post<{ copied: number; skipped: number; screenFunctions: ScreenFunction[] }>('/screen-functions/copy', data),
 
   // Default Members
   getDefaultMembers: (screenFunctionId: number) =>

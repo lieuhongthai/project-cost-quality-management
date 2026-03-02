@@ -97,6 +97,9 @@ function ProjectDetail() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [showCopyMembers, setShowCopyMembers] = useState(false);
+  const [showCopyScreenFunctions, setShowCopyScreenFunctions] = useState(false);
+  const [sfSourceProject, setSFSourceProject] = useState<number | null>(null);
+  const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
   const [linkingMemberId, setLinkingMemberId] = useState<number | null>(null);
   const [selectedSourceProject, setSelectedSourceProject] = useState<
     number | null
@@ -311,6 +314,17 @@ function ProjectDetail() {
       return response.data;
     },
     enabled: !!selectedSourceProject,
+  });
+
+  // Get screen functions from selected source project for copying
+  const { data: sourceSFs } = useQuery({
+    queryKey: ["sourceSFs", sfSourceProject],
+    queryFn: async () => {
+      if (!sfSourceProject) return [];
+      const response = await screenFunctionApi.getByProject(sfSourceProject);
+      return response.data;
+    },
+    enabled: !!sfSourceProject,
   });
 
   // Sync settings form with fetched project settings
@@ -564,6 +578,31 @@ function ProjectDetail() {
       // Show success message
       alert(
         `Copied ${result.data.copied} member(s). ${result.data.skipped > 0 ? `${result.data.skipped} skipped (already exist).` : ""}`,
+      );
+    },
+  });
+
+  const copySFMutation = useMutation({
+    mutationFn: (data: {
+      sourceProjectId: number;
+      targetProjectId: number;
+      screenFunctionIds: number[];
+    }) => screenFunctionApi.copyFromProject(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: ["screenFunctions", parseInt(projectId)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["screenFunctionSummary", parseInt(projectId)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["sfStageStats", parseInt(projectId)],
+      });
+      setShowCopyScreenFunctions(false);
+      setSFSourceProject(null);
+      setSelectedSFIds([]);
+      alert(
+        `Copied ${result.data.copied} item(s).${result.data.skipped > 0 ? ` ${result.data.skipped} skipped (already exist).` : ""}`,
       );
     },
   });
@@ -1620,9 +1659,17 @@ function ProjectDetail() {
           <Card
             title={t("screenFunction.list")}
             actions={
-              <Button onClick={() => setShowAddScreenFunction(true)}>
-                {t("screenFunction.create")}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowCopyScreenFunctions(true)}
+                >
+                  {t("screenFunction.copyFromProject")}
+                </Button>
+                <Button onClick={() => setShowAddScreenFunction(true)}>
+                  {t("screenFunction.create")}
+                </Button>
+              </div>
             }
           >
             {/* Filters */}
@@ -3333,6 +3380,177 @@ function ProjectDetail() {
                 {selectedMemberIds.length > 0
                   ? `(${selectedMemberIds.length})`
                   : ""}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Copy Screen Functions Modal */}
+      <Modal
+        isOpen={showCopyScreenFunctions}
+        onClose={() => {
+          setShowCopyScreenFunctions(false);
+          setSFSourceProject(null);
+          setSelectedSFIds([]);
+        }}
+        title={t("screenFunction.copyFromProject")}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Project Selection */}
+          <div>
+            <Select
+              label={t("screenFunction.selectSourceProject")}
+              value={sfSourceProject || ""}
+              onChange={(e) => {
+                setSFSourceProject(
+                  e.target.value ? parseInt(e.target.value as string) : null,
+                );
+                setSelectedSFIds([]);
+              }}
+              options={[
+                { value: "", label: t("screenFunction.selectProject") },
+                ...(allProjects
+                  ?.filter((p) => p.id !== parseInt(projectId))
+                  .map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                  })) || []),
+              ]}
+            />
+          </div>
+
+          {/* Screen Function Selection */}
+          {sfSourceProject && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  {t("screenFunction.selectItemsToCopy")}
+                </label>
+                {sourceSFs && sourceSFs.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-sm text-primary hover:text-primary-dark"
+                    onClick={() => {
+                      if (selectedSFIds.length === sourceSFs.length) {
+                        setSelectedSFIds([]);
+                      } else {
+                        setSelectedSFIds(sourceSFs.map((sf) => sf.id));
+                      }
+                    }}
+                  >
+                    {selectedSFIds.length === sourceSFs.length
+                      ? t("screenFunction.deselectAll")
+                      : t("screenFunction.selectAll")}
+                  </button>
+                )}
+              </div>
+
+              {sourceSFs && sourceSFs.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto border rounded-lg divide-y">
+                  {sourceSFs.map((sf) => {
+                    const isExisting = screenFunctions?.some(
+                      (existing) =>
+                        existing.name.toLowerCase() === sf.name.toLowerCase(),
+                    );
+                    return (
+                      <label
+                        key={sf.id}
+                        className={`flex items-center p-3 hover:bg-gray-50 cursor-pointer ${
+                          isExisting ? "opacity-50" : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSFIds.includes(sf.id)}
+                          onChange={() => {
+                            if (selectedSFIds.includes(sf.id)) {
+                              setSelectedSFIds(
+                                selectedSFIds.filter((id) => id !== sf.id),
+                              );
+                            } else {
+                              setSelectedSFIds([...selectedSFIds, sf.id]);
+                            }
+                          }}
+                          disabled={isExisting}
+                          className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">
+                              {sf.name}
+                            </p>
+                            <span
+                              className={`px-2 py-0.5 text-xs rounded font-medium ${
+                                sf.type === "Screen"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : sf.type === "Function"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-orange-100 text-orange-800"
+                              }`}
+                            >
+                              {sf.type}
+                            </span>
+                            {isExisting && (
+                              <span className="text-xs text-orange-600">
+                                ({t("screenFunction.alreadyExists")})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-3 mt-0.5 text-xs text-gray-500">
+                            <span>{t("screenFunction.priority")}: {sf.priority}</span>
+                            <span>{t("screenFunction.complexity")}: {sf.complexity}</span>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  {t("screenFunction.noItemsInProject")}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Summary and Actions */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="text-sm text-gray-600">
+              {selectedSFIds.length > 0 && (
+                <span>
+                  <strong>{selectedSFIds.length}</strong>{" "}
+                  {t("screenFunction.itemsSelected")}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowCopyScreenFunctions(false);
+                  setSFSourceProject(null);
+                  setSelectedSFIds([]);
+                }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (sfSourceProject && selectedSFIds.length > 0) {
+                    copySFMutation.mutate({
+                      sourceProjectId: sfSourceProject,
+                      targetProjectId: parseInt(projectId),
+                      screenFunctionIds: selectedSFIds,
+                    });
+                  }
+                }}
+                disabled={!sfSourceProject || selectedSFIds.length === 0}
+                loading={copySFMutation.isPending}
+              >
+                {t("screenFunction.copyAction")}{" "}
+                {selectedSFIds.length > 0 ? `(${selectedSFIds.length})` : ""}
               </Button>
             </div>
           </div>
