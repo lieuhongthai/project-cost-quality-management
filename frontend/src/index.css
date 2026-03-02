@@ -367,6 +367,15 @@ input:-webkit-autofill:active {
   z-index: 1400 !important;
 }
 
+/* Fix: tab-loop is injected as a sibling in the DOM and would occupy a grid/flex
+   cell, pushing adjacent inputs to the next row. Remove it from normal flow. */
+.react-datepicker__tab-loop {
+  position: fixed !important;
+  overflow: visible;
+  width: 0;
+  height: 0;
+}
+
 /* Main calendar container */
 .react-datepicker {
   font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
