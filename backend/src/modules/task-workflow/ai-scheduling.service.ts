@@ -281,10 +281,11 @@ export class AISchedulingService {
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{}');
+      const normalized = this.normalizeStageEstimationToTotal(result, totalProjectHours, settings, project);
       return {
         success: true,
         source: 'AI',
-        data: result,
+        data: normalized,
       };
     } catch (error) {
       console.error('AI stage effort estimation error:', error);
@@ -294,6 +295,70 @@ export class AISchedulingService {
         data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, members, settings, project),
       };
     }
+  }
+
+  /**
+   * Normalize AI stage estimates so they sum exactly to totalProjectHours.
+   * If the AI ignored the constraint (e.g. returned 432h for a 1059h project),
+   * this rescales each stage proportionally and recalculates dates.
+   */
+  private normalizeStageEstimationToTotal(
+    result: any,
+    totalProjectHours: number,
+    settings: any,
+    project: any,
+  ): any {
+    if (!result?.estimates || result.estimates.length === 0) return result;
+
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    const aiTotal = result.estimates.reduce(
+      (sum: number, e: any) => sum + (e.estimatedEffortHours || 0),
+      0,
+    );
+
+    // Only normalize if AI total deviates by more than 1% from expected
+    const deviation = Math.abs(aiTotal - totalProjectHours) / totalProjectHours;
+    if (aiTotal === 0 || deviation <= 0.01) return result;
+
+    // Rescale each stage proportionally to match the real total
+    const scale = totalProjectHours / aiTotal;
+    const normalized = result.estimates.map((e: any) => ({
+      ...e,
+      estimatedEffortHours: Math.round(e.estimatedEffortHours * scale * 10) / 10,
+    }));
+
+    // Fix rounding drift on the largest stage so sum is exact
+    const scaledTotal = normalized.reduce((s: number, e: any) => s + e.estimatedEffortHours, 0);
+    const drift = Math.round((totalProjectHours - scaledTotal) * 10) / 10;
+    if (drift !== 0 && normalized.length > 0) {
+      const largest = normalized.reduce((max: any, e: any) =>
+        e.estimatedEffortHours > max.estimatedEffortHours ? e : max,
+      );
+      largest.estimatedEffortHours = Math.round((largest.estimatedEffortHours + drift) * 10) / 10;
+    }
+
+    // Recalculate sequential dates based on normalized effort
+    let currentDate = new Date(project.startDate || new Date().toISOString().split('T')[0]);
+    for (const e of normalized) {
+      const durationDays = Math.ceil(e.estimatedEffortHours / workingHoursPerDay);
+      e.suggestedStartDate = this.formatDate(currentDate);
+      const endDate = this.addWorkingDays(currentDate, Math.max(1, durationDays));
+      e.suggestedEndDate = this.formatDate(endDate);
+      currentDate = this.addWorkingDays(endDate, 1); // next stage starts 1 working day after
+    }
+
+    return {
+      ...result,
+      estimates: normalized,
+      totalEstimatedHours: totalProjectHours,
+      totalEstimatedManMonths: +(totalProjectHours / (workingHoursPerDay * workingDaysPerMonth)).toFixed(2),
+      assumptions: [
+        ...(result.assumptions || []),
+        `Stage efforts normalized from AI total (${aiTotal.toFixed(1)}h) to match project total (${totalProjectHours}h).`,
+      ],
+    };
   }
 
   // ===== Apply Results =====
@@ -918,7 +983,7 @@ Rules:
       : `ESTIMATED from complexity (${screenFunctions.length} functions: ${sfSummary.byComplexity.Simple} Simple×8h + ${sfSummary.byComplexity.Medium} Medium×24h + ${sfSummary.byComplexity.Complex} Complex×56h). Screen functions have not been individually estimated yet.`;
 
     return `
-Estimate the effort (in man-hours) for each workflow stage below.
+Distribute the project's TOTAL effort across workflow stages below.
 Each stage represents a phase in the software development lifecycle.
 
 CRITICAL UNIT NOTICE:
@@ -926,13 +991,23 @@ CRITICAL UNIT NOTICE:
 - 1 MD = ${workingHoursPerDay} hours
 - The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours (${effortDataSource})
 - Your "estimatedEffortHours" responses MUST be in HOURS
-- IMPORTANT: Even if screen functions show 0 current estimates, use the derived total above as your baseline
+
+HARD CONSTRAINT — NON-NEGOTIABLE:
+The SUM of all estimatedEffortHours MUST EXACTLY EQUAL ${totalProjectHours} hours.
+Do NOT invent a different total. Do NOT estimate from scratch.
+You are DISTRIBUTING ${totalProjectHours} hours, not re-estimating the project.
+
+Step-by-step calculation required:
+1. Assign a percentage to each stage based on its role in the lifecycle (see ratios below).
+2. Calculate: stage_hours = round(${totalProjectHours} × stage_percentage / 100, 1)
+3. Adjust the largest stage so that SUM of all stage_hours = exactly ${totalProjectHours}.
+4. Verify: sum all stages before responding.
 
 Project: ${project.name}
 Project Start Date: ${projectStartDate}
 Working hours/day: ${workingHoursPerDay}
 Working days/month: ${workingDaysPerMonth}
-Total project scope: ${totalProjectMD} man-days = ${totalProjectHours} hours (use this as your baseline)
+TOTAL to distribute: ${totalProjectHours} hours = ${totalProjectMD} man-days
 
 Team Composition:
 ${JSON.stringify(teamSummary, null, 2)}
@@ -966,16 +1041,16 @@ Respond with a JSON object in this exact format:
 }
 
 Rules:
-- The sum of all stage estimatedEffortHours should be close to the total project hours (${totalProjectHours}h = ${totalProjectMD} MD)
-- NEVER return 0 for any stage. Every stage requires at least some effort.
-- Distribute effort using typical ratios: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
-- For stages with non-standard names (e.g., "Other", custom stages), allocate remaining effort proportionally
-- Adjust distribution based on project complexity (Simple/Medium/Complex mix of screen functions)
-- Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort
-- If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's effort
-- Stages are sequential; each stage's suggestedStartDate = previous stage's suggestedEndDate + 1 working day
-- Calendar duration of a stage = estimatedEffortHours / (workingHoursPerDay × parallel_team_members)
-- Skip weekends for date calculations (assuming non-working days: Saturday, Sunday)
+- HARD CONSTRAINT: sum of all estimatedEffortHours MUST equal exactly ${totalProjectHours}h. Set totalEstimatedHours = ${totalProjectHours}.
+- NEVER return 0 for any stage. Minimum 1 hour per stage.
+- Typical ratios to distribute effort: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
+- For stages with non-standard names, allocate remaining effort proportionally.
+- Adjust distribution based on project complexity (Simple/Medium/Complex mix).
+- Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort.
+- If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's share.
+- Stages are sequential; each stage's suggestedStartDate = previous stage's suggestedEndDate + 1 working day.
+- Calendar duration of a stage = estimatedEffortHours / (workingHoursPerDay × parallel_team_members).
+- Skip weekends for date calculations (assuming non-working days: Saturday, Sunday).
     `.trim();
   }
 
