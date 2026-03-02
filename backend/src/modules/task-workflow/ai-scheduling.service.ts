@@ -258,8 +258,12 @@ export class AISchedulingService {
     // Get step-screen function counts per stage for context
     const stageContext = await this.getStageContext(stages);
 
+    // Compute the authoritative project total once — used both in the prompt
+    // (as the hard constraint) and server-side normalization after the AI responds.
+    const totalProjectHours = this.computeTotalProjectHours(screenFunctions, settings);
+
     // Build prompt
-    const prompt = this.buildStageEffortPrompt(stages, stageContext, screenFunctions, members, historicalData, settings, project);
+    const prompt = this.buildStageEffortPrompt(stages, stageContext, screenFunctions, members, historicalData, settings, project, totalProjectHours);
 
     try {
       const languageInstruction = this.getLanguageInstruction(language);
@@ -281,6 +285,7 @@ export class AISchedulingService {
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{}');
+      // Normalize: if AI returned a different total, rescale proportionally and recalculate dates
       const normalized = this.normalizeStageEstimationToTotal(result, totalProjectHours, settings, project);
       return {
         success: true,
@@ -295,6 +300,20 @@ export class AISchedulingService {
         data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, members, settings, project),
       };
     }
+  }
+
+  /**
+   * Single source of truth for the project's total effort in hours.
+   * Uses actual screen function estimates if available; falls back to
+   * complexity-based approximation (Simple=8h, Medium=24h, Complex=56h).
+   */
+  private computeTotalProjectHours(screenFunctions: ScreenFunction[], settings: any): number {
+    const totalSFHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    if (totalSFHours > 0) return totalSFHours;
+    return screenFunctions.reduce((sum, sf) => {
+      const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
+      return sum + mult;
+    }, 0) || 160;
   }
 
   /**
@@ -915,6 +934,7 @@ Rules:
     historicalData: any,
     settings: any,
     project: any,
+    totalProjectHours: number,
   ): string {
     const workingHoursPerDay = settings?.workingHoursPerDay || 8;
     const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
@@ -939,6 +959,7 @@ Rules:
       };
     });
 
+    const totalSFHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
     const sfSummary = {
       total: screenFunctions.length,
       byComplexity: {
@@ -951,9 +972,8 @@ Rules:
         Function: screenFunctions.filter(sf => sf.type === 'Function').length,
         Other: screenFunctions.filter(sf => sf.type === 'Other').length,
       },
-      // estimatedEffort is stored in MAN-HOURS (MH) in the database
-      totalCurrentEstimate_hours: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0)).toFixed(0),
-      totalCurrentEstimate_manDays: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0) / workingHoursPerDay).toFixed(2),
+      totalCurrentEstimate_hours: +totalSFHours.toFixed(0),
+      totalCurrentEstimate_manDays: +(totalSFHours / workingHoursPerDay).toFixed(2),
     };
 
     const teamSummary = {
@@ -967,18 +987,8 @@ Rules:
         : 0,
     };
 
-    // When SFs have no estimates yet, derive total effort from complexity counts
-    // (Simple=8h, Medium=24h, Complex=56h — same as template fallback)
-    const complexityBasedHours = screenFunctions.reduce((sum, sf) => {
-      const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
-      return sum + mult;
-    }, 0) || 160; // fallback 160h (1 man-month) if no SFs
-
-    const totalProjectHours = sfSummary.totalCurrentEstimate_hours > 0
-      ? sfSummary.totalCurrentEstimate_hours
-      : complexityBasedHours;
     const totalProjectMD = +(totalProjectHours / workingHoursPerDay).toFixed(2);
-    const effortDataSource = sfSummary.totalCurrentEstimate_hours > 0
+    const effortDataSource = totalSFHours > 0
       ? `from existing screen function estimates`
       : `ESTIMATED from complexity (${screenFunctions.length} functions: ${sfSummary.byComplexity.Simple} Simple×8h + ${sfSummary.byComplexity.Medium} Medium×24h + ${sfSummary.byComplexity.Complex} Complex×56h). Screen functions have not been individually estimated yet.`;
 
