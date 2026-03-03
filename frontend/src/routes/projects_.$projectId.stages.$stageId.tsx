@@ -711,6 +711,12 @@ function StageDetail() {
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           {t('stages.actEffort')}
                         </th>
+                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          {t('stages.estimatedSchedule')}
+                        </th>
+                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          {t('stages.actualSchedule')}
+                        </th>
                         <th className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 w-36">
                           {t('common.actions')}
                         </th>
@@ -821,6 +827,34 @@ function StageDetail() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                               {actualValue}h
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500">
+                              {ssf.estimatedStartDate || ssf.estimatedEndDate ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-xs text-gray-500">
+                                    {ssf.estimatedStartDate ? new Date(ssf.estimatedStartDate).toLocaleDateString() : '—'}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    → {ssf.estimatedEndDate ? new Date(ssf.estimatedEndDate).toLocaleDateString() : '—'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500">
+                              {ssf.actualStartDate || ssf.actualEndDate ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-xs text-green-700">
+                                    {ssf.actualStartDate ? new Date(ssf.actualStartDate).toLocaleDateString() : '—'}
+                                  </div>
+                                  <div className="text-xs text-green-600">
+                                    → {ssf.actualEndDate ? new Date(ssf.actualEndDate).toLocaleDateString() : '—'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex items-center justify-center gap-1">
