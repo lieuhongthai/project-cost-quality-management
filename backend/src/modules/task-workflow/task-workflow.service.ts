@@ -2031,7 +2031,7 @@ export class TaskWorkflowService {
   async copyWorklogMappingRules(
     sourceProjectId: number,
     targetProjectId: number,
-  ): Promise<{ copied: number; skipped: number; overwritten: number }> {
+  ): Promise<{ copied: number; unmatched: number; overwritten: number }> {
     // Fetch source rules with stage/step info for name-based matching
     const sourceRules = await this.worklogMappingRuleRepository.findAll({
       where: { projectId: sourceProjectId },
