@@ -2041,7 +2041,7 @@ export class TaskWorkflowService {
       ],
     });
 
-    if (sourceRules.length === 0) return { copied: 0, skipped: 0, overwritten: 0 };
+    if (sourceRules.length === 0) return { copied: 0, unmatched: 0, overwritten: 0 };
 
     // Build target stage → step map keyed by name (lowercase) for fast lookup
     const targetStages = await this.findAllStages(targetProjectId);
