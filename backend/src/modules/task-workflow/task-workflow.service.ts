@@ -1970,20 +1970,18 @@ export class TaskWorkflowService {
   async createWorklogMappingRule(
     dto: CreateWorklogMappingRuleDto,
   ): Promise<WorklogMappingRule> {
-    await this.findStageById(dto.stageId);
-    await this.findStepById(dto.stepId);
+    if (dto.stageId) await this.findStageById(dto.stageId);
+    if (dto.stepId) await this.findStepById(dto.stepId);
 
     const normalizedKeyword = dto.keyword.trim();
+
+    // Idempotent by keyword per project: return existing rule if same keyword already exists.
     const existed = await this.worklogMappingRuleRepository.findOne({
       where: {
         projectId: dto.projectId,
-        stageId: dto.stageId,
-        stepId: dto.stepId,
         keyword: { [Op.iLike]: normalizedKeyword },
       },
     });
-
-    // Idempotent create: if the exact mapping already exists, return it instead of creating duplicate rows.
     if (existed) {
       return existed;
     }
@@ -1991,8 +1989,8 @@ export class TaskWorkflowService {
     return this.worklogMappingRuleRepository.create({
       projectId: dto.projectId,
       keyword: normalizedKeyword,
-      stageId: dto.stageId,
-      stepId: dto.stepId,
+      stageId: dto.stageId ?? null,
+      stepId: dto.stepId ?? null,
       priority: dto.priority ?? 100,
       isActive: dto.isActive ?? true,
     } as any);
@@ -2061,20 +2059,21 @@ export class TaskWorkflowService {
     });
 
     let copied = 0;
-    let skipped = 0;
+    let unmatched = 0;
     let overwritten = 0;
 
     for (const rule of sourceRules) {
       const sourceStageName = (rule as any).stage?.name;
       const sourceStepName = (rule as any).step?.name;
 
-      if (!sourceStageName || !sourceStepName) { skipped++; continue; }
+      const targetStage = sourceStageName
+        ? stageByName.get(sourceStageName.trim().toLowerCase())
+        : undefined;
+      const targetStep = targetStage && sourceStepName
+        ? stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`)
+        : undefined;
 
-      const targetStage = stageByName.get(sourceStageName.trim().toLowerCase());
-      if (!targetStage) { skipped++; continue; }
-
-      const targetStep = stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`);
-      if (!targetStep) { skipped++; continue; }
+      if (!targetStage || !targetStep) unmatched++;
 
       const normalizedKeyword = rule.keyword.trim();
 
@@ -2084,10 +2083,10 @@ export class TaskWorkflowService {
       });
 
       if (existing) {
-        // Overwrite: update mapping to source's stage/step
+        // Overwrite: update mapping to matched target stage/step (or null if unmatched)
         await existing.update({
-          stageId: targetStage.id,
-          stepId: targetStep.id,
+          stageId: targetStep ? targetStage!.id : null,
+          stepId: targetStep?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         });
@@ -2096,8 +2095,8 @@ export class TaskWorkflowService {
         await this.worklogMappingRuleRepository.create({
           projectId: targetProjectId,
           keyword: normalizedKeyword,
-          stageId: targetStage.id,
-          stepId: targetStep.id,
+          stageId: targetStep ? targetStage!.id : null,
+          stepId: targetStep?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         } as any);
@@ -2105,7 +2104,7 @@ export class TaskWorkflowService {
       }
     }
 
-    return { copied, skipped, overwritten };
+    return { copied, unmatched, overwritten };
   }
 
   async aiSuggestWorklogMappingRules(

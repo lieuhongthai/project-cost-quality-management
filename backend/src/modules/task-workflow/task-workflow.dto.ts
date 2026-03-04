@@ -733,15 +733,15 @@ export class CreateWorklogMappingRuleDto {
   @IsString()
   keyword: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  stageId: number;
+  stageId?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  stepId: number;
+  stepId?: number;
 
   @IsOptional()
   @Type(() => Number)

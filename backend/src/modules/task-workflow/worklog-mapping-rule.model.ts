@@ -36,9 +36,9 @@ export class WorklogMappingRule extends Model {
   @ForeignKey(() => WorkflowStage)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
   })
-  stageId: number;
+  stageId: number | null;
 
   @BelongsTo(() => WorkflowStage)
   stage: WorkflowStage;
@@ -46,9 +46,9 @@ export class WorklogMappingRule extends Model {
   @ForeignKey(() => WorkflowStep)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
   })
-  stepId: number;
+  stepId: number | null;
 
   @BelongsTo(() => WorkflowStep)
   step: WorkflowStep;
