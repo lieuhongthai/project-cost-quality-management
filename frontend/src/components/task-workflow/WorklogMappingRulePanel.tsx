@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { taskWorkflowApi } from '@/services/api';
+import { projectApi, taskWorkflowApi } from '@/services/api';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -38,6 +38,8 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [ruleSortBy, setRuleSortBy] = useState<'keyword' | 'stageStep'>('keyword');
   const [ruleSortDirection, setRuleSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [copySourceProjectId, setCopySourceProjectId] = useState<number | ''>('');
+  const [copyResult, setCopyResult] = useState<{ copied: number; skipped: number; overwritten: number } | null>(null);
 
   const { data: config } = useQuery({
     queryKey: ['workflowConfig', projectId],
@@ -47,6 +49,24 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const { data: rules } = useQuery({
     queryKey: ['worklogMappingRules', projectId],
     queryFn: async () => (await taskWorkflowApi.getWorklogMappingRules(projectId)).data,
+  });
+
+  const { data: allProjects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => (await projectApi.getAll()).data,
+  });
+
+  const otherProjects = (allProjects || []).filter((p: any) => p.id !== projectId);
+
+  const copyMutation = useMutation({
+    mutationFn: () => {
+      if (!copySourceProjectId) throw new Error('Select a source project');
+      return taskWorkflowApi.copyWorklogMappingRules(Number(copySourceProjectId), projectId);
+    },
+    onSuccess: (res) => {
+      setCopyResult(res.data);
+      queryClient.invalidateQueries({ queryKey: ['worklogMappingRules', projectId] });
+    },
   });
 
   const stageOptions = config?.stages || [];
@@ -281,6 +301,48 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+        </Box>
+
+        <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            {t('worklogMapping.copyFromProject.title', { defaultValue: 'Copy keywords from another project' })}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              select
+              size="small"
+              label={t('worklogMapping.copyFromProject.selectProject', { defaultValue: 'Source project' })}
+              value={copySourceProjectId}
+              onChange={(e) => { setCopySourceProjectId(Number(e.target.value)); setCopyResult(null); }}
+              sx={{ minWidth: 220 }}
+            >
+              {otherProjects.map((p: any) => (
+                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              ))}
+            </TextField>
+            <Button
+              variant="outlined"
+              onClick={() => copyMutation.mutate()}
+              disabled={!copySourceProjectId || copyMutation.isPending}
+            >
+              {t('worklogMapping.copyFromProject.copy', { defaultValue: 'Copy' })}
+            </Button>
+          </Box>
+          {copyMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {t('worklogMapping.copyFromProject.failed', { defaultValue: 'Copy failed' })}
+            </Alert>
+          )}
+          {copyResult && (
+            <Alert severity="success" sx={{ mt: 1 }}>
+              {t('worklogMapping.copyFromProject.result', {
+                defaultValue: 'Done: {{copied}} added, {{overwritten}} overwritten, {{skipped}} skipped (stage/step name not matched)',
+                copied: copyResult.copied,
+                overwritten: copyResult.overwritten,
+                skipped: copyResult.skipped,
+              })}
+            </Alert>
           )}
         </Box>
 

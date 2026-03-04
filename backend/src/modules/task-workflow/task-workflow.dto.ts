@@ -778,6 +778,18 @@ export class UpdateWorklogMappingRuleDto {
   isActive?: boolean;
 }
 
+export class CopyWorklogMappingRulesDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  sourceProjectId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  targetProjectId: number;
+}
+
 // ===== Worklog Import DTOs =====
 
 

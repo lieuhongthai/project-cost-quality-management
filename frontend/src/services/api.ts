@@ -257,6 +257,12 @@ export const taskWorkflowApi = {
     );
   },
 
+  copyWorklogMappingRules: (sourceProjectId: number, targetProjectId: number) =>
+    api.post<{ copied: number; skipped: number; overwritten: number }>(
+      '/task-workflow/worklog-mapping-rules/copy-from-project',
+      { sourceProjectId, targetProjectId },
+    ),
+
   // Worklog Import
   previewWorklogImport: (projectId: number, file: File) => {
     const formData = new FormData();

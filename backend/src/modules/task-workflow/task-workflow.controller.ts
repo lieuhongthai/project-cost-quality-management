@@ -57,6 +57,7 @@ import {
   InitializeProjectMetricsDto,
   CreateWorklogMappingRuleDto,
   UpdateWorklogMappingRuleDto,
+  CopyWorklogMappingRulesDto,
   CommitWorklogImportDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
@@ -233,6 +234,14 @@ export class TaskWorkflowController {
   }
 
 
+
+  @Post('worklog-mapping-rules/copy-from-project')
+  copyWorklogMappingRules(@Body() dto: CopyWorklogMappingRulesDto) {
+    return this.taskWorkflowService.copyWorklogMappingRules(
+      dto.sourceProjectId,
+      dto.targetProjectId,
+    );
+  }
 
   @Post('worklog-mapping-rules/ai-suggest')
   @UseInterceptors(FileInterceptor('file'))

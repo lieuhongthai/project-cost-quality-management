@@ -2030,7 +2030,83 @@ export class TaskWorkflowService {
     await rule.destroy();
   }
 
+  async copyWorklogMappingRules(
+    sourceProjectId: number,
+    targetProjectId: number,
+  ): Promise<{ copied: number; skipped: number; overwritten: number }> {
+    // Fetch source rules with stage/step info for name-based matching
+    const sourceRules = await this.worklogMappingRuleRepository.findAll({
+      where: { projectId: sourceProjectId },
+      include: [
+        { model: WorkflowStage, as: 'stage' },
+        { model: WorkflowStep, as: 'step' },
+      ],
+    });
 
+    if (sourceRules.length === 0) return { copied: 0, skipped: 0, overwritten: 0 };
+
+    // Build target stage → step map keyed by name (lowercase) for fast lookup
+    const targetStages = await this.findAllStages(targetProjectId);
+    const targetStageIds = targetStages.map(s => s.id);
+    const targetSteps = targetStageIds.length > 0
+      ? await this.stepRepository.findAll({ where: { stageId: { [Op.in]: targetStageIds } } })
+      : [];
+
+    const stageByName = new Map<string, WorkflowStage>();
+    targetStages.forEach(s => stageByName.set(s.name.trim().toLowerCase(), s));
+
+    const stepByStageAndName = new Map<string, WorkflowStep>();
+    targetSteps.forEach(sp => {
+      stepByStageAndName.set(`${sp.stageId}::${sp.name.trim().toLowerCase()}`, sp);
+    });
+
+    let copied = 0;
+    let skipped = 0;
+    let overwritten = 0;
+
+    for (const rule of sourceRules) {
+      const sourceStageName = (rule as any).stage?.name;
+      const sourceStepName = (rule as any).step?.name;
+
+      if (!sourceStageName || !sourceStepName) { skipped++; continue; }
+
+      const targetStage = stageByName.get(sourceStageName.trim().toLowerCase());
+      if (!targetStage) { skipped++; continue; }
+
+      const targetStep = stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`);
+      if (!targetStep) { skipped++; continue; }
+
+      const normalizedKeyword = rule.keyword.trim();
+
+      // Check if the same keyword already exists in the target project (case-insensitive)
+      const existing = await this.worklogMappingRuleRepository.findOne({
+        where: { projectId: targetProjectId, keyword: { [Op.iLike]: normalizedKeyword } },
+      });
+
+      if (existing) {
+        // Overwrite: update mapping to source's stage/step
+        await existing.update({
+          stageId: targetStage.id,
+          stepId: targetStep.id,
+          priority: rule.priority,
+          isActive: rule.isActive,
+        });
+        overwritten++;
+      } else {
+        await this.worklogMappingRuleRepository.create({
+          projectId: targetProjectId,
+          keyword: normalizedKeyword,
+          stageId: targetStage.id,
+          stepId: targetStep.id,
+          priority: rule.priority,
+          isActive: rule.isActive,
+        } as any);
+        copied++;
+      }
+    }
+
+    return { copied, skipped, overwritten };
+  }
 
   async aiSuggestWorklogMappingRules(
     projectId: number,
