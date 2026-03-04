@@ -258,7 +258,7 @@ export const taskWorkflowApi = {
   },
 
   copyWorklogMappingRules: (sourceProjectId: number, targetProjectId: number) =>
-    api.post<{ copied: number; skipped: number; overwritten: number }>(
+    api.post<{ copied: number; unmatched: number; overwritten: number }>(
       '/task-workflow/worklog-mapping-rules/copy-from-project',
       { sourceProjectId, targetProjectId },
     ),
