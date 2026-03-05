@@ -5,22 +5,52 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
-} from 'sequelize-typescript';
-import { WorkflowStage } from './workflow-stage.model';
+} from "sequelize-typescript";
+import { WorkflowStage } from "./workflow-stage.model";
 
 // Default steps for each stage
 export const DEFAULT_WORKFLOW_STEPS: Record<string, string[]> = {
-  'Requirement': ['Tạo', 'Review', 'Fix'],
-  'Functional Design': ['Tạo', 'Review', 'Fix'],
-  'Coding': ['Code', 'Review', 'Fix'],
-  'Unit Test': ['Tạo QĐ', 'Review QĐ', 'Fix QĐ', 'Tạo TC', 'Review TC', 'Fix TC', 'Test', 'Fix bug', 'Retest', 'Tạo QB', 'Review'],
-  'Integration Test': ['Tạo QĐ', 'Review QĐ', 'Fix QĐ', 'Tạo TC', 'Review TC', 'Fix TC', 'Test', 'Fix bug', 'Retest', 'Tạo QB', 'Review'],
-  'System Test': ['Tạo TC', 'Test', 'Fix bug', 'Retest'],
-  'User Test': ['Tạo QĐ', 'Tạo TC', 'Review QĐ&TC', 'Fix', 'Test', 'Fix bug', 'Retest'],
+  Requirement: ["Tạo", "Review", "Fix"],
+  "Functional Design": ["Tạo", "Review", "Fix"],
+  Coding: ["Code", "Review", "Fix"],
+  "Unit Test": [
+    "Tạo Quan Điểm",
+    "Review Quan Điểm",
+    "Fix Quan Điểm",
+    "Tạo Testcase",
+    "Review Testcase",
+    "Fix Testcase",
+    "Test",
+    "Fix bug",
+    "Retest",
+  ],
+  "Integration Test": [
+    "Tạo Quan Điểm",
+    "Review Quan Điểm",
+    "Fix Quan Điểm",
+    "Tạo Testcase",
+    "Review Testcase",
+    "Fix Testcase",
+    "Test",
+    "Fix bug",
+    "Retest",
+  ],
+  "System Test": ["Tạo Testcase", "Test", "Fix bug", "Retest"],
+  "User Test": [
+    "Tạo Quan Điểm",
+    "Review Quan Điểm",
+    "Fix Quan Điểm",
+    "Tạo Testcase",
+    "Review Testcase",
+    "Fix Testcase",
+    "Test",
+    "Fix bug",
+    "Retest",
+  ],
 };
 
 @Table({
-  tableName: 'workflow_steps',
+  tableName: "workflow_steps",
   timestamps: true,
 })
 export class WorkflowStep extends Model {
@@ -35,7 +65,7 @@ export class WorkflowStep extends Model {
   @Column({
     type: DataType.INTEGER,
     allowNull: true,
-    onDelete: 'CASCADE',
+    onDelete: "CASCADE",
   })
   stageId: number;
 
@@ -57,6 +87,6 @@ export class WorkflowStep extends Model {
   })
   isActive: boolean;
 
-  @BelongsTo(() => WorkflowStage, { onDelete: 'CASCADE' })
+  @BelongsTo(() => WorkflowStage, { onDelete: "CASCADE" })
   stage: WorkflowStage;
 }
