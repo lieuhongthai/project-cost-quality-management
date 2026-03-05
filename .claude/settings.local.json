@@ -15,7 +15,11 @@
       "Bash(git add frontend/src/components/task-workflow/StagesOverviewPanel.tsx)",
       "Bash(git commit -m \"fix: format dates as yyyy/mm/dd in Stages tab\")",
       "Bash(git commit -m \"feat: add Sync Actual Dates button to each stage card in Stages tab\")",
-      "Bash(git commit -m \"feat: sync actual dates from member assignments to SSF records and stage\")"
+      "Bash(git commit -m \"feat: sync actual dates from member assignments to SSF records and stage\")",
+      "Bash(grep \"stages.$stageId\")",
+      "Bash(grep -v \"jsx-runtime\\\\|IntrinsicElements\\\\|implicitly has type ''any''\\\\|implicitly has an ''any''\")",
+      "Bash(git add frontend/src/routes/projects_.$projectId.stages.$stageId.tsx)",
+      "Bash(git commit -m \"fix: sync actual dates reads from member dates and updates SSF records in stage detail\")"
     ]
   }
 }
