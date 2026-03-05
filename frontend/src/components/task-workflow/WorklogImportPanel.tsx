@@ -14,6 +14,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
@@ -21,6 +22,9 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import { Modal } from '@/components/common/Modal';
 import { useTranslation } from 'react-i18next';
+
+type SortColumn = 'day' | 'stageStep' | 'screenFunction' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 interface WorklogImportPanelProps {
   projectId: number;
@@ -224,6 +228,55 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const editingStage = stageOptions.find((s: any) => s.id === Number(editDraft.stageId));
   const editingStepOptions = editingStage?.steps || [];
 
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    const items = batchDetail?.items || [];
+    if (!sortColumn) return items;
+
+    return [...items].sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+
+      if (sortColumn === 'day') {
+        aVal = a.day || '';
+        bVal = b.day || '';
+      } else if (sortColumn === 'stageStep') {
+        const aStageId = overrides[a.id]?.stageId ?? a.stageId;
+        const bStageId = overrides[b.id]?.stageId ?? b.stageId;
+        const aStepId = overrides[a.id]?.stepId ?? a.stepId;
+        const bStepId = overrides[b.id]?.stepId ?? b.stepId;
+        const aStage = stageOptions.find((s: any) => s.id === Number(aStageId));
+        const bStage = stageOptions.find((s: any) => s.id === Number(bStageId));
+        const aStep = aStage?.steps?.find((sp: any) => sp.id === Number(aStepId));
+        const bStep = bStage?.steps?.find((sp: any) => sp.id === Number(bStepId));
+        aVal = `${aStage?.name || ''} ${aStep?.name || ''}`.trim();
+        bVal = `${bStage?.name || ''} ${bStep?.name || ''}`.trim();
+      } else if (sortColumn === 'screenFunction') {
+        const aFnId = overrides[a.id]?.screenFunctionId ?? a.screenFunctionId;
+        const bFnId = overrides[b.id]?.screenFunctionId ?? b.screenFunctionId;
+        aVal = (screenFunctions || []).find((sf: any) => sf.id === Number(aFnId))?.name || a.screenFunction?.name || '';
+        bVal = (screenFunctions || []).find((sf: any) => sf.id === Number(bFnId))?.name || b.screenFunction?.name || '';
+      } else if (sortColumn === 'status') {
+        aVal = a.status || '';
+        bVal = b.status || '';
+      }
+
+      const cmp = aVal.localeCompare(bVal);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [batchDetail, sortColumn, sortDirection, overrides, stageOptions, screenFunctions]);
+
   return (
     <Card>
       <CardContent>
@@ -297,20 +350,52 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 <TableHead>
                   <TableRow>
                     <TableCell>{t('worklogImport.table.select', { defaultValue: 'Select' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.day', { defaultValue: 'Day' })}</TableCell>
+                    <TableCell sortDirection={sortColumn === 'day' ? sortDirection : false}>
+                      <TableSortLabel
+                        active={sortColumn === 'day'}
+                        direction={sortColumn === 'day' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('day')}
+                      >
+                        {t('worklogImport.table.day', { defaultValue: 'Day' })}
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>{t('worklogImport.table.email', { defaultValue: 'Email' })}</TableCell>
                     <TableCell>{t('worklogImport.table.workDetail', { defaultValue: 'Work detail' })}</TableCell>
                     <TableCell>{t('worklogImport.table.member', { defaultValue: 'Member' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}</TableCell>
+                    <TableCell sortDirection={sortColumn === 'stageStep' ? sortDirection : false}>
+                      <TableSortLabel
+                        active={sortColumn === 'stageStep'}
+                        direction={sortColumn === 'stageStep' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('stageStep')}
+                      >
+                        {t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' })}
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell sortDirection={sortColumn === 'screenFunction' ? sortDirection : false}>
+                      <TableSortLabel
+                        active={sortColumn === 'screenFunction'}
+                        direction={sortColumn === 'screenFunction' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('screenFunction')}
+                      >
+                        {t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>{t('worklogImport.table.minutes', { defaultValue: 'Minutes' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.status', { defaultValue: 'Status' })}</TableCell>
+                    <TableCell sortDirection={sortColumn === 'status' ? sortDirection : false}>
+                      <TableSortLabel
+                        active={sortColumn === 'status'}
+                        direction={sortColumn === 'status' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('status')}
+                      >
+                        {t('worklogImport.table.status', { defaultValue: 'Status' })}
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>{t('worklogImport.table.reason', { defaultValue: 'Reason' })}</TableCell>
                     <TableCell align="center">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {batchDetail.items.map((item) => {
+                  {sortedItems.map((item) => {
                     const effectiveStageId = getEffectiveValue(item.id, 'stageId', item.stageId);
                     const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
                     const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
