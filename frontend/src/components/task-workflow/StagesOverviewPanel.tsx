@@ -38,6 +38,7 @@ export function StagesOverviewPanel({
   const [quickLinkStageId, setQuickLinkStageId] = useState<number | null>(null);
   const [syncStageId, setSyncStageId] = useState<number | null>(null);
   const [syncCalcDates, setSyncCalcDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
+  const [syncSsfUpdates, setSyncSsfUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>>([]);
   const [syncLoading, setSyncLoading] = useState(false);
   const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
   const [quickLinkAssignMembers, setQuickLinkAssignMembers] = useState(false);
@@ -97,13 +98,29 @@ export function StagesOverviewPanel({
     });
   };
 
-  // Sync Actual Dates mutation
+  // Sync Actual Dates: update SSFs then stage
   const syncActualDatesMutation = useMutation({
-    mutationFn: (data: { stageId: number; actualStartDate?: string; actualEndDate?: string }) =>
-      taskWorkflowApi.updateStage(data.stageId, {
+    mutationFn: async (data: {
+      stageId: number;
+      ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>;
+      actualStartDate?: string;
+      actualEndDate?: string;
+    }) => {
+      // Step 1: update each SSF with dates derived from its members
+      await Promise.all(
+        data.ssfUpdates.map((u) =>
+          taskWorkflowApi.updateStepScreenFunction(u.id, {
+            actualStartDate: u.actualStartDate,
+            actualEndDate: u.actualEndDate,
+          })
+        )
+      );
+      // Step 2: update stage with global min/max
+      return taskWorkflowApi.updateStage(data.stageId, {
         actualStartDate: data.actualStartDate,
         actualEndDate: data.actualEndDate,
-      }),
+      });
+    },
     onSuccess: () => {
       refetch();
       setSyncStageId(null);
@@ -119,12 +136,31 @@ export function StagesOverviewPanel({
       const detail = response.data;
       let minStart: string | null = null;
       let maxEnd: string | null = null;
+      const ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }> = [];
+
       detail.steps.forEach((step: any) => {
         step.screenFunctions?.forEach((ssf: any) => {
-          if (ssf.actualStartDate && (!minStart || ssf.actualStartDate < minStart)) minStart = ssf.actualStartDate;
-          if (ssf.actualEndDate && (!maxEnd || ssf.actualEndDate > maxEnd)) maxEnd = ssf.actualEndDate;
+          // Calculate dates from members for each SSF
+          let ssfMin: string | null = null;
+          let ssfMax: string | null = null;
+          ssf.members?.forEach((m: any) => {
+            if (m.actualStartDate && (!ssfMin || m.actualStartDate < ssfMin)) ssfMin = m.actualStartDate;
+            if (m.actualEndDate && (!ssfMax || m.actualEndDate > ssfMax)) ssfMax = m.actualEndDate;
+          });
+          if (ssfMin || ssfMax) {
+            ssfUpdates.push({
+              id: ssf.id,
+              actualStartDate: ssfMin || undefined,
+              actualEndDate: ssfMax || undefined,
+            });
+          }
+          // Also aggregate for stage-level min/max (use member-derived dates)
+          if (ssfMin && (!minStart || ssfMin < minStart)) minStart = ssfMin;
+          if (ssfMax && (!maxEnd || ssfMax > maxEnd)) maxEnd = ssfMax;
         });
       });
+
+      setSyncSsfUpdates(ssfUpdates);
       setSyncCalcDates({ start: minStart, end: maxEnd });
     } finally {
       setSyncLoading(false);
@@ -135,6 +171,7 @@ export function StagesOverviewPanel({
     if (!syncStageId) return;
     syncActualDatesMutation.mutate({
       stageId: syncStageId,
+      ssfUpdates: syncSsfUpdates,
       actualStartDate: syncCalcDates.start || undefined,
       actualEndDate: syncCalcDates.end || undefined,
     });
@@ -393,9 +430,17 @@ export function StagesOverviewPanel({
             <Box sx={{ pt: 1 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('stages.syncActualDatesDesc', {
-                  defaultValue: 'Sync actual start/end dates from the earliest and latest task dates across all steps.',
+                  defaultValue: 'Sync actual dates from member assignments: updates each task\'s actual dates from its members, then updates the stage dates from all tasks.',
                 })}
               </Typography>
+              {syncSsfUpdates.length > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  {t('stages.syncActualDatesTasks', {
+                    defaultValue: `${syncSsfUpdates.length} task(s) will be updated`,
+                    count: syncSsfUpdates.length,
+                  })}
+                </Typography>
+              )}
               <Grid container spacing={1}>
                 <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">{t('stages.actualStart')}:</Typography>
@@ -410,10 +455,10 @@ export function StagesOverviewPanel({
                   </Typography>
                 </Grid>
               </Grid>
-              {!syncCalcDates.start && !syncCalcDates.end && (
+              {syncSsfUpdates.length === 0 && !syncCalcDates.start && !syncCalcDates.end && (
                 <Typography variant="body2" color="warning.main" sx={{ mt: 1.5 }}>
                   {t('stages.syncActualDatesNoData', {
-                    defaultValue: 'No actual dates found in tasks. Nothing to sync.',
+                    defaultValue: 'No actual dates found in member assignments. Nothing to sync.',
                   })}
                 </Typography>
               )}
@@ -425,7 +470,7 @@ export function StagesOverviewPanel({
           <Button
             variant="contained"
             onClick={confirmSyncActualDates}
-            disabled={syncLoading || (!syncCalcDates.start && !syncCalcDates.end) || syncActualDatesMutation.isPending}
+            disabled={syncLoading || (syncSsfUpdates.length === 0 && !syncCalcDates.start && !syncCalcDates.end) || syncActualDatesMutation.isPending}
           >
             {syncActualDatesMutation.isPending ? <CircularProgress size={20} /> : t('common.confirm', { defaultValue: 'Confirm' })}
           </Button>
