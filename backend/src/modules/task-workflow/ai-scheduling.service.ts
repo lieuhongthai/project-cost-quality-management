@@ -17,6 +17,7 @@ import {
   ApplyAIEstimationDto,
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
+  AIReEstimateDto,
 } from './ai-scheduling.dto';
 import { AIPlanAllDto } from './ai-plan-all.dto';
 
@@ -257,8 +258,12 @@ export class AISchedulingService {
     // Get step-screen function counts per stage for context
     const stageContext = await this.getStageContext(stages);
 
+    // Compute the authoritative project total once — used both in the prompt
+    // (as the hard constraint) and server-side normalization after the AI responds.
+    const totalProjectHours = this.computeTotalProjectHours(screenFunctions, settings);
+
     // Build prompt
-    const prompt = this.buildStageEffortPrompt(stages, stageContext, screenFunctions, members, historicalData, settings, project);
+    const prompt = this.buildStageEffortPrompt(stages, stageContext, screenFunctions, members, historicalData, settings, project, totalProjectHours);
 
     try {
       const languageInstruction = this.getLanguageInstruction(language);
@@ -280,10 +285,12 @@ export class AISchedulingService {
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{}');
+      // Normalize: if AI returned a different total, rescale proportionally and recalculate dates
+      const normalized = this.normalizeStageEstimationToTotal(result, totalProjectHours, settings, project);
       return {
         success: true,
         source: 'AI',
-        data: result,
+        data: normalized,
       };
     } catch (error) {
       console.error('AI stage effort estimation error:', error);
@@ -293,6 +300,84 @@ export class AISchedulingService {
         data: this.generateTemplateStageEstimation(stages, stageContext, screenFunctions, members, settings, project),
       };
     }
+  }
+
+  /**
+   * Single source of truth for the project's total effort in hours.
+   * Uses actual screen function estimates if available; falls back to
+   * complexity-based approximation (Simple=8h, Medium=24h, Complex=56h).
+   */
+  private computeTotalProjectHours(screenFunctions: ScreenFunction[], settings: any): number {
+    const totalSFHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    if (totalSFHours > 0) return totalSFHours;
+    return screenFunctions.reduce((sum, sf) => {
+      const mult = sf.complexity === 'Simple' ? 8 : sf.complexity === 'Complex' ? 56 : 24;
+      return sum + mult;
+    }, 0) || 160;
+  }
+
+  /**
+   * Normalize AI stage estimates so they sum exactly to totalProjectHours.
+   * If the AI ignored the constraint (e.g. returned 432h for a 1059h project),
+   * this rescales each stage proportionally and recalculates dates.
+   */
+  private normalizeStageEstimationToTotal(
+    result: any,
+    totalProjectHours: number,
+    settings: any,
+    project: any,
+  ): any {
+    if (!result?.estimates || result.estimates.length === 0) return result;
+
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    const aiTotal = result.estimates.reduce(
+      (sum: number, e: any) => sum + (e.estimatedEffortHours || 0),
+      0,
+    );
+
+    // Only normalize if AI total deviates by more than 1% from expected
+    const deviation = Math.abs(aiTotal - totalProjectHours) / totalProjectHours;
+    if (aiTotal === 0 || deviation <= 0.01) return result;
+
+    // Rescale each stage proportionally to match the real total
+    const scale = totalProjectHours / aiTotal;
+    const normalized = result.estimates.map((e: any) => ({
+      ...e,
+      estimatedEffortHours: Math.round(e.estimatedEffortHours * scale * 10) / 10,
+    }));
+
+    // Fix rounding drift on the largest stage so sum is exact
+    const scaledTotal = normalized.reduce((s: number, e: any) => s + e.estimatedEffortHours, 0);
+    const drift = Math.round((totalProjectHours - scaledTotal) * 10) / 10;
+    if (drift !== 0 && normalized.length > 0) {
+      const largest = normalized.reduce((max: any, e: any) =>
+        e.estimatedEffortHours > max.estimatedEffortHours ? e : max,
+      );
+      largest.estimatedEffortHours = Math.round((largest.estimatedEffortHours + drift) * 10) / 10;
+    }
+
+    // Recalculate sequential dates based on normalized effort
+    let currentDate = new Date(project.startDate || new Date().toISOString().split('T')[0]);
+    for (const e of normalized) {
+      const durationDays = Math.ceil(e.estimatedEffortHours / workingHoursPerDay);
+      e.suggestedStartDate = this.formatDate(currentDate);
+      const endDate = this.addWorkingDays(currentDate, Math.max(1, durationDays));
+      e.suggestedEndDate = this.formatDate(endDate);
+      currentDate = this.addWorkingDays(endDate, 1); // next stage starts 1 working day after
+    }
+
+    return {
+      ...result,
+      estimates: normalized,
+      totalEstimatedHours: totalProjectHours,
+      totalEstimatedManMonths: +(totalProjectHours / (workingHoursPerDay * workingDaysPerMonth)).toFixed(2),
+      assumptions: [
+        ...(result.assumptions || []),
+        `Stage efforts normalized from AI total (${aiTotal.toFixed(1)}h) to match project total (${totalProjectHours}h).`,
+      ],
+    };
   }
 
   // ===== Apply Results =====
@@ -849,6 +934,7 @@ Rules:
     historicalData: any,
     settings: any,
     project: any,
+    totalProjectHours: number,
   ): string {
     const workingHoursPerDay = settings?.workingHoursPerDay || 8;
     const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
@@ -856,23 +942,24 @@ Rules:
 
     const stageList = stages.map(s => {
       const ctx = stageContext.find(c => c.stageId === s.id);
-      // Note: all effort fields below are in MAN-DAYS (MD)
-      const existingMD = ctx?.totalEstimatedEffort || 0;
+      // Note: estimatedEffort fields are in MAN-HOURS (MH)
+      const existingHours = ctx?.totalEstimatedEffort || 0;
       return {
         id: s.id,
         name: s.name,
         displayOrder: s.displayOrder,
-        currentEstimatedEffort_manDays: s.estimatedEffort || 0,
-        currentEstimatedEffort_hours: (s.estimatedEffort || 0) * workingHoursPerDay,
+        currentEstimatedEffort_manDays: +((s.estimatedEffort || 0) / workingHoursPerDay).toFixed(2),
+        currentEstimatedEffort_hours: s.estimatedEffort || 0,
         currentStartDate: s.startDate || null,
         currentEndDate: s.endDate || null,
         stepCount: ctx?.stepCount || 0,
         linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
-        existingStepEffort_manDays: existingMD,
-        existingStepEffort_hours: existingMD * workingHoursPerDay,
+        existingStepEffort_manDays: +(existingHours / workingHoursPerDay).toFixed(2),
+        existingStepEffort_hours: existingHours,
       };
     });
 
+    const totalSFHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
     const sfSummary = {
       total: screenFunctions.length,
       byComplexity: {
@@ -885,9 +972,8 @@ Rules:
         Function: screenFunctions.filter(sf => sf.type === 'Function').length,
         Other: screenFunctions.filter(sf => sf.type === 'Other').length,
       },
-      // estimatedEffort is stored in MAN-DAYS (MD) in the database
-      totalCurrentEstimate_manDays: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0)).toFixed(2),
-      totalCurrentEstimate_hours: +(screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0) * workingHoursPerDay).toFixed(0),
+      totalCurrentEstimate_hours: +totalSFHours.toFixed(0),
+      totalCurrentEstimate_manDays: +(totalSFHours / workingHoursPerDay).toFixed(2),
     };
 
     const teamSummary = {
@@ -901,24 +987,37 @@ Rules:
         : 0,
     };
 
-    const totalProjectHours = sfSummary.totalCurrentEstimate_hours;
-    const totalProjectMD = sfSummary.totalCurrentEstimate_manDays;
+    const totalProjectMD = +(totalProjectHours / workingHoursPerDay).toFixed(2);
+    const effortDataSource = totalSFHours > 0
+      ? `from existing screen function estimates`
+      : `ESTIMATED from complexity (${screenFunctions.length} functions: ${sfSummary.byComplexity.Simple} Simple×8h + ${sfSummary.byComplexity.Medium} Medium×24h + ${sfSummary.byComplexity.Complex} Complex×56h). Screen functions have not been individually estimated yet.`;
 
     return `
-Estimate the effort (in man-hours) for each workflow stage below.
+Distribute the project's TOTAL effort across workflow stages below.
 Each stage represents a phase in the software development lifecycle.
 
 CRITICAL UNIT NOTICE:
 - All "manDays" values in the data are in MAN-DAYS (MD), NOT hours
 - 1 MD = ${workingHoursPerDay} hours
-- The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours
+- The total project estimated effort is ${totalProjectMD} MD = ${totalProjectHours} hours (${effortDataSource})
 - Your "estimatedEffortHours" responses MUST be in HOURS
+
+HARD CONSTRAINT — NON-NEGOTIABLE:
+The SUM of all estimatedEffortHours MUST EXACTLY EQUAL ${totalProjectHours} hours.
+Do NOT invent a different total. Do NOT estimate from scratch.
+You are DISTRIBUTING ${totalProjectHours} hours, not re-estimating the project.
+
+Step-by-step calculation required:
+1. Assign a percentage to each stage based on its role in the lifecycle (see ratios below).
+2. Calculate: stage_hours = round(${totalProjectHours} × stage_percentage / 100, 1)
+3. Adjust the largest stage so that SUM of all stage_hours = exactly ${totalProjectHours}.
+4. Verify: sum all stages before responding.
 
 Project: ${project.name}
 Project Start Date: ${projectStartDate}
 Working hours/day: ${workingHoursPerDay}
 Working days/month: ${workingDaysPerMonth}
-Total project scope: ${totalProjectMD} man-days = ${totalProjectHours} hours (use this as your baseline)
+TOTAL to distribute: ${totalProjectHours} hours = ${totalProjectMD} man-days
 
 Team Composition:
 ${JSON.stringify(teamSummary, null, 2)}
@@ -952,14 +1051,16 @@ Respond with a JSON object in this exact format:
 }
 
 Rules:
-- The sum of all stage estimatedEffortHours should be close to the total project hours (${totalProjectHours}h = ${totalProjectMD} MD)
-- Distribute effort using typical ratios: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
-- Adjust distribution based on project complexity (Simple/Medium/Complex mix of screen functions)
-- Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort
-- If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's effort
-- Stages are sequential; each stage's suggestedStartDate = previous stage's suggestedEndDate + 1 working day
-- Calendar duration of a stage = estimatedEffortHours / (workingHoursPerDay × parallel_team_members)
-- Skip weekends for date calculations (assuming non-working days: Saturday, Sunday)
+- HARD CONSTRAINT: sum of all estimatedEffortHours MUST equal exactly ${totalProjectHours}h. Set totalEstimatedHours = ${totalProjectHours}.
+- NEVER return 0 for any stage. Minimum 1 hour per stage.
+- Typical ratios to distribute effort: Requirement ~10%, Design ~15%, Coding ~30%, Unit Test ~15%, Integration Test ~10%, System Test ~10%, User Test ~10%
+- For stages with non-standard names, allocate remaining effort proportionally.
+- Adjust distribution based on project complexity (Simple/Medium/Complex mix).
+- Team size (${teamSummary.totalMembers} members) determines calendar duration, not total effort.
+- If existingStepEffort_hours > 0 for a stage, use that as a strong signal for that stage's share.
+- Stages are sequential; each stage's suggestedStartDate = previous stage's suggestedEndDate + 1 working day.
+- Calendar duration of a stage = estimatedEffortHours / (workingHoursPerDay × parallel_team_members).
+- Skip weekends for date calculations (assuming non-working days: Saturday, Sunday).
     `.trim();
   }
 
@@ -992,10 +1093,10 @@ Rules:
     const nonWorkingDays = settings?.nonWorkingDays || [0, 6];
 
     // Calculate total SF effort as baseline
-    // estimatedEffort on ScreenFunction is stored in MAN-DAYS — convert to hours
-    const totalSFEffortMD = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
-    const totalSFEffortHours = totalSFEffortMD * workingHoursPerDay;
-    // If no SF effort, estimate based on count and complexity (already in hours)
+    // estimatedEffort on ScreenFunction is stored in MAN-HOURS — use directly
+    const totalSFEffortHours = screenFunctions.reduce((sum, sf) => sum + (sf.estimatedEffort || 0), 0);
+    const totalSFEffortMD = totalSFEffortHours / workingHoursPerDay;
+    // If no SF effort, estimate based on count and complexity (in hours)
     const baseTotalEffort = totalSFEffortHours > 0
       ? totalSFEffortHours
       : screenFunctions.reduce((sum, sf) => {
@@ -1070,6 +1171,251 @@ Rules:
         `Parallel factor: ${parallelFactor} members working simultaneously`,
         'Stages are sequential (each stage starts after the previous one ends)',
       ],
+    };
+  }
+
+  // ===== Re-Estimation (Mid-Project) =====
+
+  async reEstimateUncompleted(dto: AIReEstimateDto) {
+    const { projectId, stageIds, language = 'English' } = dto;
+
+    // Fetch all active stages with their current progress/effort data
+    const allStages = await this.stageRepository.findAll({
+      where: { projectId, isActive: true },
+      order: [['displayOrder', 'ASC']],
+    });
+
+    if (allStages.length === 0) {
+      throw new BadRequestException('No workflow stages found for this project');
+    }
+
+    // Filter to uncompleted stages (progress < 100)
+    let targetStages = allStages.filter(s => s.progress < 100);
+
+    // If specific stageIds provided, further filter
+    if (stageIds && stageIds.length > 0) {
+      targetStages = targetStages.filter(s => stageIds.includes(s.id));
+    }
+
+    if (targetStages.length === 0) {
+      throw new BadRequestException('All stages are already completed. No stages need re-estimation.');
+    }
+
+    // Save original estimates for comparison
+    const originalEstimates = targetStages.map(s => ({
+      stageId: s.id,
+      stageName: s.name,
+      originalEstimatedHours: s.estimatedEffort || 0,
+      currentActualHours: s.actualEffort || 0,
+      currentProgress: s.progress || 0,
+    }));
+
+    // Fetch context data
+    const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
+    const members = await this.memberService.findActiveByProject(projectId);
+    const project = await this.projectService.findOne(projectId);
+    const settings = await this.projectService.getSettings(projectId);
+    const historicalData = await this.getHistoricalData(projectId);
+    const stageContext = await this.getStageContext(targetStages);
+
+    const prompt = this.buildReEstimatePrompt(
+      targetStages,
+      stageContext,
+      originalEstimates,
+      screenFunctions,
+      members,
+      historicalData,
+      settings,
+      project,
+    );
+
+    try {
+      const languageInstruction = this.getLanguageInstruction(language);
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a software project re-estimation expert. Analyze actual effort spent versus original estimates to produce calibrated estimates for remaining uncompleted stages. ${languageInstruction} You MUST respond with a valid JSON object.`,
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || '{}');
+
+      // Merge with original estimates for diff comparison
+      if (result.estimates) {
+        result.estimates = result.estimates.map((est: any) => {
+          const orig = originalEstimates.find(o => o.stageId === est.stageId);
+          return {
+            ...est,
+            originalEstimatedHours: orig?.originalEstimatedHours || 0,
+            currentActualHours: orig?.currentActualHours || 0,
+            currentProgress: orig?.currentProgress || 0,
+            diffHours: est.estimatedEffortHours - (orig?.originalEstimatedHours || 0),
+          };
+        });
+      }
+
+      return { success: true, source: 'AI', data: result };
+    } catch (error) {
+      console.error('AI re-estimation error:', error);
+      return {
+        success: true,
+        source: 'Template',
+        data: this.generateTemplateReEstimation(targetStages, originalEstimates, settings),
+      };
+    }
+  }
+
+  private buildReEstimatePrompt(
+    stages: WorkflowStage[],
+    stageContext: Array<any>,
+    originalEstimates: Array<any>,
+    screenFunctions: ScreenFunction[],
+    members: Member[],
+    historicalData: any,
+    settings: any,
+    project: any,
+  ): string {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    const stageData = stages.map(s => {
+      const ctx = stageContext.find(c => c.stageId === s.id);
+      const orig = originalEstimates.find(o => o.stageId === s.id);
+      const remainingPct = 100 - (s.progress || 0);
+      const paceRatio = s.progress > 0 && (orig?.originalEstimatedHours || 0) > 0
+        ? +((s.actualEffort || 0) / ((orig.originalEstimatedHours * s.progress) / 100)).toFixed(2)
+        : null;
+
+      return {
+        id: s.id,
+        name: s.name,
+        originalEstimatedHours: orig?.originalEstimatedHours || 0,
+        actualEffortSoFar: s.actualEffort || 0,
+        progressPercent: s.progress || 0,
+        remainingPercent: remainingPct,
+        paceRatio_actualVsEstimated: paceRatio,
+        stepCount: ctx?.stepCount || 0,
+        linkedScreenFunctions: ctx?.linkedScreenFunctions || 0,
+      };
+    });
+
+    // Overall calibration factor from stages with real data
+    const stagesWithData = stages.filter(s => s.progress > 0 && (s.estimatedEffort || 0) > 0 && (s.actualEffort || 0) > 0);
+    const calibrationFactor = stagesWithData.length > 0
+      ? +(stagesWithData.reduce((sum, s) => {
+          const estimatedSoFar = (s.estimatedEffort * s.progress) / 100;
+          return sum + (estimatedSoFar > 0 ? (s.actualEffort / estimatedSoFar) : 1);
+        }, 0) / stagesWithData.length).toFixed(2)
+      : 1.0;
+
+    return JSON.stringify({
+      task: 'Re-estimate uncompleted workflow stages using actual progress data',
+      calibrationContext: {
+        overallCalibrationFactor: calibrationFactor,
+        interpretation: calibrationFactor > 1
+          ? `Project is running ${((calibrationFactor - 1) * 100).toFixed(0)}% OVER estimate — increase remaining estimates`
+          : calibrationFactor < 1
+          ? `Project is running ${((1 - calibrationFactor) * 100).toFixed(0)}% UNDER estimate — estimates may decrease`
+          : 'Project is on track with estimates',
+        historicalData,
+      },
+      stagesToReEstimate: stageData,
+      teamSize: members.length,
+      workingHoursPerDay,
+      workingDaysPerMonth,
+      projectScope: {
+        totalScreenFunctions: screenFunctions.length,
+        byComplexity: {
+          Simple: screenFunctions.filter(sf => sf.complexity === 'Simple').length,
+          Medium: screenFunctions.filter(sf => sf.complexity === 'Medium').length,
+          Complex: screenFunctions.filter(sf => sf.complexity === 'Complex').length,
+        },
+      },
+      instructions: [
+        'For each stage, provide a revised total estimatedEffortHours',
+        'If paceRatio > 1: the stage is going over budget; extrapolate remaining effort using the pace ratio',
+        'If paceRatio is null (not started): apply the overallCalibrationFactor to the original estimate',
+        'Provide clear reasoning for each change',
+        'Return confidence level: high/medium/low',
+      ],
+      requiredOutputFormat: {
+        estimates: [
+          {
+            stageId: 'number',
+            stageName: 'string',
+            estimatedEffortHours: 'number (revised TOTAL hours for this stage)',
+            confidence: 'high | medium | low',
+            reasoning: 'string explaining the revision vs original',
+          },
+        ],
+        totalRevisedHours: 'number',
+        totalRevisedManMonths: 'number',
+        calibrationInsight: 'string summarizing overall project performance',
+        assumptions: ['string array'],
+      },
+    }, null, 2);
+  }
+
+  private generateTemplateReEstimation(
+    stages: WorkflowStage[],
+    originalEstimates: Array<any>,
+    settings: any,
+  ) {
+    const workingHoursPerDay = settings?.workingHoursPerDay || 8;
+    const workingDaysPerMonth = settings?.workingDaysPerMonth || 20;
+
+    // Calculate calibration factor from stages with real data
+    const stagesWithData = stages.filter(s => s.progress > 0 && (s.estimatedEffort || 0) > 0 && (s.actualEffort || 0) > 0);
+    let calibrationFactor = 1.0;
+    if (stagesWithData.length > 0) {
+      const totalEstimatedSoFar = stagesWithData.reduce((sum, s) => sum + (s.estimatedEffort * s.progress) / 100, 0);
+      const totalActualSoFar = stagesWithData.reduce((sum, s) => sum + s.actualEffort, 0);
+      if (totalEstimatedSoFar > 0) calibrationFactor = totalActualSoFar / totalEstimatedSoFar;
+    }
+
+    const estimates = stages.map(s => {
+      const orig = originalEstimates.find(o => o.stageId === s.id);
+      const origHours = orig?.originalEstimatedHours || 0;
+      const actualSoFar = s.actualEffort || 0;
+      const progress = s.progress || 0;
+
+      let revisedHours: number;
+      if (progress > 0 && origHours > 0) {
+        const paceRatio = actualSoFar / ((origHours * progress) / 100);
+        const remainingEstimated = (origHours * (100 - progress)) / 100;
+        revisedHours = Math.round(actualSoFar + remainingEstimated * paceRatio);
+      } else {
+        revisedHours = Math.round(origHours * calibrationFactor);
+      }
+
+      return {
+        stageId: s.id,
+        stageName: s.name,
+        estimatedEffortHours: revisedHours,
+        originalEstimatedHours: origHours,
+        currentActualHours: actualSoFar,
+        currentProgress: progress,
+        diffHours: revisedHours - origHours,
+        confidence: 'low' as const,
+        reasoning: `Template: calibration factor ${calibrationFactor.toFixed(2)}x applied`,
+      };
+    });
+
+    const totalRevisedHours = estimates.reduce((sum, e) => sum + e.estimatedEffortHours, 0);
+
+    return {
+      estimates,
+      totalRevisedHours,
+      totalRevisedManMonths: +(totalRevisedHours / (workingHoursPerDay * workingDaysPerMonth)).toFixed(2),
+      calibrationInsight: `Template-based: overall calibration factor is ${calibrationFactor.toFixed(2)}x`,
+      assumptions: ['Template-based re-estimation (AI unavailable)', `Calibration factor: ${calibrationFactor.toFixed(2)}`],
     };
   }
 

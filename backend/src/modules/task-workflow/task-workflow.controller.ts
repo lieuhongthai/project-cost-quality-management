@@ -24,6 +24,7 @@ import {
   ApplyAIEstimationDto,
   ApplyAIStageEstimationDto,
   ApplyAIScheduleDto,
+  AIReEstimateDto,
 } from './ai-scheduling.dto';
 import { AIPlanAllDto } from './ai-plan-all.dto';
 import {
@@ -56,6 +57,7 @@ import {
   InitializeProjectMetricsDto,
   CreateWorklogMappingRuleDto,
   UpdateWorklogMappingRuleDto,
+  CopyWorklogMappingRulesDto,
   CommitWorklogImportDto,
 } from './task-workflow.dto';
 import * as ExcelJS from 'exceljs';
@@ -232,6 +234,14 @@ export class TaskWorkflowController {
   }
 
 
+
+  @Post('worklog-mapping-rules/copy-from-project')
+  copyWorklogMappingRules(@Body() dto: CopyWorklogMappingRulesDto) {
+    return this.taskWorkflowService.copyWorklogMappingRules(
+      dto.sourceProjectId,
+      dto.targetProjectId,
+    );
+  }
 
   @Post('worklog-mapping-rules/ai-suggest')
   @UseInterceptors(FileInterceptor('file'))
@@ -776,5 +786,10 @@ export class TaskWorkflowController {
   @Post('ai/plan-all')
   planAll(@Body() dto: AIPlanAllDto) {
     return this.aiSchedulingService.planAll(dto);
+  }
+
+  @Post('ai/re-estimate-uncompleted')
+  reEstimateUncompleted(@Body() dto: AIReEstimateDto) {
+    return this.aiSchedulingService.reEstimateUncompleted(dto);
   }
 }

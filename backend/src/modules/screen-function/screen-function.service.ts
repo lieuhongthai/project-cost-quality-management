@@ -4,7 +4,7 @@ import { ScreenFunction } from './screen-function.model';
 import { ScreenFunctionDefaultMember } from './screen-function-default-member.model';
 import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 import { Member } from '../member/member.model';
-import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto } from './screen-function.dto';
+import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto, CopyScreenFunctionsDto } from './screen-function.dto';
 import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 
 @Injectable()
@@ -227,6 +227,69 @@ export class ScreenFunctionService {
       byType,
       byStatus,
       byPriority,
+    };
+  }
+
+  async copyScreenFunctionsFromProject(
+    sourceProjectId: number,
+    targetProjectId: number,
+    screenFunctionIds: number[],
+  ): Promise<{ copied: number; skipped: number; screenFunctions: ScreenFunction[] }> {
+    const existingScreenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId: targetProjectId },
+    });
+    const existingNames = new Set(
+      existingScreenFunctions.map((sf) => sf.name.toLowerCase()),
+    );
+
+    const maxOrder = (await this.screenFunctionRepository.max('displayOrder', {
+      where: { projectId: targetProjectId },
+    }) as number) || 0;
+
+    const copiedScreenFunctions: ScreenFunction[] = [];
+    let skipped = 0;
+    let currentOrder = maxOrder;
+
+    for (const sfId of screenFunctionIds) {
+      try {
+        const sourceSF = await this.findOne(sfId);
+
+        if (existingNames.has(sourceSF.name.toLowerCase())) {
+          skipped++;
+          continue;
+        }
+
+        currentOrder++;
+        const newSF = await this.screenFunctionRepository.create({
+          projectId: targetProjectId,
+          name: sourceSF.name,
+          type: sourceSF.type,
+          priority: sourceSF.priority,
+          complexity: sourceSF.complexity,
+          displayOrder: currentOrder,
+          estimatedEffort: 0,
+          actualEffort: 0,
+          progress: 0,
+          status: 'Not Started',
+        } as any);
+
+        try {
+          await this.taskWorkflowService.linkScreenFunctionToAllStages(targetProjectId, newSF.id);
+        } catch (error) {
+          console.warn(`Auto-link failed for copied screen function ${newSF.id}:`, error?.message);
+        }
+
+        copiedScreenFunctions.push(newSF);
+        existingNames.add(sourceSF.name.toLowerCase());
+      } catch (error) {
+        skipped++;
+      }
+    }
+
+    return {
+      copied: copiedScreenFunctions.length,
+      skipped,
+      screenFunctions: copiedScreenFunctions,
     };
   }
 

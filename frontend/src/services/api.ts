@@ -146,6 +146,8 @@ export const screenFunctionApi = {
   reorder: (items: Array<{ id: number; displayOrder: number }>) =>
     api.put('/screen-functions/reorder', { items }),
   getSummary: (projectId: number) => api.get<ScreenFunctionSummary>(`/screen-functions/project/${projectId}/summary`),
+  copyFromProject: (data: { sourceProjectId: number; targetProjectId: number; screenFunctionIds: number[] }) =>
+    api.post<{ copied: number; skipped: number; screenFunctions: ScreenFunction[] }>('/screen-functions/copy', data),
 
   // Default Members
   getDefaultMembers: (screenFunctionId: number) =>
@@ -254,6 +256,12 @@ export const taskWorkflowApi = {
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
   },
+
+  copyWorklogMappingRules: (sourceProjectId: number, targetProjectId: number) =>
+    api.post<{ copied: number; unmatched: number; overwritten: number }>(
+      '/task-workflow/worklog-mapping-rules/copy-from-project',
+      { sourceProjectId, targetProjectId },
+    ),
 
   // Worklog Import
   previewWorklogImport: (projectId: number, file: File) => {
@@ -475,6 +483,10 @@ export const taskWorkflowApi = {
   // Plan All: one-click AI estimation + scheduling for entire project
   aiPlanAll: (data: { projectId: number; language?: string; autoApply?: boolean }) =>
     api.post('/task-workflow/ai/plan-all', data),
+
+  // Re-estimate uncompleted stages using actual effort data
+  aiReEstimateUncompleted: (data: { projectId: number; stageIds?: number[]; language?: string }) =>
+    api.post('/task-workflow/ai/re-estimate-uncompleted', data),
 };
 
 export const iamApi = {

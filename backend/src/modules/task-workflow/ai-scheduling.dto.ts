@@ -125,3 +125,17 @@ export class ApplyAIScheduleDto {
   @Type(() => ScheduleAssignment)
   assignments: ScheduleAssignment[];
 }
+
+export class AIReEstimateDto {
+  @IsNotEmpty()
+  @IsNumber()
+  projectId: number;
+
+  @IsOptional()
+  @IsArray()
+  stageIds?: number[];
+
+  @IsOptional()
+  @IsString()
+  language?: 'English' | 'Vietnamese' | 'Japanese';
+}

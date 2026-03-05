@@ -137,6 +137,8 @@ export const DateInput: React.FC<DateInputProps> = ({
       dateFormat="yyyy/MM/dd"
       placeholderText={placeholder}
       disabled={disabled}
+      popperProps={{ strategy: 'fixed' }}
+      portalId="datepicker-portal"
       // showYearPicker
       // showMonthYearPicker
       customInput={

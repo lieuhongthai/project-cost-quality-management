@@ -9,7 +9,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { ScreenFunctionService } from './screen-function.service';
-import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto } from './screen-function.dto';
+import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto, CopyScreenFunctionsDto } from './screen-function.dto';
 
 @Controller('screen-functions')
 export class ScreenFunctionController {
@@ -48,6 +48,15 @@ export class ScreenFunctionController {
   @Post()
   create(@Body() createDto: CreateScreenFunctionDto) {
     return this.screenFunctionService.create(createDto);
+  }
+
+  @Post('copy')
+  copyFromProject(@Body() copyDto: CopyScreenFunctionsDto) {
+    return this.screenFunctionService.copyScreenFunctionsFromProject(
+      copyDto.sourceProjectId,
+      copyDto.targetProjectId,
+      copyDto.screenFunctionIds,
+    );
   }
 
   @Put('reorder')

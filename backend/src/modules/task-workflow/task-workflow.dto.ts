@@ -733,15 +733,15 @@ export class CreateWorklogMappingRuleDto {
   @IsString()
   keyword: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  stageId: number;
+  stageId?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  stepId: number;
+  stepId?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -776,6 +776,18 @@ export class UpdateWorklogMappingRuleDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CopyWorklogMappingRulesDto {
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  sourceProjectId: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  targetProjectId: number;
 }
 
 // ===== Worklog Import DTOs =====

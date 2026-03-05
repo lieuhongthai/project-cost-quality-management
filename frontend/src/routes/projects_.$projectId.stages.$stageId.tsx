@@ -83,6 +83,7 @@ function StageDetail() {
   } | null>(null);
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
+  const [ssfDateUpdates, setSsfDateUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
   const [showQuickLink, setShowQuickLink] = useState(false);
@@ -213,10 +214,21 @@ function StageDetail() {
     },
   });
 
-  // Update stage actual dates mutation
+  // Update stage actual dates mutation (also syncs SSF dates from members)
   const updateStageDatesMutation = useMutation({
-    mutationFn: (data: { actualStartDate?: string; actualEndDate?: string }) =>
-      taskWorkflowApi.updateStage(parseInt(stageId), data),
+    mutationFn: async (data: { actualStartDate?: string; actualEndDate?: string }) => {
+      // Step 1: update each SSF with member-derived dates
+      await Promise.all(
+        ssfDateUpdates.map((u) =>
+          taskWorkflowApi.updateStepScreenFunction(u.id, {
+            actualStartDate: u.actualStartDate,
+            actualEndDate: u.actualEndDate,
+          })
+        )
+      );
+      // Step 2: update stage
+      return taskWorkflowApi.updateStage(parseInt(stageId), data);
+    },
     onSuccess: () => {
       invalidateStageQueries();
       setShowUpdateActualDateConfirm(false);
@@ -320,23 +332,36 @@ function StageDetail() {
 
     let minStartDate: string | null = null;
     let maxEndDate: string | null = null;
+    const updates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }> = [];
 
     // Iterate through all steps and screen functions
     stageDetail.steps.forEach(step => {
       step.screenFunctions?.forEach((ssf: any) => {
-        if (ssf.actualStartDate) {
-          if (!minStartDate || ssf.actualStartDate < minStartDate) {
-            minStartDate = ssf.actualStartDate;
-          }
+        // Calculate dates from members for each SSF
+        let ssfMin: string | null = null;
+        let ssfMax: string | null = null;
+        ssf.members?.forEach((m: any) => {
+          if (m.actualStartDate && (!ssfMin || m.actualStartDate < ssfMin)) ssfMin = m.actualStartDate;
+          if (m.actualEndDate && (!ssfMax || m.actualEndDate > ssfMax)) ssfMax = m.actualEndDate;
+        });
+        // Fall back to ssf's own dates if no member dates
+        const effectiveStart = ssfMin || ssf.actualStartDate || null;
+        const effectiveEnd = ssfMax || ssf.actualEndDate || null;
+
+        if (ssfMin || ssfMax) {
+          updates.push({
+            id: ssf.id,
+            actualStartDate: ssfMin || undefined,
+            actualEndDate: ssfMax || undefined,
+          });
         }
-        if (ssf.actualEndDate) {
-          if (!maxEndDate || ssf.actualEndDate > maxEndDate) {
-            maxEndDate = ssf.actualEndDate;
-          }
-        }
+
+        if (effectiveStart && (!minStartDate || effectiveStart < minStartDate)) minStartDate = effectiveStart;
+        if (effectiveEnd && (!maxEndDate || effectiveEnd > maxEndDate)) maxEndDate = effectiveEnd;
       });
     });
 
+    setSsfDateUpdates(updates);
     setCalculatedDates({ start: minStartDate, end: maxEndDate });
     setShowUpdateActualDateConfirm(true);
   };
@@ -711,6 +736,12 @@ function StageDetail() {
                         <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           {t('stages.actEffort')}
                         </th>
+                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          {t('stages.estimatedSchedule')}
+                        </th>
+                        <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          {t('stages.actualSchedule')}
+                        </th>
                         <th className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 w-36">
                           {t('common.actions')}
                         </th>
@@ -821,6 +852,34 @@ function StageDetail() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                               {actualValue}h
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500">
+                              {ssf.estimatedStartDate || ssf.estimatedEndDate ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-xs text-gray-500">
+                                    {ssf.estimatedStartDate ? new Date(ssf.estimatedStartDate).toLocaleDateString() : '—'}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    → {ssf.estimatedEndDate ? new Date(ssf.estimatedEndDate).toLocaleDateString() : '—'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500">
+                              {ssf.actualStartDate || ssf.actualEndDate ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-xs text-green-700">
+                                    {ssf.actualStartDate ? new Date(ssf.actualStartDate).toLocaleDateString() : '—'}
+                                  </div>
+                                  <div className="text-xs text-green-600">
+                                    → {ssf.actualEndDate ? new Date(ssf.actualEndDate).toLocaleDateString() : '—'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex items-center justify-center gap-1">
