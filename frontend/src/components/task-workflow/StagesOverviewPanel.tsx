@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Chip from '@mui/material/Chip';
@@ -35,6 +36,9 @@ export function StagesOverviewPanel({
   const queryClient = useQueryClient();
   const [editingStage, setEditingStage] = useState<StageOverviewData | null>(null);
   const [quickLinkStageId, setQuickLinkStageId] = useState<number | null>(null);
+  const [syncStageId, setSyncStageId] = useState<number | null>(null);
+  const [syncCalcDates, setSyncCalcDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
+  const [syncLoading, setSyncLoading] = useState(false);
   const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
   const [quickLinkAssignMembers, setQuickLinkAssignMembers] = useState(false);
   const [quickLinkResult, setQuickLinkResult] = useState<{
@@ -90,6 +94,49 @@ export function StagesOverviewPanel({
       stageId: quickLinkStageId,
       type: quickLinkType,
       assignMembers: quickLinkAssignMembers,
+    });
+  };
+
+  // Sync Actual Dates mutation
+  const syncActualDatesMutation = useMutation({
+    mutationFn: (data: { stageId: number; actualStartDate?: string; actualEndDate?: string }) =>
+      taskWorkflowApi.updateStage(data.stageId, {
+        actualStartDate: data.actualStartDate,
+        actualEndDate: data.actualEndDate,
+      }),
+    onSuccess: () => {
+      refetch();
+      setSyncStageId(null);
+    },
+  });
+
+  const handleOpenSyncActualDates = async (stageId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSyncLoading(true);
+    setSyncStageId(stageId);
+    try {
+      const response = await taskWorkflowApi.getStageDetail(stageId);
+      const detail = response.data;
+      let minStart: string | null = null;
+      let maxEnd: string | null = null;
+      detail.steps.forEach((step: any) => {
+        step.screenFunctions?.forEach((ssf: any) => {
+          if (ssf.actualStartDate && (!minStart || ssf.actualStartDate < minStart)) minStart = ssf.actualStartDate;
+          if (ssf.actualEndDate && (!maxEnd || ssf.actualEndDate > maxEnd)) maxEnd = ssf.actualEndDate;
+        });
+      });
+      setSyncCalcDates({ start: minStart, end: maxEnd });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const confirmSyncActualDates = () => {
+    if (!syncStageId) return;
+    syncActualDatesMutation.mutate({
+      stageId: syncStageId,
+      actualStartDate: syncCalcDates.start || undefined,
+      actualEndDate: syncCalcDates.end || undefined,
     });
   };
 
@@ -232,6 +279,17 @@ export function StagesOverviewPanel({
                     <Button
                       variant="outlined"
                       size="small"
+                      onClick={(e) => handleOpenSyncActualDates(stage.id, e)}
+                      title={t('stages.syncActualDates', { defaultValue: 'Sync Actual Dates' })}
+                      sx={{ minWidth: 'auto', px: 1 }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingStage(stage);
@@ -316,6 +374,63 @@ export function StagesOverviewPanel({
           onClose={handleEditClose}
         />
       )}
+
+      {/* Sync Actual Dates Confirm Dialog */}
+      <Dialog
+        open={syncStageId !== null}
+        onClose={() => setSyncStageId(null)}
+        maxWidth="xs"
+        fullWidth
+        disableScrollLock
+      >
+        <DialogTitle>{t('stages.syncActualDates', { defaultValue: 'Sync Actual Dates' })}</DialogTitle>
+        <DialogContent>
+          {syncLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            <Box sx={{ pt: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('stages.syncActualDatesDesc', {
+                  defaultValue: 'Sync actual start/end dates from the earliest and latest task dates across all steps.',
+                })}
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid size={6}>
+                  <Typography variant="caption" color="text.secondary">{t('stages.actualStart')}:</Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {syncCalcDates.start ? formatDate(syncCalcDates.start) : '-'}
+                  </Typography>
+                </Grid>
+                <Grid size={6}>
+                  <Typography variant="caption" color="text.secondary">{t('stages.actualEnd')}:</Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {syncCalcDates.end ? formatDate(syncCalcDates.end) : '-'}
+                  </Typography>
+                </Grid>
+              </Grid>
+              {!syncCalcDates.start && !syncCalcDates.end && (
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1.5 }}>
+                  {t('stages.syncActualDatesNoData', {
+                    defaultValue: 'No actual dates found in tasks. Nothing to sync.',
+                  })}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSyncStageId(null)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            onClick={confirmSyncActualDates}
+            disabled={syncLoading || (!syncCalcDates.start && !syncCalcDates.end) || syncActualDatesMutation.isPending}
+          >
+            {syncActualDatesMutation.isPending ? <CircularProgress size={20} /> : t('common.confirm', { defaultValue: 'Confirm' })}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Quick Link Modal */}
       <Dialog
