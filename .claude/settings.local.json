@@ -5,7 +5,13 @@
       "Bash(npm run start:dev:*)",
       "Bash(npm run build:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx tsc --noEmit -p frontend/tsconfig.json)",
+      "Bash(git add frontend/src/components/task-workflow/WorklogImportPanel.tsx)",
+      "Bash(git commit -m \"feat: add sortable columns \\(Day, Stage/Step, Screen/Function, Status\\) to WorklogImportPanel table\")",
+      "Bash(git push -u origin claude/fix-estimate-effort-calc-UNMe1)",
+      "Bash(git add .claude/settings.local.json)",
+      "Bash(git commit -m \"chore: update claude settings\")"
     ]
   }
 }
