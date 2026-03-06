@@ -284,6 +284,8 @@
     "itemsSelected": "item(s) selected",
     "alreadyExists": "Already exists",
     "copyAction": "Copy",
+    "autoCreateSteps": "Auto-create steps for all stages",
+    "autoCreateStepsHint": "Automatically link this item to all workflow steps in each stage",
     "form": {
       "namePlaceholder": "Enter screen/function name",
       "estimatedEffortLabel": "Estimated Effort ({{unit}})",

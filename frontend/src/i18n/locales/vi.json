@@ -284,6 +284,8 @@
     "itemsSelected": "mục đã chọn",
     "alreadyExists": "Đã tồn tại",
     "copyAction": "Sao chép",
+    "autoCreateSteps": "Tự động tạo step theo từng stage",
+    "autoCreateStepsHint": "Tự động liên kết mục này với tất cả các bước trong từng giai đoạn",
     "form": {
       "namePlaceholder": "Nhập tên màn hình/chức năng",
       "estimatedEffortLabel": "Công sức ước tính ({{unit}})",

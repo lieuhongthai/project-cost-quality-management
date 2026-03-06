@@ -100,6 +100,7 @@ function ProjectDetail() {
   const [showCopyScreenFunctions, setShowCopyScreenFunctions] = useState(false);
   const [sfSourceProject, setSFSourceProject] = useState<number | null>(null);
   const [selectedSFIds, setSelectedSFIds] = useState<number[]>([]);
+  const [copySFAutoCreateSteps, setCopySFAutoCreateSteps] = useState(false);
   const [linkingMemberId, setLinkingMemberId] = useState<number | null>(null);
   const [selectedSourceProject, setSelectedSourceProject] = useState<
     number | null
@@ -587,6 +588,7 @@ function ProjectDetail() {
       sourceProjectId: number;
       targetProjectId: number;
       screenFunctionIds: number[];
+      autoCreateSteps?: boolean;
     }) => screenFunctionApi.copyFromProject(data),
     onSuccess: (result) => {
       queryClient.invalidateQueries({
@@ -601,6 +603,7 @@ function ProjectDetail() {
       setShowCopyScreenFunctions(false);
       setSFSourceProject(null);
       setSelectedSFIds([]);
+      setCopySFAutoCreateSteps(false);
       alert(
         `Copied ${result.data.copied} item(s).${result.data.skipped > 0 ? ` ${result.data.skipped} skipped (already exist).` : ""}`,
       );
@@ -3393,6 +3396,7 @@ function ProjectDetail() {
           setShowCopyScreenFunctions(false);
           setSFSourceProject(null);
           setSelectedSFIds([]);
+          setCopySFAutoCreateSteps(false);
         }}
         title={t("screenFunction.copyFromProject")}
         size="lg"
@@ -3515,6 +3519,24 @@ function ProjectDetail() {
             </div>
           )}
 
+          {/* Auto-create steps flag */}
+          <label className="flex items-start gap-3 cursor-pointer pt-2">
+            <input
+              type="checkbox"
+              checked={copySFAutoCreateSteps}
+              onChange={(e) => setCopySFAutoCreateSteps(e.target.checked)}
+              className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-700">
+                {t("screenFunction.autoCreateSteps")}
+              </span>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {t("screenFunction.autoCreateStepsHint")}
+              </p>
+            </div>
+          </label>
+
           {/* Summary and Actions */}
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-sm text-gray-600">
@@ -3532,6 +3554,7 @@ function ProjectDetail() {
                   setShowCopyScreenFunctions(false);
                   setSFSourceProject(null);
                   setSelectedSFIds([]);
+                  setCopySFAutoCreateSteps(false);
                 }}
               >
                 {t("common.cancel")}
@@ -3543,6 +3566,7 @@ function ProjectDetail() {
                       sourceProjectId: sfSourceProject,
                       targetProjectId: parseInt(projectId),
                       screenFunctionIds: selectedSFIds,
+                      autoCreateSteps: copySFAutoCreateSteps,
                     });
                   }
                 }}
