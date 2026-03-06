@@ -13,19 +13,34 @@ import { MetricCategory } from "./metric-category.model";
 // Default metric types template
 export const DEFAULT_METRIC_TYPES = [
   {
-    name: "Review Issues",
-    description: "Issues found during review",
+    name: "Requirement",
+    description: "Issues found in requirement analysis",
     displayOrder: 1,
   },
   {
-    name: "Bugs",
-    description: "Bugs found during code review or testing",
+    name: "Coding",
+    description: "Issues found in coding",
     displayOrder: 2,
   },
   {
-    name: "Test Cases",
-    description: "Test case execution results",
+    name: "Functional Design",
+    description: "Issues found in functional design",
     displayOrder: 3,
+  },
+  {
+    name: "Review_TestPlant",
+    description: "Issues found in test plan review",
+    displayOrder: 4,
+  },
+  {
+    name: "Review_Testcase",
+    description: "Issues found in test case review",
+    displayOrder: 5,
+  },
+  {
+    name: "Test Cases",
+    description: "Issues found in test case review",
+    displayOrder: 5,
   },
 ] as const;
 
