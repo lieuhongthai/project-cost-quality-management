@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsEnum, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsString, IsOptional, IsEnum, IsArray, IsBoolean, ValidateNested } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateScreenFunctionDto {
   @IsNotEmpty()
@@ -50,6 +50,11 @@ export class CreateScreenFunctionDto {
   @Type(() => Number)
   @IsNumber()
   displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  autoCreateSteps?: boolean;
 }
 
 export class UpdateScreenFunctionDto {
@@ -132,4 +137,9 @@ export class CopyScreenFunctionsDto {
   @IsNotEmpty()
   @IsArray()
   screenFunctionIds: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  autoCreateSteps?: boolean;
 }

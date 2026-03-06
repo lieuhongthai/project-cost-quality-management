@@ -42,6 +42,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     estimatedEffort: initialEffort,
     displayOrder: screenFunction?.displayOrder ?? nextDisplayOrder,
   });
+  const [autoCreateSteps, setAutoCreateSteps] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -136,7 +137,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     if (screenFunction) {
       updateMutation.mutate(submitData);
     } else {
-      createMutation.mutate({ projectId, ...submitData });
+      createMutation.mutate({ projectId, ...submitData, autoCreateSteps });
     }
   };
 
@@ -309,6 +310,27 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         rows={3}
         disabled={isLoading}
       />
+
+      {/* Auto-create steps flag - only for new screen/function */}
+      {!screenFunction && (
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoCreateSteps}
+            onChange={(e) => setAutoCreateSteps(e.target.checked)}
+            className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+            disabled={isLoading}
+          />
+          <div>
+            <span className="text-sm font-medium text-gray-700">
+              {t('screenFunction.autoCreateSteps')}
+            </span>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {t('screenFunction.autoCreateStepsHint')}
+            </p>
+          </div>
+        </label>
+      )}
 
       <div className="flex justify-end gap-2 pt-4">
         <Button

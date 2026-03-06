@@ -93,12 +93,14 @@ export class ScreenFunctionService {
 
     const screenFunction = await this.screenFunctionRepository.create(data as any);
 
-    // Auto-link to all workflow stages/steps if workflow is initialized
-    try {
-      await this.taskWorkflowService.linkScreenFunctionToAllStages(createDto.projectId, screenFunction.id);
-    } catch (error) {
-      // Non-critical: screen function is still usable without auto-linking
-      console.warn(`Auto-link failed for screen function ${screenFunction.id}:`, error?.message);
+    // Auto-link to all workflow stages/steps only when autoCreateSteps flag is explicitly true
+    if (createDto.autoCreateSteps === true) {
+      try {
+        await this.taskWorkflowService.linkScreenFunctionToAllStages(createDto.projectId, screenFunction.id);
+      } catch (error) {
+        // Non-critical: screen function is still usable without auto-linking
+        console.warn(`Auto-link failed for screen function ${screenFunction.id}:`, error?.message);
+      }
     }
 
     return screenFunction;
@@ -234,6 +236,7 @@ export class ScreenFunctionService {
     sourceProjectId: number,
     targetProjectId: number,
     screenFunctionIds: number[],
+    autoCreateSteps?: boolean,
   ): Promise<{ copied: number; skipped: number; screenFunctions: ScreenFunction[] }> {
     const existingScreenFunctions = await this.screenFunctionRepository.findAll({
       where: { projectId: targetProjectId },
@@ -273,10 +276,13 @@ export class ScreenFunctionService {
           status: 'Not Started',
         } as any);
 
-        try {
-          await this.taskWorkflowService.linkScreenFunctionToAllStages(targetProjectId, newSF.id);
-        } catch (error) {
-          console.warn(`Auto-link failed for copied screen function ${newSF.id}:`, error?.message);
+        // Auto-link to all workflow stages/steps only when autoCreateSteps flag is explicitly true
+        if (autoCreateSteps === true) {
+          try {
+            await this.taskWorkflowService.linkScreenFunctionToAllStages(targetProjectId, newSF.id);
+          } catch (error) {
+            console.warn(`Auto-link failed for copied screen function ${newSF.id}:`, error?.message);
+          }
         }
 
         copiedScreenFunctions.push(newSF);
