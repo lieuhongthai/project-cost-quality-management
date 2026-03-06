@@ -1,11 +1,10 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { Op } from 'sequelize';
 import { ScreenFunction } from './screen-function.model';
 import { ScreenFunctionDefaultMember } from './screen-function-default-member.model';
 import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 import { Member } from '../member/member.model';
 import { CreateScreenFunctionDto, UpdateScreenFunctionDto, ReorderScreenFunctionDto, CopyScreenFunctionsDto } from './screen-function.dto';
-import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 
 @Injectable()
 export class ScreenFunctionService {
@@ -14,8 +13,6 @@ export class ScreenFunctionService {
     private screenFunctionRepository: typeof ScreenFunction,
     @Inject('SCREEN_FUNCTION_DEFAULT_MEMBER_REPOSITORY')
     private defaultMemberRepository: typeof ScreenFunctionDefaultMember,
-    @Inject(forwardRef(() => TaskWorkflowService))
-    private taskWorkflowService: TaskWorkflowService,
   ) {}
 
   async findAll(): Promise<ScreenFunction[]> {
@@ -92,14 +89,6 @@ export class ScreenFunctionService {
     };
 
     const screenFunction = await this.screenFunctionRepository.create(data as any);
-
-    // Auto-link to all workflow stages/steps if workflow is initialized
-    try {
-      await this.taskWorkflowService.linkScreenFunctionToAllStages(createDto.projectId, screenFunction.id);
-    } catch (error) {
-      // Non-critical: screen function is still usable without auto-linking
-      console.warn(`Auto-link failed for screen function ${screenFunction.id}:`, error?.message);
-    }
 
     return screenFunction;
   }
@@ -272,12 +261,6 @@ export class ScreenFunctionService {
           progress: 0,
           status: 'Not Started',
         } as any);
-
-        try {
-          await this.taskWorkflowService.linkScreenFunctionToAllStages(targetProjectId, newSF.id);
-        } catch (error) {
-          console.warn(`Auto-link failed for copied screen function ${newSF.id}:`, error?.message);
-        }
 
         copiedScreenFunctions.push(newSF);
         existingNames.add(sourceSF.name.toLowerCase());
