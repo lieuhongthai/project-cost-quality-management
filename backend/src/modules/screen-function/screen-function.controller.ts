@@ -56,6 +56,7 @@ export class ScreenFunctionController {
       copyDto.sourceProjectId,
       copyDto.targetProjectId,
       copyDto.screenFunctionIds,
+      copyDto.autoCreateSteps,
     );
   }
 
