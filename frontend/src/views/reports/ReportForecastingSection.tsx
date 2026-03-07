@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Card, ProgressBar } from '@/components/common'
-import { getSPIColor, getCPIColor, getDelayRateColor } from './reportUtils'
+import { getCPIColor, getDelayRateColor } from './reportUtils'
 
 interface ReportForecastingSectionProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

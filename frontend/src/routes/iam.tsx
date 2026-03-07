@@ -3,7 +3,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { iamApi } from '@/services/api'
-import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role, User } from '@/types'
 import { Shield, Users, Plus, Briefcase } from 'lucide-react'
 import Box from '@mui/material/Box'
@@ -22,25 +21,8 @@ export const Route = createFileRoute('/iam')({
   component: IamPage,
 })
 
-const groupPermissions = (permissions: Permission[]) => {
-  const grouped = new Map<string, Permission[]>()
-  permissions.forEach((permission) => {
-    const [subject] = permission.key.split('.')
-    const groupKey = subject || 'misc'
-    const list = grouped.get(groupKey) ?? []
-    list.push(permission)
-    grouped.set(groupKey, list)
-  })
-  return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b))
-    .map(([subject, items]) => ({
-      subject,
-      items: [...items].sort((first, second) => first.key.localeCompare(second.key)),
-    }))
-}
-
 function IamPage() {
   const { t } = useTranslation()
-  const ability = useAppAbility()
   const queryClient = useQueryClient()
 
   // ── Data fetching ──────────────────────────────────────────────────────────

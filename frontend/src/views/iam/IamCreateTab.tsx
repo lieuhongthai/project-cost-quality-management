@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useAppAbility } from '@/ability'
 import type { Permission, Position, Role } from '@/types'
-import { Shield, UserCog, Briefcase, CheckCircle2, Plus, UserPlus, AlertCircle } from 'lucide-react'
+import { Shield, UserCog, Briefcase, Plus, UserPlus } from 'lucide-react'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Grid from '@mui/material/Grid'

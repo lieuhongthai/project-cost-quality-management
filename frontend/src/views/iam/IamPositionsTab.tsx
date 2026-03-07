@@ -10,7 +10,6 @@ import MuiCheckbox from '@mui/material/Checkbox'
 import MuiTextField from '@mui/material/TextField'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
-import CircularProgress from '@mui/material/CircularProgress'
 import { Card, Button, IconButton } from '@/components/common'
 
 interface IamPositionsTabProps {
