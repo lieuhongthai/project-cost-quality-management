@@ -155,10 +155,10 @@ export function StagesOverviewPanel({
             });
           }
           // Also aggregate for stage-level min/max (use member-derived dates)
-          const resolvedMin = ssfMin;
-          const resolvedMax = ssfMax;
-          const currentMin = minStart;
-          const currentMax = maxEnd;
+          const resolvedMin = ssfMin as string | null;
+          const resolvedMax = ssfMax as string | null;
+          const currentMin = minStart as string | null;
+          const currentMax = maxEnd as string | null;
           if (resolvedMin !== null) { if (currentMin === null || resolvedMin < currentMin) minStart = resolvedMin; }
           if (resolvedMax !== null) { if (currentMax === null || resolvedMax > currentMax) maxEnd = resolvedMax; }
         });
