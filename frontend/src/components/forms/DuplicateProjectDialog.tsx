@@ -59,7 +59,7 @@ export function DuplicateProjectDialog({
     copyScreenFunctions: true,
     copyMembers: true,
     copyMetrics: true,
-    copyStepScreenFunctions: false,
+    copyStepScreenFunctions: true,
   })
 
   useEffect(() => {

@@ -520,9 +520,9 @@ export class ProjectService {
           projectId: newProject.id,
           name: stage.name,
           displayOrder: stage.displayOrder,
-          isActive: stage.isActive,
+          isActive: true,
           color: stage.color,
-          // Reset dates and progress
+          // Copy planned dates, reset actual dates
           startDate: stage.startDate,
           endDate: stage.endDate,
           actualStartDate: null,
@@ -537,7 +537,7 @@ export class ProjectService {
         // Copy steps if enabled
         if (dto.copySteps) {
           const sourceSteps = await WorkflowStep.findAll({
-            where: { stageId: stage.id },
+            where: { stageId: stage.id, isActive: true },
             order: [['displayOrder', 'ASC']],
           });
 
@@ -546,7 +546,7 @@ export class ProjectService {
               stageId: newStage.id,
               name: step.name,
               displayOrder: step.displayOrder,
-              isActive: step.isActive,
+              isActive: true,
             } as any);
             stepIdMap.set(step.id, newStep.id);
           }
@@ -563,26 +563,25 @@ export class ProjectService {
 
     // 7. Copy step-screen-function mappings (optional, requires stages+steps+screenFunctions)
     if (dto.copyStepScreenFunctions && dto.copyStages && dto.copySteps && dto.copyScreenFunctions) {
-      const sourceStages = await WorkflowStage.findAll({ where: { projectId: sourceProjectId } });
-      for (const stage of sourceStages) {
-        const newStageId = stageIdMap.get(stage.id);
-        if (!newStageId) continue;
+      try {
+        // Fetch all SSFs from the source project in one query for efficiency
+        const allSourceStepIds = Array.from(stepIdMap.keys());
+        if (allSourceStepIds.length > 0) {
+          const { Op } = await import('sequelize');
+          const sourceSSFs = await StepScreenFunction.findAll({
+            where: { stepId: { [Op.in]: allSourceStepIds } },
+          });
 
-        const sourceSteps = await WorkflowStep.findAll({ where: { stageId: stage.id } });
-        for (const step of sourceSteps) {
-          const newStepId = stepIdMap.get(step.id);
-          if (!newStepId) continue;
-
-          const sourceSSFs = await StepScreenFunction.findAll({ where: { stepId: step.id } });
           for (const ssf of sourceSSFs) {
+            const newStepId = stepIdMap.get(ssf.stepId);
             const newSFId = screenFunctionIdMap.get(ssf.screenFunctionId);
-            if (!newSFId) continue;
+            if (!newStepId || !newSFId) continue;
 
             await StepScreenFunction.create({
               stepId: newStepId,
               screenFunctionId: newSFId,
               estimatedEffort: ssf.estimatedEffort,
-              // Reset progress/dates
+              // Reset progress/actual dates
               actualEffort: 0,
               progress: 0,
               status: 'Not Started',
@@ -594,6 +593,8 @@ export class ProjectService {
             } as any);
           }
         }
+      } catch (error) {
+        console.warn(`Step-screen-function copy failed for duplicated project ${newProject.id}:`, error?.message);
       }
     }
 
