@@ -30,6 +30,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import IconButton from '@mui/material/IconButton'
 import CloseIcon from '@mui/icons-material/Close'
+import Paper from '@mui/material/Paper'
 
 export const Route = createFileRoute('/my-tasks')({
   component: MyTasksPage,
