@@ -150,6 +150,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     overrides[itemId]?.[key] ?? fallback;
 
   const itemCanSelect = (item: any) => {
+    if (item.status === 'unmapped' || item.status === 'error') return false;
     const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
     const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
     return !!item.memberId && !!effectiveStepId && !!effectiveScreenFunctionId;
@@ -175,6 +176,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     if (status === 'ready' || status === 'committed') return 'success';
     if (status === 'needs_review') return 'warning';
     if (status === 'error' || status === 'unmapped') return 'error';
+    if (status === 'duplicate') return 'info';
     return 'default';
   };
 
@@ -314,6 +316,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
               <Chip color="success" label={t('worklogImport.summary.ready', { defaultValue: 'Ready: {{value}}', value: batchDetail.summary.ready })} />
               <Chip color="warning" label={t('worklogImport.summary.needsReview', { defaultValue: 'Needs review: {{value}}', value: batchDetail.summary.needsReview })} />
               <Chip color="error" label={t('worklogImport.summary.unmapped', { defaultValue: 'Unmapped: {{value}}', value: batchDetail.summary.unmapped })} />
+              {batchDetail.summary.duplicate > 0 && (
+                <Chip color="info" label={t('worklogImport.summary.duplicate', { defaultValue: 'Duplicate: {{value}}', value: batchDetail.summary.duplicate })} />
+              )}
             </Box>
 
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>

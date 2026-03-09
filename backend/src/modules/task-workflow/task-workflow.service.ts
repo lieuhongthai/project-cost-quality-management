@@ -2476,6 +2476,55 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       });
     }
 
+    // Detect duplicates: check if '{day}: {workDetail}' already exists in note of StepScreenFunctionMember
+    const readyItems = itemsToCreate.filter(
+      (i) => i.status === 'ready' && i.memberId && i.stepId && i.screenFunctionId,
+    );
+
+    if (readyItems.length > 0) {
+      const uniquePairs = Array.from(
+        new Map(readyItems.map((i) => [`${i.stepId}-${i.screenFunctionId}`, { stepId: i.stepId, screenFunctionId: i.screenFunctionId }])).values(),
+      );
+
+      const existingStepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+        where: { [Op.or]: uniquePairs as any },
+        attributes: ['id', 'stepId', 'screenFunctionId'],
+      });
+
+      const stepFuncMap = new Map(existingStepScreenFunctions.map((sf) => [`${sf.stepId}-${sf.screenFunctionId}`, sf.id]));
+      const stepScreenFunctionIds = existingStepScreenFunctions.map((sf) => sf.id);
+      const uniqueMemberIds = [...new Set(readyItems.map((i) => i.memberId))];
+
+      const existingAssignments =
+        stepScreenFunctionIds.length > 0
+          ? await this.stepScreenFunctionMemberRepository.findAll({
+              where: { stepScreenFunctionId: stepScreenFunctionIds, memberId: uniqueMemberIds },
+              attributes: ['stepScreenFunctionId', 'memberId', 'note'],
+            })
+          : [];
+
+      const assignmentNoteMap = new Map(existingAssignments.map((a) => [`${a.stepScreenFunctionId}-${a.memberId}`, a.note || '']));
+
+      for (const item of readyItems) {
+        const ssId = stepFuncMap.get(`${item.stepId}-${item.screenFunctionId}`);
+        if (!ssId) continue;
+
+        const note = assignmentNoteMap.get(`${ssId}-${item.memberId}`);
+        if (!note) continue;
+
+        const searchPattern = `${item.day || ''}: ${item.workDetail || ''}`.trim();
+        const isDuplicate = note
+          .split('\n')
+          .some((line) => line.trim() === searchPattern);
+
+        if (isDuplicate) {
+          item.status = 'duplicate';
+          item.isSelected = false;
+          item.reason = 'Work detail already imported for this date';
+        }
+      }
+    }
+
     await this.worklogImportItemRepository.bulkCreate(itemsToCreate as any[]);
 
     return this.getWorklogImportBatch(batch.id);
@@ -2503,6 +2552,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       ready: items.filter((i) => i.status === 'ready').length,
       needsReview: items.filter((i) => i.status === 'needs_review').length,
       unmapped: items.filter((i) => i.status === 'unmapped').length,
+      duplicate: items.filter((i) => i.status === 'duplicate').length,
       selected: items.filter((i) => i.isSelected).length,
     };
 
@@ -2600,7 +2650,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
             memberId: item.memberId,
             actualEffort: item.effortHours || 0,
             progress: 100,
-            note: item.workDetail,
+            note: `${item.day || ''}: ${item.workDetail || ''}`,
             actualStartDate: item.day,
             actualEndDate: item.day,
           } as any,

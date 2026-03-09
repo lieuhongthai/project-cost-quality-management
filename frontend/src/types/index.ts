@@ -611,7 +611,7 @@ export interface WorklogImportItem {
   stepId?: number;
   screenFunctionId?: number;
   confidence: number;
-  status: 'ready' | 'needs_review' | 'unmapped' | 'pending' | 'committed' | 'skipped' | 'error';
+  status: 'ready' | 'needs_review' | 'unmapped' | 'pending' | 'committed' | 'skipped' | 'error' | 'duplicate';
   isSelected: boolean;
   reason?: string;
   member?: Member;
@@ -633,6 +633,7 @@ export interface WorklogImportBatchDetail {
     ready: number;
     needsReview: number;
     unmapped: number;
+    duplicate: number;
     selected: number;
   };
   items: WorklogImportItem[];
