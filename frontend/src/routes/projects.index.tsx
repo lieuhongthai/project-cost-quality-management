@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +6,7 @@ import { projectApi } from '../services/api'
 import { format } from 'date-fns'
 import { Can } from '@/ability'
 import { ProjectForm } from '../components/forms/ProjectForm'
+import { DuplicateProjectDialog } from '../components/forms/DuplicateProjectDialog'
 import { DataTable } from '../components/common/DataTable'
 import type { ColumnDef } from '../components/common/DataTable'
 import type { Project } from '@/types'
@@ -21,8 +22,10 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import IconButton from '@mui/material/IconButton'
+import Tooltip from '@mui/material/Tooltip'
 import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 
 export const Route = createFileRoute('/projects/')({
   component: ProjectsList,
@@ -30,7 +33,9 @@ export const Route = createFileRoute('/projects/')({
 
 function ProjectsList() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [showAddProject, setShowAddProject] = useState(false)
+  const [duplicateProject, setDuplicateProject] = useState<Project | null>(null)
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -138,16 +143,29 @@ function ProjectsList() {
       header: t('common.actions'),
       align: 'right',
       render: (project) => (
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId: project.id.toString() }}
-          search={{ tab: 'overview' }}
-          style={{ textDecoration: 'none' }}
-        >
-          <Button size="small" color="primary">
-            {t('common.view')}
-          </Button>
-        </Link>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: project.id.toString() }}
+            search={{ tab: 'overview' }}
+            style={{ textDecoration: 'none' }}
+          >
+            <Button size="small" color="primary">
+              {t('common.view')}
+            </Button>
+          </Link>
+          <Can I="create" a="project">
+            <Tooltip title={t('project.duplicate')}>
+              <IconButton
+                size="small"
+                color="default"
+                onClick={() => setDuplicateProject(project)}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Can>
+        </Box>
       ),
     },
   ]
@@ -211,6 +229,20 @@ function ProjectsList() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate Project Dialog */}
+      <DuplicateProjectDialog
+        open={duplicateProject !== null}
+        project={duplicateProject}
+        onClose={() => setDuplicateProject(null)}
+        onSuccess={(newProject) => {
+          navigate({
+            to: '/projects/$projectId',
+            params: { projectId: newProject.id.toString() },
+            search: { tab: 'overview' },
+          })
+        }}
+      />
     </Box>
   )
 }

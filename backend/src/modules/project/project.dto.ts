@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsArray } from 'class-validator';
+import { IsNotEmpty, IsString, IsDate, IsOptional, IsNumber, IsEnum, IsArray, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProjectDto {
@@ -126,4 +126,42 @@ export class UpdateProjectSettingsDto {
   @IsOptional()
   @IsArray()
   holidays?: string[]; // Array of YYYY-MM-DD strings
+}
+
+export class DuplicateProjectDto {
+  @IsNotEmpty()
+  @IsString()
+  newName: string;
+
+  @IsOptional()
+  @IsString()
+  newDescription?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  copySettings?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copyStages?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copySteps?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copyScreenFunctions?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copyMembers?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copyMetrics?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  copyStepScreenFunctions?: boolean;
 }

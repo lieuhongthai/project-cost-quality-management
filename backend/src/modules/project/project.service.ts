@@ -1,8 +1,14 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
-import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
+import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto, DuplicateProjectDto } from './project.dto';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
+import { WorkflowStep } from '../task-workflow/workflow-step.model';
+import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
+import { MetricType } from '../task-workflow/metric-type.model';
+import { MetricCategory } from '../task-workflow/metric-category.model';
+import { Member } from '../member/member.model';
+import { ScreenFunction } from '../screen-function/screen-function.model';
 import { TaskWorkflowService } from '../task-workflow/task-workflow.service';
 import { MemberService } from '../member/member.service';
 import { ScreenFunctionService } from '../screen-function/screen-function.service';
@@ -363,5 +369,234 @@ export class ProjectService {
     }
 
     return { success: true, ...results };
+  }
+
+  /**
+   * Duplicate a project with selective content copying.
+   * Allows choosing which parts to copy: settings, stages, steps, screen functions, members, metrics, step-screen-function mappings.
+   */
+  async duplicateProject(sourceProjectId: number, dto: DuplicateProjectDto): Promise<Project> {
+    const sourceProject = await this.findOne(sourceProjectId);
+
+    // 1. Create new project with basic info
+    const newProject = await this.projectRepository.create({
+      name: dto.newName,
+      description: dto.newDescription ?? sourceProject.description,
+      startDate: sourceProject.startDate,
+      endDate: sourceProject.endDate,
+      estimatedEffort: sourceProject.estimatedEffort,
+      // Reset progress/effort/status to initial values
+      actualEffort: 0,
+      progress: 0,
+      status: 'Good',
+    } as any);
+
+    // 2. Copy settings (or create default)
+    if (dto.copySettings) {
+      const sourceSettings = await this.projectSettingsRepository.findOne({ where: { projectId: sourceProjectId } });
+      if (sourceSettings) {
+        await this.projectSettingsRepository.create({
+          projectId: newProject.id,
+          numberOfMembers: sourceSettings.numberOfMembers,
+          workingHoursPerDay: sourceSettings.workingHoursPerDay,
+          workingDaysPerMonth: sourceSettings.workingDaysPerMonth,
+          defaultEffortUnit: sourceSettings.defaultEffortUnit,
+          nonWorkingDays: sourceSettings.nonWorkingDays,
+          holidays: sourceSettings.holidays,
+        } as any);
+      }
+    } else {
+      // Always create default settings
+      await this.projectSettingsRepository.create({
+        projectId: newProject.id,
+        numberOfMembers: 5,
+        workingHoursPerDay: 8,
+        workingDaysPerMonth: 20,
+        defaultEffortUnit: 'man-hour',
+        nonWorkingDays: DEFAULT_NON_WORKING_DAYS,
+        holidays: [],
+      } as any);
+    }
+
+    // 3. Copy members (optional)
+    // Maps old memberId -> new memberId (needed for step-screen-function-member copy if extended later)
+    const memberIdMap = new Map<number, number>();
+    if (dto.copyMembers) {
+      const sourceMembers = await Member.findAll({ where: { projectId: sourceProjectId } });
+      for (const member of sourceMembers) {
+        const newMember = await Member.create({
+          projectId: newProject.id,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          yearsOfExperience: member.yearsOfExperience,
+          skills: member.skills,
+          hourlyRate: member.hourlyRate,
+          availability: member.availability,
+          status: member.status,
+        } as any);
+        memberIdMap.set(member.id, newMember.id);
+      }
+    }
+
+    // 4. Copy screen functions (optional)
+    // Maps old screenFunctionId -> new screenFunctionId
+    const screenFunctionIdMap = new Map<number, number>();
+    if (dto.copyScreenFunctions) {
+      const sourceScreenFunctions = await ScreenFunction.findAll({
+        where: { projectId: sourceProjectId },
+        order: [['displayOrder', 'ASC'], ['createdAt', 'ASC']],
+      });
+      for (const sf of sourceScreenFunctions) {
+        const newSF = await ScreenFunction.create({
+          projectId: newProject.id,
+          name: sf.name,
+          type: sf.type,
+          priority: sf.priority,
+          complexity: sf.complexity,
+          description: sf.description,
+          displayOrder: sf.displayOrder,
+          // Reset progress/effort/status
+          estimatedEffort: 0,
+          actualEffort: 0,
+          progress: 0,
+          status: 'Not Started',
+        } as any);
+        screenFunctionIdMap.set(sf.id, newSF.id);
+      }
+    }
+
+    // 5. Copy metric types & categories (optional)
+    if (dto.copyMetrics) {
+      const sourceMetricTypes = await MetricType.findAll({
+        where: { projectId: sourceProjectId },
+        order: [['displayOrder', 'ASC']],
+      });
+      for (const mt of sourceMetricTypes) {
+        const newMT = await MetricType.create({
+          projectId: newProject.id,
+          name: mt.name,
+          description: mt.description,
+          displayOrder: mt.displayOrder,
+          isActive: mt.isActive,
+        } as any);
+
+        const sourceCategories = await MetricCategory.findAll({
+          where: { metricTypeId: mt.id },
+          order: [['displayOrder', 'ASC']],
+        });
+        for (const cat of sourceCategories) {
+          await MetricCategory.create({
+            metricTypeId: newMT.id,
+            name: cat.name,
+            description: cat.description,
+            displayOrder: cat.displayOrder,
+            isActive: cat.isActive,
+          } as any);
+        }
+      }
+    } else {
+      // Initialize default metrics
+      try {
+        await this.taskWorkflowService.initializeProjectMetrics({ projectId: newProject.id });
+      } catch (error) {
+        console.warn(`Auto-init metrics failed for duplicated project ${newProject.id}:`, error?.message);
+      }
+    }
+
+    // 6. Copy stages & steps (optional)
+    // Maps old stageId -> new stageId, old stepId -> new stepId
+    const stageIdMap = new Map<number, number>();
+    const stepIdMap = new Map<number, number>();
+
+    if (dto.copyStages) {
+      const sourceStages = await WorkflowStage.findAll({
+        where: { projectId: sourceProjectId },
+        order: [['displayOrder', 'ASC']],
+      });
+
+      for (const stage of sourceStages) {
+        const newStage = await WorkflowStage.create({
+          projectId: newProject.id,
+          name: stage.name,
+          displayOrder: stage.displayOrder,
+          isActive: stage.isActive,
+          color: stage.color,
+          // Reset dates and progress
+          startDate: stage.startDate,
+          endDate: stage.endDate,
+          actualStartDate: null,
+          actualEndDate: null,
+          estimatedEffort: stage.estimatedEffort,
+          actualEffort: 0,
+          progress: 0,
+          status: 'Good',
+        } as any);
+        stageIdMap.set(stage.id, newStage.id);
+
+        // Copy steps if enabled
+        if (dto.copySteps) {
+          const sourceSteps = await WorkflowStep.findAll({
+            where: { stageId: stage.id },
+            order: [['displayOrder', 'ASC']],
+          });
+
+          for (const step of sourceSteps) {
+            const newStep = await WorkflowStep.create({
+              stageId: newStage.id,
+              name: step.name,
+              displayOrder: step.displayOrder,
+              isActive: step.isActive,
+            } as any);
+            stepIdMap.set(step.id, newStep.id);
+          }
+        }
+      }
+    } else {
+      // Auto-initialize default workflow stages
+      try {
+        await this.taskWorkflowService.initializeProjectWorkflow({ projectId: newProject.id });
+      } catch (error) {
+        console.warn(`Auto-init workflow failed for duplicated project ${newProject.id}:`, error?.message);
+      }
+    }
+
+    // 7. Copy step-screen-function mappings (optional, requires stages+steps+screenFunctions)
+    if (dto.copyStepScreenFunctions && dto.copyStages && dto.copySteps && dto.copyScreenFunctions) {
+      const sourceStages = await WorkflowStage.findAll({ where: { projectId: sourceProjectId } });
+      for (const stage of sourceStages) {
+        const newStageId = stageIdMap.get(stage.id);
+        if (!newStageId) continue;
+
+        const sourceSteps = await WorkflowStep.findAll({ where: { stageId: stage.id } });
+        for (const step of sourceSteps) {
+          const newStepId = stepIdMap.get(step.id);
+          if (!newStepId) continue;
+
+          const sourceSSFs = await StepScreenFunction.findAll({ where: { stepId: step.id } });
+          for (const ssf of sourceSSFs) {
+            const newSFId = screenFunctionIdMap.get(ssf.screenFunctionId);
+            if (!newSFId) continue;
+
+            await StepScreenFunction.create({
+              stepId: newStepId,
+              screenFunctionId: newSFId,
+              estimatedEffort: ssf.estimatedEffort,
+              // Reset progress/dates
+              actualEffort: 0,
+              progress: 0,
+              status: 'Not Started',
+              estimatedStartDate: ssf.estimatedStartDate,
+              estimatedEndDate: ssf.estimatedEndDate,
+              actualStartDate: null,
+              actualEndDate: null,
+              note: ssf.note,
+            } as any);
+          }
+        }
+      }
+    }
+
+    return this.findOne(newProject.id);
   }
 }

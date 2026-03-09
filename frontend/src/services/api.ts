@@ -89,6 +89,19 @@ export const projectApi = {
     members?: Array<{ name: string; role: string; email?: string; skills?: string[]; hourlyRate?: number }>;
     screenFunctions?: Array<{ name: string; type?: string; complexity?: string; priority?: string; description?: string }>;
   }) => api.post(`/projects/${projectId}/quick-setup`, data),
+
+  // Duplicate project with selective content copying
+  duplicate: (projectId: number, data: {
+    newName: string;
+    newDescription?: string;
+    copySettings?: boolean;
+    copyStages?: boolean;
+    copySteps?: boolean;
+    copyScreenFunctions?: boolean;
+    copyMembers?: boolean;
+    copyMetrics?: boolean;
+    copyStepScreenFunctions?: boolean;
+  }) => api.post<Project>(`/projects/${projectId}/duplicate`, data),
 };
 
 
