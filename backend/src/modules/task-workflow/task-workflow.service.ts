@@ -2519,9 +2519,35 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       }
     }
 
-    await this.worklogImportItemRepository.bulkCreate(itemsToCreate as any[]);
+    // Save parsed items as preview data — do NOT write to worklog_import_items yet
+    await batch.update({ previewData: itemsToCreate });
 
-    return this.getWorklogImportBatch(batch.id);
+    // Enrich items with associated objects for the response
+    const stages = await this.stageRepository.findAll({ where: { projectId } });
+    const steps = await this.stepRepository.findAll({ where: { projectId } });
+    const stageMap = new Map(stages.map((s) => [s.id, s]));
+    const stepMap = new Map(steps.map((s) => [s.id, s]));
+    const screenFunctionMap = new Map(screenFunctions.map((sf) => [sf.id, sf]));
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+
+    const enrichedItems = itemsToCreate.map((item) => ({
+      ...item,
+      member: item.memberId ? memberMap.get(item.memberId) ?? null : null,
+      stage: item.stageId ? stageMap.get(item.stageId) ?? null : null,
+      step: item.stepId ? stepMap.get(item.stepId) ?? null : null,
+      screenFunction: item.screenFunctionId ? screenFunctionMap.get(item.screenFunctionId) ?? null : null,
+    }));
+
+    const summary = {
+      total: enrichedItems.length,
+      ready: enrichedItems.filter((i) => i.status === 'ready').length,
+      needsReview: enrichedItems.filter((i) => i.status === 'needs_review').length,
+      unmapped: enrichedItems.filter((i) => i.status === 'unmapped').length,
+      duplicate: enrichedItems.filter((i) => i.status === 'duplicate').length,
+      selected: enrichedItems.filter((i) => i.isSelected).length,
+    };
+
+    return { batch, summary, items: enrichedItems };
   }
 
   async getWorklogImportBatch(batchId: number): Promise<any> {
@@ -2563,60 +2589,64 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
     }
 
+    if (!batch.previewData || batch.previewData.length === 0) {
+      throw new BadRequestException('No preview data found for this batch. Please re-upload the CSV.');
+    }
+
     if (dto.clearExistingTasks) {
       await this.clearProjectWorkflowTasksForImport(batch.projectId);
     }
 
-    const selectedSet = new Set(dto.selectedItemIds || []);
+    const selectedSet = new Set(dto.selectedRowNumbers || []);
     const overridesMap = new Map<number, WorklogImportOverrideItemDto>(
-      (dto.overrides || []).map((o) => [o.itemId, o]),
+      (dto.overrides || []).map((o) => [o.rowNumber, o]),
     );
-    const items = await this.worklogImportItemRepository.findAll({ where: { batchId: dto.batchId } });
 
+    const itemsToSave: any[] = [];
     let success = 0;
     let failed = 0;
     let skipped = 0;
 
-    for (const item of items) {
-      const isSelected = selectedSet.has(item.id);
-      await item.update({ isSelected });
+    for (const itemData of batch.previewData) {
+      const isSelected = selectedSet.has(itemData.rowNumber);
 
       if (!isSelected) {
-        await item.update({ status: 'skipped', reason: item.reason || 'Not selected by user' });
+        itemsToSave.push({
+          ...itemData,
+          isSelected: false,
+          status: 'skipped',
+          reason: itemData.reason || 'Not selected by user',
+        });
         skipped += 1;
         continue;
       }
 
-      const override = overridesMap.get(item.id);
-      if (override) {
-        const updatePayload: any = {};
+      const resolved = { ...itemData, isSelected: true };
+      const override = overridesMap.get(itemData.rowNumber);
 
+      if (override) {
         if (override.stepId) {
           const step = await this.findStepById(override.stepId);
-          updatePayload.stepId = step.id;
-          updatePayload.stageId = step.stageId;
+          resolved.stepId = step.id;
+          resolved.stageId = step.stageId;
         } else if (override.stageId) {
           await this.findStageById(override.stageId);
-          updatePayload.stageId = override.stageId;
+          resolved.stageId = override.stageId;
         }
 
         if (override.screenFunctionId) {
           const sf = await this.screenFunctionRepository.findByPk(override.screenFunctionId);
           if (!sf || sf.projectId !== batch.projectId) {
-            await item.update({ status: 'error', reason: 'Invalid screen function override' });
+            itemsToSave.push({ ...resolved, status: 'error', reason: 'Invalid screen function override' });
             failed += 1;
             continue;
           }
-          updatePayload.screenFunctionId = sf.id;
-        }
-
-        if (Object.keys(updatePayload).length > 0) {
-          await item.update(updatePayload);
+          resolved.screenFunctionId = sf.id;
         }
       }
 
-      if (!item.memberId || !item.stepId || !item.screenFunctionId) {
-        await item.update({ status: 'error', reason: 'Missing mapping data for commit' });
+      if (!resolved.memberId || !resolved.stepId || !resolved.screenFunctionId) {
+        itemsToSave.push({ ...resolved, status: 'error', reason: 'Missing mapping data for commit' });
         failed += 1;
         continue;
       }
@@ -2624,53 +2654,55 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       try {
         const [stepScreenFunction] = await this.stepScreenFunctionRepository.findOrCreate({
           where: {
-            stepId: item.stepId,
-            screenFunctionId: item.screenFunctionId,
+            stepId: resolved.stepId,
+            screenFunctionId: resolved.screenFunctionId,
           },
           defaults: {
-            stepId: item.stepId,
-            screenFunctionId: item.screenFunctionId,
-            actualEffort: item.effortHours || 0,
+            stepId: resolved.stepId,
+            screenFunctionId: resolved.screenFunctionId,
+            actualEffort: resolved.effortHours || 0,
           } as any,
         });
 
         const [assignment, created] = await this.stepScreenFunctionMemberRepository.findOrCreate({
           where: {
             stepScreenFunctionId: stepScreenFunction.id,
-            memberId: item.memberId,
+            memberId: resolved.memberId,
           },
           defaults: {
             stepScreenFunctionId: stepScreenFunction.id,
-            memberId: item.memberId,
-            actualEffort: item.effortHours || 0,
+            memberId: resolved.memberId,
+            actualEffort: resolved.effortHours || 0,
             progress: 100,
-            note: `${item.day || ''}: ${item.workDetail || ''}`,
-            actualStartDate: item.day,
-            actualEndDate: item.day,
+            note: `${resolved.day || ''}: ${resolved.workDetail || ''}`,
+            actualStartDate: resolved.day,
+            actualEndDate: resolved.day,
           } as any,
         });
 
         if (!created) {
           await assignment.update({
-            actualEffort: Number((Number(assignment.actualEffort || 0) + Number(item.effortHours || 0)).toFixed(2)),
+            actualEffort: Number((Number(assignment.actualEffort || 0) + Number(resolved.effortHours || 0)).toFixed(2)),
             progress: 100,
-            note: [assignment.note, `${item.day || ''}: ${item.workDetail || ''}`].filter(Boolean).join('\n'),
-            actualStartDate: assignment.actualStartDate || item.day,
-            actualEndDate: item.day || assignment.actualEndDate,
+            note: [assignment.note, `${resolved.day || ''}: ${resolved.workDetail || ''}`].filter(Boolean).join('\n'),
+            actualStartDate: assignment.actualStartDate || resolved.day,
+            actualEndDate: resolved.day || assignment.actualEndDate,
           });
         }
 
         await this.recalculateStepScreenFunctionFromMembers(stepScreenFunction.id);
 
-        await item.update({ status: 'committed', reason: null as any });
+        itemsToSave.push({ ...resolved, status: 'committed', reason: null });
         success += 1;
       } catch (error: any) {
-        await item.update({ status: 'error', reason: error?.message || 'Commit failed' });
+        itemsToSave.push({ ...resolved, status: 'error', reason: error?.message || 'Commit failed' });
         failed += 1;
       }
     }
 
-    return { batchId: dto.batchId, success, failed, skipped, total: items.length };
+    await this.worklogImportItemRepository.bulkCreate(itemsToSave as any[]);
+
+    return { batchId: dto.batchId, success, failed, skipped, total: batch.previewData.length };
   }
 
   private async clearProjectWorkflowTasksForImport(projectId: number): Promise<void> {
