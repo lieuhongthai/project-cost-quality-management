@@ -6,18 +6,14 @@ import { projectApi } from '../services/api'
 import { format } from 'date-fns'
 import { Can } from '@/ability'
 import { ProjectForm } from '../components/forms/ProjectForm'
+import { DataTable } from '../components/common/DataTable'
+import type { ColumnDef } from '../components/common/DataTable'
+import type { Project } from '@/types'
 
 // MUI imports
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
 import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -62,6 +58,100 @@ function ProjectsList() {
     }
   }
 
+  const columns: ColumnDef<Project>[] = [
+    {
+      key: 'name',
+      header: t('common.name'),
+      render: (project) => (
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId: project.id.toString() }}
+          search={{ tab: 'overview' }}
+          style={{ color: 'inherit', textDecoration: 'none' }}
+        >
+          <Typography
+            variant="body2"
+            fontWeight={500}
+            sx={{ color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+          >
+            {project.name}
+          </Typography>
+        </Link>
+      ),
+    },
+    {
+      key: 'status',
+      header: t('common.status'),
+      render: (project) => (
+        <Chip
+          label={getStatusTranslation(project.status)}
+          color={getStatusColor(project.status)}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'progress',
+      header: t('common.progress'),
+      render: (project) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LinearProgress
+            variant="determinate"
+            value={project.progress}
+            sx={{ width: 64, height: 6, borderRadius: 1 }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {project.progress.toFixed(0)}%
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      key: 'estimatedEffort',
+      header: t('project.estimatedEffort'),
+      render: (project) => (
+        <Typography variant="body2" color="text.secondary">
+          {project.estimatedEffort} {t('time.mm')}
+        </Typography>
+      ),
+    },
+    {
+      key: 'actualEffort',
+      header: t('project.actualEffort'),
+      render: (project) => (
+        <Typography variant="body2" color="text.secondary">
+          {project.actualEffort} {t('time.mm')}
+        </Typography>
+      ),
+    },
+    {
+      key: 'startDate',
+      header: t('project.startDate'),
+      render: (project) => (
+        <Typography variant="body2" color="text.secondary">
+          {format(new Date(project.startDate), 'MMM dd, yyyy')}
+        </Typography>
+      ),
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      align: 'right',
+      render: (project) => (
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId: project.id.toString() }}
+          search={{ tab: 'overview' }}
+          style={{ textDecoration: 'none' }}
+        >
+          <Button size="small" color="primary">
+            {t('common.view')}
+          </Button>
+        </Link>
+      ),
+    },
+  ]
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
@@ -93,101 +183,12 @@ function ProjectsList() {
         </Can>
       </Box>
 
-      {/* Table */}
-      <TableContainer component={Paper} elevation={1}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'grey.50' }}>
-              <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('common.status')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('common.progress')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('project.estimatedEffort')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('project.actualEffort')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('project.startDate')}</TableCell>
-              <TableCell align="right">{t('common.actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {projects?.map((project) => (
-              <TableRow key={project.id} hover>
-                <TableCell>
-                  <Link
-                    to="/projects/$projectId"
-                    params={{ projectId: project.id.toString() }}
-                    search={{ tab: 'overview' }}
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    <Typography
-                      variant="body2"
-                      fontWeight={500}
-                      sx={{ color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
-                    >
-                      {project.name}
-                    </Typography>
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={getStatusTranslation(project.status)}
-                    color={getStatusColor(project.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={project.progress}
-                      sx={{ width: 64, height: 6, borderRadius: 1 }}
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      {project.progress.toFixed(0)}%
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {project.estimatedEffort} {t('time.mm')}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {project.actualEffort} {t('time.mm')}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {format(new Date(project.startDate), 'MMM dd, yyyy')}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Link
-                    to="/projects/$projectId"
-                    params={{ projectId: project.id.toString() }}
-                    search={{ tab: 'overview' }}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Button
-                      size="small"
-                      color="primary"
-                    >
-                      {t('common.view')}
-                    </Button>
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {projects?.length === 0 && (
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            {t('project.noProjects')}. {t('project.createFirst')}
-          </Typography>
-        </Box>
-      )}
+      <DataTable
+        columns={columns}
+        data={projects ?? []}
+        keyExtractor={(p) => p.id}
+        emptyTitle={`${t('project.noProjects')}. ${t('project.createFirst')}`}
+      />
 
       {/* Add Project Dialog */}
       <Dialog

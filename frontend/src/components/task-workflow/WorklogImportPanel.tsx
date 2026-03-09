@@ -2,20 +2,14 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
 import type { WorklogImportBatchDetail } from '@/types';
+import { DataTable } from '@/components/common/DataTable';
+import type { ColumnDef } from '@/components/common/DataTable';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableSortLabel from '@mui/material/TableSortLabel';
-import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
@@ -159,17 +153,6 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
     const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
     return !!item.memberId && !!effectiveStepId && !!effectiveScreenFunctionId;
-  };
-
-  const selectableIds = useMemo(
-    () => batchDetail?.items.filter((item) => itemCanSelect(item)).map((item) => item.id) || [],
-    [batchDetail, overrides],
-  );
-
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
-
-  const toggleSelected = (id: number, checked: boolean) => {
-    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
 
   const updateOverride = (itemId: number, patch: ItemOverride) => {
@@ -333,108 +316,109 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
               <Chip color="error" label={t('worklogImport.summary.unmapped', { defaultValue: 'Unmapped: {{value}}', value: batchDetail.summary.unmapped })} />
             </Box>
 
-            <Box sx={{ mb: 1 }}>
-              <Checkbox
-                checked={allSelected}
-                indeterminate={!allSelected && selectedIds.length > 0}
-                onChange={(e) => setSelectedIds(e.target.checked ? selectableIds : [])}
-              />
-              {t('worklogImport.selectAllMappable', { defaultValue: 'Select all rows with enough mapping data (member + step + screen/function)' })}
-            </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               {t('worklogImport.hintUseEditModal', { defaultValue: 'Click Edit to open popup for Stage/Step/Screen Function mapping per row.' })}
             </Typography>
 
-            <TableContainer component={Paper} sx={{ maxHeight: 460 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('worklogImport.table.select', { defaultValue: 'Select' })}</TableCell>
-                    <TableCell sortDirection={sortColumn === 'day' ? sortDirection : false}>
-                      <TableSortLabel
-                        active={sortColumn === 'day'}
-                        direction={sortColumn === 'day' ? sortDirection : 'asc'}
-                        onClick={() => handleSort('day')}
-                      >
-                        {t('worklogImport.table.day', { defaultValue: 'Day' })}
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>{t('worklogImport.table.email', { defaultValue: 'Email' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.workDetail', { defaultValue: 'Work detail' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.member', { defaultValue: 'Member' })}</TableCell>
-                    <TableCell sortDirection={sortColumn === 'stageStep' ? sortDirection : false}>
-                      <TableSortLabel
-                        active={sortColumn === 'stageStep'}
-                        direction={sortColumn === 'stageStep' ? sortDirection : 'asc'}
-                        onClick={() => handleSort('stageStep')}
-                      >
-                        {t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' })}
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell sortDirection={sortColumn === 'screenFunction' ? sortDirection : false}>
-                      <TableSortLabel
-                        active={sortColumn === 'screenFunction'}
-                        direction={sortColumn === 'screenFunction' ? sortDirection : 'asc'}
-                        onClick={() => handleSort('screenFunction')}
-                      >
-                        {t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>{t('worklogImport.table.minutes', { defaultValue: 'Minutes' })}</TableCell>
-                    <TableCell sortDirection={sortColumn === 'status' ? sortDirection : false}>
-                      <TableSortLabel
-                        active={sortColumn === 'status'}
-                        direction={sortColumn === 'status' ? sortDirection : 'asc'}
-                        onClick={() => handleSort('status')}
-                      >
-                        {t('worklogImport.table.status', { defaultValue: 'Status' })}
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>{t('worklogImport.table.reason', { defaultValue: 'Reason' })}</TableCell>
-                    <TableCell align="center">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedItems.map((item) => {
+            <DataTable
+              columns={[
+                {
+                  key: 'day',
+                  header: t('worklogImport.table.day', { defaultValue: 'Day' }),
+                  sortable: true,
+                  render: (item) => item.day || '-',
+                },
+                {
+                  key: 'email',
+                  header: t('worklogImport.table.email', { defaultValue: 'Email' }),
+                  render: (item) => (
+                    <Box sx={{ minWidth: 100, wordBreak: 'break-all' }}>{item.email || '-'}</Box>
+                  ),
+                },
+                {
+                  key: 'workDetail',
+                  header: t('worklogImport.table.workDetail', { defaultValue: 'Work detail' }),
+                  render: (item) => <Box sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</Box>,
+                },
+                {
+                  key: 'member',
+                  header: t('worklogImport.table.member', { defaultValue: 'Member' }),
+                  render: (item) => item.member?.name || '-',
+                },
+                {
+                  key: 'stageStep',
+                  header: t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' }),
+                  sortable: true,
+                  render: (item) => {
                     const effectiveStageId = getEffectiveValue(item.id, 'stageId', item.stageId);
                     const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
-                    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
                     const stage = stageOptions.find((s: any) => s.id === Number(effectiveStageId));
                     const stepName = stage?.steps?.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-';
-                    const screenFunctionName =
-                      (screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name || item.screenFunction?.name || '-';
-                    const canSelect = itemCanSelect(item);
-
                     return (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <Checkbox checked={selectedIds.includes(item.id)} disabled={!canSelect} onChange={(e) => toggleSelected(item.id, e.target.checked)} />
-                        </TableCell>
-                        <TableCell>{item.day || '-'}</TableCell>
-                        <TableCell sx={{ minWidth: 100, wordBreak: 'break-all' }}>{item.email || '-'}</TableCell>
-                        <TableCell sx={{ maxWidth: 320 }}>{item.workDetail || '-'}</TableCell>
-                        <TableCell>{item.member?.name || '-'}</TableCell>
-                        <TableCell sx={{ minWidth: 100 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
-                          <Typography variant="caption" color="text.secondary">{stepName}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 100 }}>
-                          <Typography variant="body2">{screenFunctionName}</Typography>
-                        </TableCell>
-                        <TableCell>{item.minutes || 0}</TableCell>
-                        <TableCell>
-                          <Chip size="small" color={getStatusColor(item.status) as any} label={item.status} />
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 260 }}>{item.reason || '-'}</TableCell>
-                        <TableCell align="center" sx={{ minWidth: 120 }}>
-                          <Button size="small" variant="outlined" onClick={() => openEditModal(item)}>{t('common.edit')}</Button>
-                        </TableCell>
-                      </TableRow>
+                      <Box sx={{ minWidth: 100 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
+                        <Typography variant="caption" color="text.secondary">{stepName}</Typography>
+                      </Box>
                     );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  },
+                },
+                {
+                  key: 'screenFunction',
+                  header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }),
+                  sortable: true,
+                  render: (item) => {
+                    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
+                    const screenFunctionName =
+                      (screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name ||
+                      item.screenFunction?.name || '-';
+                    return (
+                      <Box sx={{ minWidth: 100 }}>
+                        <Typography variant="body2">{screenFunctionName}</Typography>
+                      </Box>
+                    );
+                  },
+                },
+                {
+                  key: 'minutes',
+                  header: t('worklogImport.table.minutes', { defaultValue: 'Minutes' }),
+                  render: (item) => item.minutes || 0,
+                },
+                {
+                  key: 'status',
+                  header: t('worklogImport.table.status', { defaultValue: 'Status' }),
+                  sortable: true,
+                  render: (item) => (
+                    <Chip size="small" color={getStatusColor(item.status) as any} label={item.status} />
+                  ),
+                },
+                {
+                  key: 'reason',
+                  header: t('worklogImport.table.reason', { defaultValue: 'Reason' }),
+                  render: (item) => <Box sx={{ maxWidth: 260 }}>{item.reason || '-'}</Box>,
+                },
+                {
+                  key: 'action',
+                  header: t('worklogImport.table.action', { defaultValue: 'Action' }),
+                  align: 'center',
+                  render: (item) => (
+                    <Button size="small" variant="outlined" onClick={() => openEditModal(item)}>
+                      {t('common.edit')}
+                    </Button>
+                  ),
+                },
+              ] as ColumnDef<any>[]}
+              data={sortedItems}
+              keyExtractor={(item) => item.id}
+              stickyHeader
+              maxHeight={460}
+              selectable
+              selectedKeys={selectedIds}
+              onSelectionChange={(keys) => setSelectedIds(keys as number[])}
+              isRowSelectable={itemCanSelect}
+              sortBy={sortColumn ?? undefined}
+              sortOrder={sortDirection}
+              onSort={(col) => handleSort(col as SortColumn)}
+            />
           </>
         )}
 

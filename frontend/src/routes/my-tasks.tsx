@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { memberApi, taskWorkflowApi } from '@/services/api'
 import { Pencil, Copy, Check, ArrowLeft } from 'lucide-react'
 import { DateInput } from '@/components/common'
+import { DataTable } from '@/components/common/DataTable'
+import type { ColumnDef } from '@/components/common/DataTable'
 import type { TodoItem } from '@/types'
 
 // MUI imports
@@ -19,13 +21,6 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
 import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -375,128 +370,111 @@ function MyTasksPage() {
       </Box>
 
       {/* Task Table */}
-      {filteredItems.length > 0 ? (
-        <TableContainer component={Paper} elevation={1}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'grey.50' }}>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.stage')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.step')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.screen')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.status')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.effort')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.progress')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('todo.dates')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredItems.map((item) => (
-                <TableRow key={item.assignmentId} hover>
-                  <TableCell>
-                    <Chip
-                      label={item.stageName}
-                      size="small"
-                      sx={{
-                        bgcolor: item.stageColor ? `${item.stageColor}20` : 'grey.100',
-                        color: item.stageColor || 'text.primary',
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {item.stepName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {item.screenFunctionName}
-                    </Typography>
-                    <Typography variant="caption" color="text.disabled">
-                      {item.screenFunctionType}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={item.taskStatus}
-                      size="small"
-                      color={getStatusColor(item.taskStatus)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      <Typography component="span" color="text.disabled">
-                        {item.estimatedEffort || 0}h
-                      </Typography>
-                      {' / '}
-                      <Typography component="span" fontWeight={500}>
-                        {item.actualEffort || 0}h
-                      </Typography>
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={item.progress || 0}
-                        sx={{ width: 60, height: 6, borderRadius: 1 }}
-                      />
-                      <Typography variant="caption">
-                        {(item.progress || 0).toFixed(0)}%
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.actualStartDate && (
-                        <span>{item.actualStartDate} - {item.actualEndDate || '...'}</span>
-                      )}
-                      {!item.actualStartDate && item.estimatedStartDate && (
-                        <span style={{ color: '#9ca3af' }}>
-                          {item.estimatedStartDate} - {item.estimatedEndDate || '...'}
-                        </span>
-                      )}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => openEditModal(item)}
-                        title={t('common.edit')}
-                      >
-                        <Pencil size={16} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => copyRowText(item)}
-                        title={t('todo.copyOutput')}
-                      >
-                        {copiedId === item.assignmentId ? (
-                          <Check size={16} color="green" />
-                        ) : (
-                          <Copy size={16} />
-                        )}
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Typography variant="h6" color="text.secondary">
-              {t('todo.noTasks')}
-            </Typography>
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-              {t('todo.noTasksDesc')}
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+      <DataTable<TodoItem>
+        columns={[
+          {
+            key: 'stageName',
+            header: t('todo.stage'),
+            render: (item) => (
+              <Chip
+                label={item.stageName}
+                size="small"
+                sx={{
+                  bgcolor: item.stageColor ? `${item.stageColor}20` : 'grey.100',
+                  color: item.stageColor || 'text.primary',
+                }}
+              />
+            ),
+          },
+          {
+            key: 'stepName',
+            header: t('todo.step'),
+            render: (item) => (
+              <Typography variant="body2" color="text.secondary">{item.stepName}</Typography>
+            ),
+          },
+          {
+            key: 'screenFunctionName',
+            header: t('todo.screen'),
+            render: (item) => (
+              <>
+                <Typography variant="body2" fontWeight={500}>{item.screenFunctionName}</Typography>
+                <Typography variant="caption" color="text.disabled">{item.screenFunctionType}</Typography>
+              </>
+            ),
+          },
+          {
+            key: 'taskStatus',
+            header: t('todo.status'),
+            render: (item) => (
+              <Chip label={item.taskStatus} size="small" color={getStatusColor(item.taskStatus)} />
+            ),
+          },
+          {
+            key: 'effort',
+            header: t('todo.effort'),
+            render: (item) => (
+              <Typography variant="body2">
+                <Typography component="span" color="text.disabled">{item.estimatedEffort || 0}h</Typography>
+                {' / '}
+                <Typography component="span" fontWeight={500}>{item.actualEffort || 0}h</Typography>
+              </Typography>
+            ),
+          },
+          {
+            key: 'progress',
+            header: t('todo.progress'),
+            render: (item) => (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={item.progress || 0}
+                  sx={{ width: 60, height: 6, borderRadius: 1 }}
+                />
+                <Typography variant="caption">{(item.progress || 0).toFixed(0)}%</Typography>
+              </Box>
+            ),
+          },
+          {
+            key: 'dates',
+            header: t('todo.dates'),
+            render: (item) => (
+              <Typography variant="caption" color="text.secondary">
+                {item.actualStartDate && (
+                  <span>{item.actualStartDate} - {item.actualEndDate || '...'}</span>
+                )}
+                {!item.actualStartDate && item.estimatedStartDate && (
+                  <span style={{ color: '#9ca3af' }}>
+                    {item.estimatedStartDate} - {item.estimatedEndDate || '...'}
+                  </span>
+                )}
+              </Typography>
+            ),
+          },
+          {
+            key: 'actions',
+            header: t('common.actions'),
+            render: (item) => (
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <IconButton size="small" onClick={() => openEditModal(item)} title={t('common.edit')}>
+                  <Pencil size={16} />
+                </IconButton>
+                <IconButton size="small" onClick={() => copyRowText(item)} title={t('todo.copyOutput')}>
+                  {copiedId === item.assignmentId ? (
+                    <Check size={16} color="green" />
+                  ) : (
+                    <Copy size={16} />
+                  )}
+                </IconButton>
+              </Box>
+            ),
+          },
+        ] satisfies ColumnDef<TodoItem>[]}
+        data={filteredItems}
+        keyExtractor={(item) => item.assignmentId}
+        emptyTitle={t('todo.noTasks')}
+        emptyDescription={t('todo.noTasksDesc')}
+      />
 
       {/* Edit Task Dialog */}
       <Dialog

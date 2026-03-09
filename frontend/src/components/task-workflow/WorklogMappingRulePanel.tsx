@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectApi, taskWorkflowApi } from '@/services/api';
+import { DataTable } from '@/components/common/DataTable';
+import type { ColumnDef } from '@/components/common/DataTable';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -8,16 +10,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
-import Checkbox from '@mui/material/Checkbox';
-import TableSortLabel from '@mui/material/TableSortLabel';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -262,10 +255,6 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     `${s.keyword}|${s.stageId}|${s.stepId}|${s.reason || ''}`;
 
   const selectedSuggestions = aiSuggestions.filter((s) => selectedSuggestionKeys.includes(suggestionKey(s)));
-  const allSuggestionsSelected = aiSuggestions.length > 0 && selectedSuggestionKeys.length === aiSuggestions.length;
-
-  const allCopySelected = copyPreviewRows.length > 0 && selectedCopyKeys.length === copyPreviewRows.length;
-
   const sortedAiSuggestions = useMemo(() => {
     const rows = [...aiSuggestions];
     rows.sort((a, b) => {
@@ -338,44 +327,51 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           </Box>
           {aiSuggestMutation.isError && <Alert severity="error" sx={{ mt: 1 }}>{t('worklogMapping.ai.failed', { defaultValue: 'AI suggest failed' })}</Alert>}
           {aiSuggestions.length > 0 && (
-            <TableContainer component={Paper} sx={{ maxHeight: 240, mt: 1 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        size="small"
-                        checked={allSuggestionsSelected}
-                        indeterminate={!allSuggestionsSelected && selectedSuggestionKeys.length > 0}
-                        onChange={(e) => setSelectedSuggestionKeys(e.target.checked ? aiSuggestions.map(suggestionKey) : [])}
-                      />
-                    </TableCell>
-                    <TableCell><TableSortLabel active={sortBy === 'keyword'} direction={sortBy === 'keyword' ? sortDirection : 'asc'} onClick={() => { if (sortBy === 'keyword') setSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setSortBy('keyword'); setSortDirection('asc'); } }}>{t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}</TableSortLabel></TableCell>
-                    <TableCell><TableSortLabel active={sortBy === 'stageStep'} direction={sortBy === 'stageStep' ? sortDirection : 'asc'} onClick={() => { if (sortBy === 'stageStep') setSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setSortBy('stageStep'); setSortDirection('asc'); } }}>{t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}</TableSortLabel></TableCell>
-                    <TableCell>{t('worklogMapping.ai.confidence', { defaultValue: 'Confidence' })}</TableCell>
-                    <TableCell>{t('worklogImport.table.reason', { defaultValue: 'Reason' })}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedAiSuggestions.map((s) => {
-                    const stage = stageOptions.find((st: any) => st.id === s.stageId);
-                    const step = stage?.steps?.find((sp: any) => sp.id === s.stepId);
-                    const key = suggestionKey(s);
-                    return (
-                      <TableRow key={key}>
-                        <TableCell padding="checkbox">
-                          <Checkbox size="small" checked={selectedSuggestionKeys.includes(key)} onChange={(e) => setSelectedSuggestionKeys(prev => e.target.checked ? [...prev, key] : prev.filter(x => x !== key))} />
-                        </TableCell>
-                        <TableCell>{s.keyword}</TableCell>
-                        <TableCell>{stage?.name || s.stageId} / {step?.name || s.stepId}</TableCell>
-                        <TableCell>{Math.round((s.confidence || 0) * 100)}%</TableCell>
-                        <TableCell>{s.reason || '-'}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <Box sx={{ mt: 1 }}>
+              <DataTable
+                columns={[
+                  {
+                    key: 'keyword',
+                    header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }),
+                    sortable: true,
+                    render: (s) => s.keyword,
+                  },
+                  {
+                    key: 'stageStep',
+                    header: t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' }),
+                    sortable: true,
+                    render: (s) => {
+                      const stage = stageOptions.find((st: any) => st.id === s.stageId);
+                      const step = stage?.steps?.find((sp: any) => sp.id === s.stepId);
+                      return `${stage?.name || s.stageId} / ${step?.name || s.stepId}`;
+                    },
+                  },
+                  {
+                    key: 'confidence',
+                    header: t('worklogMapping.ai.confidence', { defaultValue: 'Confidence' }),
+                    render: (s) => `${Math.round((s.confidence || 0) * 100)}%`,
+                  },
+                  {
+                    key: 'reason',
+                    header: t('worklogImport.table.reason', { defaultValue: 'Reason' }),
+                    render: (s) => s.reason || '-',
+                  },
+                ] as ColumnDef<typeof aiSuggestions[0]>[]}
+                data={sortedAiSuggestions}
+                keyExtractor={(s) => suggestionKey(s)}
+                stickyHeader
+                maxHeight={240}
+                selectable
+                selectedKeys={selectedSuggestionKeys}
+                onSelectionChange={(keys) => setSelectedSuggestionKeys(keys as string[])}
+                sortBy={sortBy}
+                sortOrder={sortDirection}
+                onSort={(col) => {
+                  if (sortBy === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                  else { setSortBy(col as 'keyword' | 'stageStep'); setSortDirection('asc'); }
+                }}
+              />
+            </Box>
           )}
         </Box>
 
@@ -405,58 +401,52 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
 
           {copyPreviewRows.length > 0 && (
             <>
-              <TableContainer component={Paper} sx={{ maxHeight: 260, mt: 1.5 }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          size="small"
-                          checked={allCopySelected}
-                          indeterminate={!allCopySelected && selectedCopyKeys.length > 0}
-                          onChange={(e) => setSelectedCopyKeys(e.target.checked ? copyPreviewRows.map(r => r.keyword) : [])}
-                        />
-                      </TableCell>
-                      <TableCell>{t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}</TableCell>
-                      <TableCell>{t('worklogMapping.copyFromProject.sourceStageStep', { defaultValue: 'Source Stage/Step' })}</TableCell>
-                      <TableCell>{t('worklogMapping.copyFromProject.targetStageStep', { defaultValue: 'Target Stage/Step' })}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {copyPreviewRows.map((row) => {
-                      const targetStageName = row.targetStageId
-                        ? stageOptions.find((s: any) => s.id === row.targetStageId)?.name
-                        : null;
-                      const targetStepName = row.targetStageId && row.targetStepId
-                        ? stageOptions.find((s: any) => s.id === row.targetStageId)?.steps?.find((sp: any) => sp.id === row.targetStepId)?.name
-                        : null;
-                      return (
-                        <TableRow key={row.keyword}>
-                          <TableCell padding="checkbox">
-                            <Checkbox
-                              size="small"
-                              checked={selectedCopyKeys.includes(row.keyword)}
-                              onChange={(e) => setSelectedCopyKeys(prev => e.target.checked ? [...prev, row.keyword] : prev.filter(k => k !== row.keyword))}
-                            />
-                          </TableCell>
-                          <TableCell>{row.keyword}</TableCell>
-                          <TableCell sx={{ color: 'text.secondary' }}>
-                            {row.sourceStageName || '—'} / {row.sourceStepName || '—'}
-                          </TableCell>
-                          <TableCell>
-                            {row.matched
-                              ? `${targetStageName || row.targetStageId} / ${targetStepName || row.targetStepId}`
-                              : <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
-                                  {t('worklogMapping.copyFromProject.noMatch', { defaultValue: 'No match — will save without stage/step' })}
-                                </Box>
-                            }
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Box sx={{ mt: 1.5 }}>
+                <DataTable<CopyPreviewRow>
+                  columns={[
+                    {
+                      key: 'keyword',
+                      header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }),
+                      render: (row) => row.keyword,
+                    },
+                    {
+                      key: 'sourceStageStep',
+                      header: t('worklogMapping.copyFromProject.sourceStageStep', { defaultValue: 'Source Stage/Step' }),
+                      render: (row) => (
+                        <Box sx={{ color: 'text.secondary' }}>
+                          {row.sourceStageName || '—'} / {row.sourceStepName || '—'}
+                        </Box>
+                      ),
+                    },
+                    {
+                      key: 'targetStageStep',
+                      header: t('worklogMapping.copyFromProject.targetStageStep', { defaultValue: 'Target Stage/Step' }),
+                      render: (row) => {
+                        const targetStageName = row.targetStageId
+                          ? stageOptions.find((s: any) => s.id === row.targetStageId)?.name
+                          : null;
+                        const targetStepName = row.targetStageId && row.targetStepId
+                          ? stageOptions.find((s: any) => s.id === row.targetStageId)?.steps?.find((sp: any) => sp.id === row.targetStepId)?.name
+                          : null;
+                        return row.matched
+                          ? `${targetStageName || row.targetStageId} / ${targetStepName || row.targetStepId}`
+                          : (
+                            <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
+                              {t('worklogMapping.copyFromProject.noMatch', { defaultValue: 'No match — will save without stage/step' })}
+                            </Box>
+                          );
+                      },
+                    },
+                  ]}
+                  data={copyPreviewRows}
+                  keyExtractor={(row) => row.keyword}
+                  stickyHeader
+                  maxHeight={260}
+                  selectable
+                  selectedKeys={selectedCopyKeys}
+                  onSelectionChange={(keys) => setSelectedCopyKeys(keys as string[])}
+                />
+              </Box>
               <Box sx={{ mt: 1, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                 <Button variant="contained" color="primary" onClick={() => applyCopyMutation.mutate()} disabled={selectedCopyKeys.length === 0 || applyCopyMutation.isPending}>
                   {t('worklogMapping.copyFromProject.applySelected', { defaultValue: 'Copy selected' })} ({selectedCopyKeys.length})
@@ -479,56 +469,71 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
         </Box>
 
         {/* Existing rules table */}
-        <TableContainer component={Paper} sx={{ maxHeight: 320 }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <TableSortLabel active={ruleSortBy === 'keyword'} direction={ruleSortBy === 'keyword' ? ruleSortDirection : 'asc'} onClick={() => { if (ruleSortBy === 'keyword') setRuleSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setRuleSortBy('keyword'); setRuleSortDirection('asc'); } }}>
-                    {t('worklogMapping.table.keyword', { defaultValue: 'Keyword' })}
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel active={ruleSortBy === 'stageStep'} direction={ruleSortBy === 'stageStep' ? ruleSortDirection : 'asc'} onClick={() => { if (ruleSortBy === 'stageStep') setRuleSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setRuleSortBy('stageStep'); setRuleSortDirection('asc'); } }}>
-                    {t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' })}
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>{t('common.priority', { defaultValue: 'Priority' })}</TableCell>
-                <TableCell>{t('common.status')}</TableCell>
-                <TableCell align="right">{t('worklogImport.table.action', { defaultValue: 'Action' })}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedRules.map((rule: any) => {
+        <DataTable
+          columns={[
+            {
+              key: 'keyword',
+              header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }),
+              sortable: true,
+              render: (rule: any) => {
                 const missing = isMissingStageStep(rule);
-                return (
-                  <TableRow key={rule.id}>
-                    <TableCell>
-                      {missing
-                        ? <Box component="span" sx={{ color: 'warning.main' }}>{rule.keyword} *</Box>
-                        : rule.keyword
-                      }
-                    </TableCell>
-                    <TableCell>
-                      {missing
-                        ? <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
-                            {t('worklogMapping.noStageStep', { defaultValue: 'No stage/step assigned *' })}
-                          </Box>
-                        : `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}`
-                      }
-                    </TableCell>
-                    <TableCell>{rule.priority}</TableCell>
-                    <TableCell>{rule.isActive ? t('common.active', { defaultValue: 'Active' }) : t('common.inactive', { defaultValue: 'Inactive' })}</TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      <Button size="small" onClick={() => openEdit(rule)} sx={{ mr: 0.5 }}>{t('common.edit', { defaultValue: 'Edit' })}</Button>
-                      <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>{t('common.delete')}</Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                return missing
+                  ? <Box component="span" sx={{ color: 'warning.main' }}>{rule.keyword} *</Box>
+                  : rule.keyword;
+              },
+            },
+            {
+              key: 'stageStep',
+              header: t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' }),
+              sortable: true,
+              render: (rule: any) => {
+                const missing = isMissingStageStep(rule);
+                return missing
+                  ? <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
+                      {t('worklogMapping.noStageStep', { defaultValue: 'No stage/step assigned *' })}
+                    </Box>
+                  : `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}`;
+              },
+            },
+            {
+              key: 'priority',
+              header: t('common.priority', { defaultValue: 'Priority' }),
+              render: (rule: any) => rule.priority,
+            },
+            {
+              key: 'isActive',
+              header: t('common.status'),
+              render: (rule: any) => rule.isActive
+                ? t('common.active', { defaultValue: 'Active' })
+                : t('common.inactive', { defaultValue: 'Inactive' }),
+            },
+            {
+              key: 'actions',
+              header: t('worklogImport.table.action', { defaultValue: 'Action' }),
+              align: 'right',
+              render: (rule: any) => (
+                <Box sx={{ whiteSpace: 'nowrap' }}>
+                  <Button size="small" onClick={() => openEdit(rule)} sx={{ mr: 0.5 }}>
+                    {t('common.edit', { defaultValue: 'Edit' })}
+                  </Button>
+                  <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>
+                    {t('common.delete')}
+                  </Button>
+                </Box>
+              ),
+            },
+          ] as ColumnDef<any>[]}
+          data={sortedRules}
+          keyExtractor={(rule: any) => rule.id}
+          stickyHeader
+          maxHeight={320}
+          sortBy={ruleSortBy}
+          sortOrder={ruleSortDirection}
+          onSort={(col) => {
+            if (ruleSortBy === col) setRuleSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+            else { setRuleSortBy(col as 'keyword' | 'stageStep'); setRuleSortDirection('asc'); }
+          }}
+        />
       </CardContent>
 
       {/* Edit modal */}

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { projectApi } from '@/services/api'
 import type { Project } from '@/types'
+import { DataTable } from '@/components/common/DataTable'
+import type { ColumnDef } from '@/components/common/DataTable'
 
 // MUI imports
 import Box from '@mui/material/Box'
@@ -18,12 +20,6 @@ import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
 import CircularProgress from '@mui/material/CircularProgress'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import Paper from '@mui/material/Paper'
 
 interface BenchmarkMetric {
@@ -361,81 +357,91 @@ function BenchmarksPage() {
           <Card>
             <CardHeader title={t('benchmark.summaryTitle')} titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }} />
             <CardContent sx={{ pt: 0 }}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: 'grey.50' }}>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.rank')}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('project.name')}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('project.status')}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.progress')}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.effortVariance')}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{t('benchmark.score')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rankedMetrics.map((metric, index) => (
-                      <TableRow key={metric.project.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500}>#{index + 1}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Link
-                            to="/projects/$projectId"
-                            params={{ projectId: metric.project.id.toString() }}
-                            search={{ tab: 'overview' }}
-                            style={{ textDecoration: 'none' }}
-                          >
-                            <Typography variant="body2" fontWeight={600} color="primary.main" sx={{ '&:hover': { textDecoration: 'underline' } }}>
-                              {metric.project.name}
-                            </Typography>
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={getStatusTranslation(metric.project.status)}
-                            color={getStatusColor(metric.project.status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={metric.project.progress}
-                              sx={{ width: 60, height: 6, borderRadius: 1 }}
-                            />
-                            <Typography variant="caption" color="text.secondary">
-                              {metric.project.progress.toFixed(0)}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{ color: metric.effortVariance > 0 ? 'error.main' : 'success.main' }}
-                          >
-                            {formatVariance(metric.effortVariance)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" fontWeight={600}>
-                              {metric.benchmarkScore}
-                            </Typography>
-                            <LinearProgress
-                              variant="determinate"
-                              value={metric.benchmarkScore}
-                              color="success"
-                              sx={{ width: 60, height: 6, borderRadius: 1 }}
-                            />
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <DataTable<BenchmarkMetric>
+                columns={[
+                  {
+                    key: 'rank',
+                    header: t('benchmark.rank'),
+                    render: (_row, index) => (
+                      <Typography variant="body2" fontWeight={500}>#{index + 1}</Typography>
+                    ),
+                  },
+                  {
+                    key: 'name',
+                    header: t('project.name'),
+                    render: (metric) => (
+                      <Link
+                        to="/projects/$projectId"
+                        params={{ projectId: metric.project.id.toString() }}
+                        search={{ tab: 'overview' }}
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <Typography variant="body2" fontWeight={600} color="primary.main" sx={{ '&:hover': { textDecoration: 'underline' } }}>
+                          {metric.project.name}
+                        </Typography>
+                      </Link>
+                    ),
+                  },
+                  {
+                    key: 'status',
+                    header: t('project.status'),
+                    render: (metric) => (
+                      <Chip
+                        label={getStatusTranslation(metric.project.status)}
+                        color={getStatusColor(metric.project.status)}
+                        size="small"
+                      />
+                    ),
+                  },
+                  {
+                    key: 'progress',
+                    header: t('benchmark.progress'),
+                    render: (metric) => (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={metric.project.progress}
+                          sx={{ width: 60, height: 6, borderRadius: 1 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {metric.project.progress.toFixed(0)}%
+                        </Typography>
+                      </Box>
+                    ),
+                  },
+                  {
+                    key: 'effortVariance',
+                    header: t('benchmark.effortVariance'),
+                    render: (metric) => (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: metric.effortVariance > 0 ? 'error.main' : 'success.main' }}
+                      >
+                        {formatVariance(metric.effortVariance)}
+                      </Typography>
+                    ),
+                  },
+                  {
+                    key: 'benchmarkScore',
+                    header: t('benchmark.score'),
+                    render: (metric) => (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {metric.benchmarkScore}
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={metric.benchmarkScore}
+                          color="success"
+                          sx={{ width: 60, height: 6, borderRadius: 1 }}
+                        />
+                      </Box>
+                    ),
+                  },
+                ] satisfies ColumnDef<BenchmarkMetric>[]}
+                data={rankedMetrics}
+                keyExtractor={(metric) => metric.project.id}
+              />
             </CardContent>
           </Card>
 
