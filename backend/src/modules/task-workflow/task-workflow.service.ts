@@ -2500,20 +2500,27 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         // Fetch all committed items for this project (only fields needed for matching)
         const committedItems = await this.worklogImportItemRepository.findAll({
           where: { batchId: batchIds, status: 'committed' },
-          attributes: ['day', 'workDetail', 'memberId', 'stepId'],
+          attributes: ['day', 'workDetail', 'memberId', 'stepId', 'screenFunctionId'],
         });
 
-        // Build a Set of composite keys for O(1) lookup
-        const committedKeys = new Set(
-          committedItems.map((ci) => `${ci.day}|${ci.workDetail}|${ci.memberId}|${ci.stepId}`),
+        // Build a Map of composite keys → screenFunctionId for O(1) lookup
+        const committedKeyMap = new Map(
+          committedItems.map((ci) => [
+            `${ci.day}|${ci.workDetail}|${ci.memberId}|${ci.stepId}`,
+            ci.screenFunctionId,
+          ]),
         );
 
         for (const item of readyItems) {
           const key = `${item.day}|${item.workDetail}|${item.memberId}|${item.stepId}`;
-          if (committedKeys.has(key)) {
+          if (committedKeyMap.has(key)) {
             item.status = 'duplicate';
             item.isSelected = false;
             item.reason = 'Work detail already imported for this date';
+            // Fill screenFunctionId from committed record if not already set
+            if (!item.screenFunctionId) {
+              item.screenFunctionId = committedKeyMap.get(key) ?? null;
+            }
           }
         }
       }
@@ -2538,12 +2545,19 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           attributes: ['id', 'stepId', 'screenFunctionId'],
         });
 
+        // Map "stepId|screenFunctionId" → { id, screenFunctionId }
         const ssfMap = new Map(
-          stepScreenFunctions.map((ssf) => [`${ssf.stepId}|${ssf.screenFunctionId}`, ssf.id]),
+          stepScreenFunctions.map((ssf) => [`${ssf.stepId}|${ssf.screenFunctionId}`, ssf]),
         );
 
         const memberIds = [...new Set(stillReady.map((i) => i.memberId))];
-        const ssfIds = [...new Set(stepScreenFunctionPairs.map((p) => ssfMap.get(`${p.stepId}|${p.screenFunctionId}`)).filter(Boolean))];
+        const ssfIds = [
+          ...new Set(
+            stepScreenFunctionPairs
+              .map((p) => ssfMap.get(`${p.stepId}|${p.screenFunctionId}`)?.id)
+              .filter(Boolean),
+          ),
+        ];
 
         if (ssfIds.length > 0) {
           const existingAssignments = await this.stepScreenFunctionMemberRepository.findAll({
@@ -2556,15 +2570,16 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           });
 
           for (const item of stillReady) {
-            const ssfId = ssfMap.get(`${item.stepId}|${item.screenFunctionId}`);
-            if (!ssfId) continue;
+            const ssf = ssfMap.get(`${item.stepId}|${item.screenFunctionId}`);
+            if (!ssf) continue;
             const assignment = existingAssignments.find(
-              (a) => a.stepScreenFunctionId === ssfId && a.memberId === item.memberId,
+              (a) => a.stepScreenFunctionId === ssf.id && a.memberId === item.memberId,
             );
             if (assignment && assignment.note && assignment.note.includes(item.workDetail)) {
               item.status = 'duplicate';
               item.isSelected = false;
               item.reason = 'Work detail already exists in assignment notes';
+              // screenFunctionId already set from CSV parse (item.screenFunctionId === ssf.screenFunctionId)
             }
           }
         }
