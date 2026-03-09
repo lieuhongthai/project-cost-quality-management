@@ -305,9 +305,12 @@ export class TaskWorkflowService {
       filteredScreenFunctions = filteredScreenFunctions.filter(sf => sfIdsWithIncomplete.has(sf.id));
     }
 
-    // Calculate progress
+    // Calculate progress based on StepScreenFunction status (set via import or manual edit),
+    // not TaskWorkflow.isCompleted which requires a separate manual toggle.
     const totalPossible = screenFunctions.length * stepIds.length;
-    const completedCount = taskWorkflows.filter(tw => tw.isCompleted).length;
+    const completedCount = stepScreenFunctions.filter(
+      ssf => ssf.status === 'Completed' && screenFunctionIds.includes(ssf.screenFunctionId),
+    ).length;
 
     return {
       stages: stagesWithSteps,
