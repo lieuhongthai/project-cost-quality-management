@@ -65,7 +65,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     onSuccess: (response) => {
       const data = response.data;
       setBatchDetail(data);
-      setSelectedIds(data.items.filter((item) => item.isSelected).map((item) => item.id));
+      setSelectedIds(data.items.filter((item) => item.isSelected).map((item) => item.rowNumber));
       setOverrides({});
       setEditingItemId(null);
       setEditDraft({});
@@ -83,8 +83,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
       const response = await taskWorkflowApi.commitWorklogImport({
         batchId: batchDetail.batch.id,
-        selectedItemIds: selectedIds,
-        overrides: overridePayload,
+        selectedRowNumbers: selectedIds,
+        overrides: overridePayload.map(({ itemId, ...rest }) => ({ rowNumber: itemId, ...rest })),
         clearExistingTasks,
       });
       const refreshed = await taskWorkflowApi.getWorklogImportBatch(batchDetail.batch.id);
@@ -151,8 +151,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
   const itemCanSelect = (item: any) => {
     if (item.status === 'unmapped' || item.status === 'error') return false;
-    const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
-    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
+    const effectiveStepId = getEffectiveValue(item.rowNumber, 'stepId', item.stepId);
+    const effectiveScreenFunctionId = getEffectiveValue(item.rowNumber, 'screenFunctionId', item.screenFunctionId);
     return !!item.memberId && !!effectiveStepId && !!effectiveScreenFunctionId;
   };
 
@@ -190,11 +190,11 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   };
 
   const openEditModal = (item: any) => {
-    setEditingItemId(item.id);
+    setEditingItemId(item.rowNumber);
     setEditDraft({
-      stageId: getEffectiveValue(item.id, 'stageId', item.stageId),
-      stepId: getEffectiveValue(item.id, 'stepId', item.stepId),
-      screenFunctionId: getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId),
+      stageId: getEffectiveValue(item.rowNumber, 'stageId', item.stageId),
+      stepId: getEffectiveValue(item.rowNumber, 'stepId', item.stepId),
+      screenFunctionId: getEffectiveValue(item.rowNumber, 'screenFunctionId', item.screenFunctionId),
     });
   };
 
@@ -209,7 +209,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     closeEditModal();
   };
 
-  const editingItem = batchDetail?.items.find((item) => item.id === editingItemId) || null;
+  const editingItem = batchDetail?.items.find((item) => item.rowNumber === editingItemId) || null;
   const editingStage = stageOptions.find((s: any) => s.id === Number(editDraft.stageId));
   const editingStepOptions = editingStage?.steps || [];
 
@@ -237,10 +237,10 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         aVal = a.day || '';
         bVal = b.day || '';
       } else if (sortColumn === 'stageStep') {
-        const aStageId = overrides[a.id]?.stageId ?? a.stageId;
-        const bStageId = overrides[b.id]?.stageId ?? b.stageId;
-        const aStepId = overrides[a.id]?.stepId ?? a.stepId;
-        const bStepId = overrides[b.id]?.stepId ?? b.stepId;
+        const aStageId = overrides[a.rowNumber]?.stageId ?? a.stageId;
+        const bStageId = overrides[b.rowNumber]?.stageId ?? b.stageId;
+        const aStepId = overrides[a.rowNumber]?.stepId ?? a.stepId;
+        const bStepId = overrides[b.rowNumber]?.stepId ?? b.stepId;
         const aStage = stageOptions.find((s: any) => s.id === Number(aStageId));
         const bStage = stageOptions.find((s: any) => s.id === Number(bStageId));
         const aStep = aStage?.steps?.find((sp: any) => sp.id === Number(aStepId));
@@ -248,8 +248,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         aVal = `${aStage?.name || ''} ${aStep?.name || ''}`.trim();
         bVal = `${bStage?.name || ''} ${bStep?.name || ''}`.trim();
       } else if (sortColumn === 'screenFunction') {
-        const aFnId = overrides[a.id]?.screenFunctionId ?? a.screenFunctionId;
-        const bFnId = overrides[b.id]?.screenFunctionId ?? b.screenFunctionId;
+        const aFnId = overrides[a.rowNumber]?.screenFunctionId ?? a.screenFunctionId;
+        const bFnId = overrides[b.rowNumber]?.screenFunctionId ?? b.screenFunctionId;
         aVal = (screenFunctions || []).find((sf: any) => sf.id === Number(aFnId))?.name || a.screenFunction?.name || '';
         bVal = (screenFunctions || []).find((sf: any) => sf.id === Number(bFnId))?.name || b.screenFunction?.name || '';
       } else if (sortColumn === 'status') {
@@ -355,8 +355,8 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                   header: t('worklogImport.table.stageStep', { defaultValue: 'Stage / Step' }),
                   sortable: true,
                   render: (item) => {
-                    const effectiveStageId = getEffectiveValue(item.id, 'stageId', item.stageId);
-                    const effectiveStepId = getEffectiveValue(item.id, 'stepId', item.stepId);
+                    const effectiveStageId = getEffectiveValue(item.rowNumber, 'stageId', item.stageId);
+                    const effectiveStepId = getEffectiveValue(item.rowNumber, 'stepId', item.stepId);
                     const stage = stageOptions.find((s: any) => s.id === Number(effectiveStageId));
                     const stepName = stage?.steps?.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-';
                     return (
@@ -372,7 +372,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                   header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }),
                   sortable: true,
                   render: (item) => {
-                    const effectiveScreenFunctionId = getEffectiveValue(item.id, 'screenFunctionId', item.screenFunctionId);
+                    const effectiveScreenFunctionId = getEffectiveValue(item.rowNumber, 'screenFunctionId', item.screenFunctionId);
                     const screenFunctionName =
                       (screenFunctions || []).find((sf: any) => sf.id === Number(effectiveScreenFunctionId))?.name ||
                       item.screenFunction?.name || '-';
@@ -413,7 +413,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 },
               ] as ColumnDef<any>[]}
               data={sortedItems}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.rowNumber}
               stickyHeader
               maxHeight={460}
               selectable
@@ -492,7 +492,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 variant="outlined"
                 onClick={() =>
                   editingItem && createScreenFunctionMutation.mutate({
-                    itemId: editingItem.id,
+                    itemId: editingItem.rowNumber,
                     suggestedName: buildSuggestedScreenFunctionName(editingItem.workDetail),
                   })
                 }
