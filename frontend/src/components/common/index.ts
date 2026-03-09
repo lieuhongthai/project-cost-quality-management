@@ -16,3 +16,5 @@ export {
   IconButton,
   Tooltip,
 } from './UIComponents';
+export { DataTable } from './DataTable';
+export type { ColumnDef, DataTableProps } from './DataTable';

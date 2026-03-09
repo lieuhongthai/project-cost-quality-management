@@ -73,7 +73,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
   }, [existingDefaultMembers]);
 
   const createMutation = useMutation({
-    mutationFn: (data: Partial<ScreenFunction>) => screenFunctionApi.create(data),
+    mutationFn: (data: Partial<ScreenFunction> & { autoCreateSteps?: boolean }) => screenFunctionApi.create(data),
     onSuccess: async (response) => {
       const newSf = response.data;
       // Save default members for the new screen function

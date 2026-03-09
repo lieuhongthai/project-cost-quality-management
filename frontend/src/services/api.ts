@@ -140,7 +140,7 @@ export const screenFunctionApi = {
   getAll: () => api.get<ScreenFunction[]>('/screen-functions'),
   getByProject: (projectId: number) => api.get<ScreenFunction[]>(`/screen-functions/project/${projectId}`),
   getOne: (id: number) => api.get<ScreenFunction>(`/screen-functions/${id}`),
-  create: (data: Partial<ScreenFunction>) => api.post<ScreenFunction>('/screen-functions', data),
+  create: (data: Partial<ScreenFunction> & { autoCreateSteps?: boolean }) => api.post<ScreenFunction>('/screen-functions', data),
   update: (id: number, data: Partial<ScreenFunction>) => api.put<ScreenFunction>(`/screen-functions/${id}`, data),
   delete: (id: number) => api.delete(`/screen-functions/${id}`),
   reorder: (items: Array<{ id: number; displayOrder: number }>) =>
@@ -230,8 +230,8 @@ export const taskWorkflowApi = {
   createWorklogMappingRule: (data: {
     projectId: number;
     keyword: string;
-    stageId: number;
-    stepId: number;
+    stageId?: number;
+    stepId?: number;
     priority?: number;
     isActive?: boolean;
   }) => api.post<WorklogMappingRule>('/task-workflow/worklog-mapping-rules', data),
