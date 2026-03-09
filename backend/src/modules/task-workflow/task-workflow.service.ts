@@ -2517,6 +2517,58 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           }
         }
       }
+
+      // Secondary check: detect duplicates created manually (not via import)
+      // by searching StepScreenFunctionMember.note for the workDetail text
+      const stillReady = readyItems.filter(
+        (i) => i.status !== 'duplicate' && i.stepId && i.screenFunctionId && i.memberId && i.workDetail,
+      );
+
+      if (stillReady.length > 0) {
+        const stepScreenFunctionPairs = [
+          ...new Map(
+            stillReady.map((i) => [`${i.stepId}|${i.screenFunctionId}`, { stepId: i.stepId, screenFunctionId: i.screenFunctionId }]),
+          ).values(),
+        ];
+
+        const stepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
+          where: {
+            [Op.or]: stepScreenFunctionPairs,
+          },
+          attributes: ['id', 'stepId', 'screenFunctionId'],
+        });
+
+        const ssfMap = new Map(
+          stepScreenFunctions.map((ssf) => [`${ssf.stepId}|${ssf.screenFunctionId}`, ssf.id]),
+        );
+
+        const memberIds = [...new Set(stillReady.map((i) => i.memberId))];
+        const ssfIds = [...new Set(stepScreenFunctionPairs.map((p) => ssfMap.get(`${p.stepId}|${p.screenFunctionId}`)).filter(Boolean))];
+
+        if (ssfIds.length > 0) {
+          const existingAssignments = await this.stepScreenFunctionMemberRepository.findAll({
+            where: {
+              stepScreenFunctionId: ssfIds,
+              memberId: memberIds,
+              note: { [Op.ne]: null },
+            },
+            attributes: ['stepScreenFunctionId', 'memberId', 'note'],
+          });
+
+          for (const item of stillReady) {
+            const ssfId = ssfMap.get(`${item.stepId}|${item.screenFunctionId}`);
+            if (!ssfId) continue;
+            const assignment = existingAssignments.find(
+              (a) => a.stepScreenFunctionId === ssfId && a.memberId === item.memberId,
+            );
+            if (assignment && assignment.note && assignment.note.includes(item.workDetail)) {
+              item.status = 'duplicate';
+              item.isSelected = false;
+              item.reason = 'Work detail already exists in assignment notes';
+            }
+          }
+        }
+      }
     }
 
     // Save parsed items as preview data — do NOT write to worklog_import_items yet
