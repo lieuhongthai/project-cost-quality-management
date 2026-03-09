@@ -2476,51 +2476,39 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       });
     }
 
-    // Detect duplicates: check if '{day}: {workDetail}' already exists in note of StepScreenFunctionMember
+    // Detect duplicates: check worklog_import_items table for previously committed records
+    // matching same day + workDetail + memberId + stepId
     const readyItems = itemsToCreate.filter(
-      (i) => i.status === 'ready' && i.memberId && i.stepId && i.screenFunctionId,
+      (i) => i.status === 'ready' && i.memberId && i.stepId && i.day && i.workDetail,
     );
 
     if (readyItems.length > 0) {
-      const uniquePairs = Array.from(
-        new Map(readyItems.map((i) => [`${i.stepId}-${i.screenFunctionId}`, { stepId: i.stepId, screenFunctionId: i.screenFunctionId }])).values(),
-      );
-
-      const existingStepScreenFunctions = await this.stepScreenFunctionRepository.findAll({
-        where: { [Op.or]: uniquePairs as any },
-        attributes: ['id', 'stepId', 'screenFunctionId'],
+      // Find all committed batches for this project
+      const committedBatches = await this.worklogImportBatchRepository.findAll({
+        where: { projectId },
+        attributes: ['id'],
       });
+      const batchIds = committedBatches.map((b) => b.id);
 
-      const stepFuncMap = new Map(existingStepScreenFunctions.map((sf) => [`${sf.stepId}-${sf.screenFunctionId}`, sf.id]));
-      const stepScreenFunctionIds = existingStepScreenFunctions.map((sf) => sf.id);
-      const uniqueMemberIds = [...new Set(readyItems.map((i) => i.memberId))];
+      if (batchIds.length > 0) {
+        // Fetch all committed items for this project (only fields needed for matching)
+        const committedItems = await this.worklogImportItemRepository.findAll({
+          where: { batchId: batchIds, status: 'committed' },
+          attributes: ['day', 'workDetail', 'memberId', 'stepId'],
+        });
 
-      const existingAssignments =
-        stepScreenFunctionIds.length > 0
-          ? await this.stepScreenFunctionMemberRepository.findAll({
-              where: { stepScreenFunctionId: stepScreenFunctionIds, memberId: uniqueMemberIds },
-              attributes: ['stepScreenFunctionId', 'memberId', 'note'],
-            })
-          : [];
+        // Build a Set of composite keys for O(1) lookup
+        const committedKeys = new Set(
+          committedItems.map((ci) => `${ci.day}|${ci.workDetail}|${ci.memberId}|${ci.stepId}`),
+        );
 
-      const assignmentNoteMap = new Map(existingAssignments.map((a) => [`${a.stepScreenFunctionId}-${a.memberId}`, a.note || '']));
-
-      for (const item of readyItems) {
-        const ssId = stepFuncMap.get(`${item.stepId}-${item.screenFunctionId}`);
-        if (!ssId) continue;
-
-        const note = assignmentNoteMap.get(`${ssId}-${item.memberId}`);
-        if (!note) continue;
-
-        const searchPattern = `${item.day || ''}: ${item.workDetail || ''}`.trim();
-        const isDuplicate = note
-          .split('\n')
-          .some((line) => line.trim() === searchPattern);
-
-        if (isDuplicate) {
-          item.status = 'duplicate';
-          item.isSelected = false;
-          item.reason = 'Work detail already imported for this date';
+        for (const item of readyItems) {
+          const key = `${item.day}|${item.workDetail}|${item.memberId}|${item.stepId}`;
+          if (committedKeys.has(key)) {
+            item.status = 'duplicate';
+            item.isSelected = false;
+            item.reason = 'Work detail already imported for this date';
+          }
         }
       }
     }
