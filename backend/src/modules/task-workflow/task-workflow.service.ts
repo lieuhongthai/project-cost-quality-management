@@ -2524,7 +2524,10 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
     // Enrich items with associated objects for the response
     const stages = await this.stageRepository.findAll({ where: { projectId } });
-    const steps = await this.stepRepository.findAll({ where: { projectId } });
+    const stageIds = stages.map((s) => s.id);
+    const steps = stageIds.length > 0
+      ? await this.stepRepository.findAll({ where: { stageId: stageIds } })
+      : [];
     const stageMap = new Map(stages.map((s) => [s.id, s]));
     const stepMap = new Map(steps.map((s) => [s.id, s]));
     const screenFunctionMap = new Map(screenFunctions.map((sf) => [sf.id, sf]));
