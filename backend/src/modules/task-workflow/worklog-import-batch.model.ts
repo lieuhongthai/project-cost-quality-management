@@ -37,6 +37,12 @@ export class WorklogImportBatch extends Model {
   })
   uploadedBy?: number;
 
+  @Column({
+    type: DataType.JSONB,
+    allowNull: true,
+  })
+  previewData?: any[];
+
   @HasMany(() => WorklogImportItem)
   items: WorklogImportItem[];
 }

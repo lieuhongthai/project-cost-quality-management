@@ -797,7 +797,7 @@ export class WorklogImportOverrideItemDto {
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()
-  itemId: number;
+  rowNumber: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -823,7 +823,7 @@ export class CommitWorklogImportDto {
 
   @IsArray()
   @Type(() => Number)
-  selectedItemIds: number[];
+  selectedRowNumbers: number[];
 
   @IsOptional()
   @IsArray()
