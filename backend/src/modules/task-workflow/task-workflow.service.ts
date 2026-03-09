@@ -2478,8 +2478,14 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
     // Detect duplicates: check worklog_import_items table for previously committed records
     // matching same day + workDetail + memberId + stepId
+    // Also check needs_review items that have been manually assigned all required fields
     const readyItems = itemsToCreate.filter(
-      (i) => i.status === 'ready' && i.memberId && i.stepId && i.day && i.workDetail,
+      (i) =>
+        (i.status === 'ready' || i.status === 'needs_review') &&
+        i.memberId &&
+        i.stepId &&
+        i.day &&
+        i.workDetail,
     );
 
     if (readyItems.length > 0) {
