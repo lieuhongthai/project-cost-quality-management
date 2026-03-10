@@ -130,6 +130,17 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
     );
   }, [workflowData?.stages]);
 
+  // Set of stepIds that are the last step in their stage (for stage-boundary border)
+  const lastStepIdPerStage = useMemo(() => {
+    if (!workflowData?.stages) return new Set<number>();
+    return new Set(
+      workflowData.stages
+        .map((stage) => (stage.steps || []))
+        .filter((steps) => steps.length > 0)
+        .map((steps) => steps[steps.length - 1].id)
+    );
+  }, [workflowData?.stages]);
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
@@ -249,7 +260,23 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
 
       {/* Workflow Table */}
       <TableContainer component={Paper} sx={{ maxHeight: 'calc(100vh - 300px)' }}>
-        <Table stickyHeader size="small" sx={{ minWidth: 'max-content' }}>
+        <Table
+          stickyHeader
+          size="small"
+          sx={{
+            minWidth: 'max-content',
+            '& .MuiTableCell-root': {
+              borderRight: '1px solid',
+              borderRightColor: 'divider',
+              borderBottom: '1px solid',
+              borderBottomColor: 'divider',
+            },
+            '& .MuiTableCell-root.stage-boundary': {
+              borderRight: '2px solid',
+              borderRightColor: 'grey.400',
+            },
+          }}
+        >
           <TableHead>
             {/* Stage Header Row */}
             <TableRow>
@@ -303,6 +330,7 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                   key={stage.id}
                   colSpan={(stage.steps || []).length}
                   align="center"
+                  className="stage-boundary"
                   sx={{
                     bgcolor: stage.color || 'grey.200',
                     fontWeight: 500,
@@ -358,6 +386,7 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                   key={step.id}
                   align="center"
                   title={`${step.stageName} - ${step.name}`}
+                  className={lastStepIdPerStage.has(step.id) ? 'stage-boundary' : undefined}
                   sx={{
                     bgcolor: 'grey.50',
                     fontSize: '0.75rem',
@@ -437,6 +466,7 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                           key={`${sf.id}-${step.id}`}
                           align="center"
                           title={status ? t(`screenFunction.status${status.replace(' ', '')}`) : t('taskWorkflow.notLinked')}
+                          className={lastStepIdPerStage.has(step.id) ? 'stage-boundary' : undefined}
                           sx={{ px: 0.5 }}
                         >
                           {status === null ? (
