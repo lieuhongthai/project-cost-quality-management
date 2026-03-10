@@ -2480,18 +2480,17 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     }
 
     // Detect duplicates: check worklog_import_items table for previously committed records
-    // matching same day + workDetail + memberId + stepId
-    // Also check needs_review items that have been manually assigned all required fields
-    const readyItems = itemsToCreate.filter(
+    // matching same day + workDetail + memberId (regardless of step mapping)
+    // When duplicate found, update stageId/stepId/screenFunctionId from the committed record
+    const candidateItems = itemsToCreate.filter(
       (i) =>
         (i.status === 'ready' || i.status === 'needs_review') &&
         i.memberId &&
-        i.stepId &&
         i.day &&
         i.workDetail,
     );
 
-    if (readyItems.length > 0) {
+    if (candidateItems.length > 0) {
       // Find all committed batches for this project
       const committedBatches = await this.worklogImportBatchRepository.findAll({
         where: { projectId },
@@ -2503,34 +2502,35 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         // Fetch all committed items for this project (only fields needed for matching)
         const committedItems = await this.worklogImportItemRepository.findAll({
           where: { batchId: batchIds, status: 'committed' },
-          attributes: ['day', 'workDetail', 'memberId', 'stepId', 'screenFunctionId'],
+          attributes: ['day', 'workDetail', 'memberId', 'stageId', 'stepId', 'screenFunctionId'],
         });
 
-        // Build a Map of composite keys → screenFunctionId for O(1) lookup
+        // Build a Map of composite keys (day|workDetail|memberId) → { stageId, stepId, screenFunctionId }
         const committedKeyMap = new Map(
           committedItems.map((ci) => [
-            `${ci.day}|${ci.workDetail}|${ci.memberId}|${ci.stepId}`,
-            ci.screenFunctionId,
+            `${ci.day}|${ci.workDetail}|${ci.memberId}`,
+            { stageId: ci.stageId, stepId: ci.stepId, screenFunctionId: ci.screenFunctionId },
           ]),
         );
 
-        for (const item of readyItems) {
-          const key = `${item.day}|${item.workDetail}|${item.memberId}|${item.stepId}`;
+        for (const item of candidateItems) {
+          const key = `${item.day}|${item.workDetail}|${item.memberId}`;
           if (committedKeyMap.has(key)) {
+            const committed = committedKeyMap.get(key)!;
             item.status = 'duplicate';
             item.isSelected = false;
             item.reason = 'Work detail already imported for this date';
-            // Fill screenFunctionId from committed record if not already set
-            if (!item.screenFunctionId) {
-              item.screenFunctionId = committedKeyMap.get(key) ?? null;
-            }
+            // Overwrite stage/step/screenFunction with values from the committed record
+            item.stageId = committed.stageId ?? item.stageId;
+            item.stepId = committed.stepId ?? item.stepId;
+            item.screenFunctionId = committed.screenFunctionId ?? item.screenFunctionId;
           }
         }
       }
 
       // Secondary check: detect duplicates created manually (not via import)
       // by searching StepScreenFunctionMember.note for the workDetail text
-      const stillReady = readyItems.filter(
+      const stillReady = candidateItems.filter(
         (i) => i.status !== 'duplicate' && i.stepId && i.screenFunctionId && i.memberId && i.workDetail,
       );
 
