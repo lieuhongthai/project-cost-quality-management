@@ -3,8 +3,6 @@ import { Project } from './project.model';
 import { ProjectSettings, DEFAULT_NON_WORKING_DAYS } from './project-settings.model';
 import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto, DuplicateProjectDto } from './project.dto';
 import { WorkflowStage } from '../task-workflow/workflow-stage.model';
-import { WorkflowStep } from '../task-workflow/workflow-step.model';
-import { StepScreenFunction } from '../task-workflow/step-screen-function.model';
 import { MetricType } from '../task-workflow/metric-type.model';
 import { MetricCategory } from '../task-workflow/metric-category.model';
 import { Member } from '../member/member.model';
@@ -516,38 +514,38 @@ export class ProjectService {
       });
 
       for (const stage of sourceStages) {
-        const newStage = await WorkflowStage.create({
+        // Use service method which goes through the proper injected repository
+        const newStage = await this.taskWorkflowService.createStage({
           projectId: newProject.id,
           name: stage.name,
           displayOrder: stage.displayOrder,
           isActive: true,
-          color: stage.color,
-          // Copy planned dates, reset actual dates
-          startDate: stage.startDate,
-          endDate: stage.endDate,
-          actualStartDate: null,
-          actualEndDate: null,
-          estimatedEffort: stage.estimatedEffort,
-          actualEffort: 0,
-          progress: 0,
-          status: 'Good',
-        } as any);
+          color: stage.color ?? undefined,
+        });
+
+        // Update extra fields (dates, effort) that are not in CreateWorkflowStageDto
+        if (stage.startDate || stage.endDate || stage.estimatedEffort) {
+          await this.taskWorkflowService.updateStage(newStage.id, {
+            startDate: stage.startDate ?? undefined,
+            endDate: stage.endDate ?? undefined,
+            estimatedEffort: stage.estimatedEffort ?? undefined,
+          });
+        }
+
         stageIdMap.set(stage.id, newStage.id);
 
         // Copy steps if enabled
         if (dto.copySteps) {
-          const sourceSteps = await WorkflowStep.findAll({
-            where: { stageId: stage.id, isActive: true },
-            order: [['displayOrder', 'ASC']],
-          });
+          const sourceSteps = await this.taskWorkflowService.findAllSteps(stage.id);
 
           for (const step of sourceSteps) {
-            const newStep = await WorkflowStep.create({
+            if (!step.isActive) continue;
+            const newStep = await this.taskWorkflowService.createStep({
               stageId: newStage.id,
               name: step.name,
               displayOrder: step.displayOrder,
               isActive: true,
-            } as any);
+            });
             stepIdMap.set(step.id, newStep.id);
           }
         }
@@ -564,37 +562,26 @@ export class ProjectService {
     // 7. Copy step-screen-function mappings (optional, requires stages+steps+screenFunctions)
     if (dto.copyStepScreenFunctions && dto.copyStages && dto.copySteps && dto.copyScreenFunctions) {
       try {
-        // Fetch all SSFs from the source project in one query for efficiency
         const allSourceStepIds = Array.from(stepIdMap.keys());
         if (allSourceStepIds.length > 0) {
-          const { Op } = await import('sequelize');
-          const sourceSSFs = await StepScreenFunction.findAll({
-            where: { stepId: { [Op.in]: allSourceStepIds } },
-          });
+          const sourceSSFs = await this.taskWorkflowService.findAllStepScreenFunctionsByStepIds(allSourceStepIds);
 
           for (const ssf of sourceSSFs) {
             const newStepId = stepIdMap.get(ssf.stepId);
             const newSFId = screenFunctionIdMap.get(ssf.screenFunctionId);
             if (!newStepId || !newSFId) continue;
 
-            await StepScreenFunction.create({
+            await this.taskWorkflowService.createStepScreenFunction({
               stepId: newStepId,
               screenFunctionId: newSFId,
               estimatedEffort: ssf.estimatedEffort,
-              // Reset progress/actual dates
-              actualEffort: 0,
-              progress: 0,
               status: 'Not Started',
-              estimatedStartDate: ssf.estimatedStartDate,
-              estimatedEndDate: ssf.estimatedEndDate,
-              actualStartDate: null,
-              actualEndDate: null,
-              note: ssf.note,
-            } as any);
+              note: ssf.note ?? undefined,
+            });
           }
         }
       } catch (error) {
-        console.warn(`Step-screen-function copy failed for duplicated project ${newProject.id}:`, error?.message);
+        console.error(`Step-screen-function copy failed for duplicated project ${newProject.id}:`, error?.message, error?.stack);
       }
     }
 
