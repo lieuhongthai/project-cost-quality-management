@@ -934,6 +934,27 @@ export class TaskWorkflowService {
           })
         : [];
 
+      // Fetch all members assigned to these SSFs in one query
+      const ssfIds = stageSSFs.map(ssf => ssf.id);
+      const ssfMembers = ssfIds.length > 0
+        ? await this.stepScreenFunctionMemberRepository.findAll({
+            where: { stepScreenFunctionId: { [Op.in]: ssfIds } },
+            include: [{ model: Member, as: 'member', attributes: ['id', 'name'] }],
+          })
+        : [];
+
+      // Group members by stepScreenFunctionId
+      const membersBySSF = new Map<number, Array<{ memberId: number; memberName: string; actualEffort: number }>>();
+      for (const ssfm of ssfMembers) {
+        const existing = membersBySSF.get(ssfm.stepScreenFunctionId) || [];
+        existing.push({
+          memberId: ssfm.memberId,
+          memberName: (ssfm as any).member?.name || 'Unknown',
+          actualEffort: ssfm.actualEffort || 0,
+        });
+        membersBySSF.set(ssfm.stepScreenFunctionId, existing);
+      }
+
       // Group SSFs by stepId
       const ssfByStep = new Map<number, typeof stageSSFs>();
       for (const ssf of stageSSFs) {
@@ -979,6 +1000,7 @@ export class TaskWorkflowService {
             actualEffort: ssf.actualEffort || 0,
             progress: ssf.progress || 0,
             status: ssf.status,
+            members: membersBySSF.get(ssf.id) || [],
           };
         });
 

@@ -222,7 +222,9 @@ export function ProjectScreenFunctionsTab({
                         screenFunctionName: string;
                         screenFunctionType: string;
                         displayOrder: number;
-                        byStep: Map<number, { actualEffort: number; estimatedEffort: number; status: string }>;
+                        byStep: Map<number, { actualEffort: number; estimatedEffort: number; status: string; members: { memberId: number; memberName: string; actualEffort: number }[] }>;
+                        // unique members across all steps: memberId → { name, totalActual }
+                        memberMap: Map<number, { memberName: string; totalActual: number }>;
                         totalActual: number;
                         totalEstimated: number;
                       }
@@ -237,6 +239,7 @@ export function ProjectScreenFunctionsTab({
                             screenFunctionType: sf.screenFunctionType,
                             displayOrder: sf.displayOrder ?? 9999,
                             byStep: new Map(),
+                            memberMap: new Map(),
                             totalActual: 0,
                             totalEstimated: 0,
                           });
@@ -246,9 +249,22 @@ export function ProjectScreenFunctionsTab({
                           actualEffort: sf.actualEffort,
                           estimatedEffort: sf.estimatedEffort,
                           status: sf.status,
+                          members: sf.members || [],
                         });
                         entry.totalActual += sf.actualEffort;
                         entry.totalEstimated += sf.estimatedEffort;
+                        // Aggregate unique members
+                        for (const m of (sf.members || [])) {
+                          const existing = entry.memberMap.get(m.memberId);
+                          if (existing) {
+                            existing.totalActual += m.actualEffort;
+                          } else {
+                            entry.memberMap.set(m.memberId, {
+                              memberName: m.memberName,
+                              totalActual: m.actualEffort,
+                            });
+                          }
+                        }
                       }
                     }
 
@@ -274,6 +290,9 @@ export function ProjectScreenFunctionsTab({
                               </th>
                               <th className="px-3 py-2 text-left font-medium border-r border-gray-200 w-20">
                                 {t("common.type")}
+                              </th>
+                              <th className="px-3 py-2 text-left font-medium border-r border-gray-200 min-w-[160px]">
+                                Members
                               </th>
                               {selectedStage.steps.map((step: any) => (
                                 <th
@@ -305,6 +324,22 @@ export function ProjectScreenFunctionsTab({
                                     {screen.screenFunctionType}
                                   </span>
                                 </td>
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <div className="flex flex-wrap gap-1">
+                                    {Array.from(screen.memberMap.entries()).map(([memberId, m]) => (
+                                      <span
+                                        key={memberId}
+                                        title={`${m.memberName}: ${displayEffort(m.totalActual, "man-hour")} ${EFFORT_UNIT_LABELS[effortUnit]}`}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 cursor-default"
+                                      >
+                                        {m.memberName}
+                                      </span>
+                                    ))}
+                                    {screen.memberMap.size === 0 && (
+                                      <span className="text-gray-300">—</span>
+                                    )}
+                                  </div>
+                                </td>
                                 {selectedStage.steps.map((step: any) => {
                                   const cell = screen.byStep.get(step.stepId);
                                   return (
@@ -329,6 +364,7 @@ export function ProjectScreenFunctionsTab({
                               <td className="py-2 pl-3 pr-4 sticky left-0 bg-gray-50 border-r border-gray-200">
                                 Total
                               </td>
+                              <td className="px-3 py-2 border-r border-gray-200" />
                               <td className="px-3 py-2 border-r border-gray-200" />
                               {selectedStage.steps.map((step: any) => {
                                 const stepTotal = step.screenFunctions.reduce(
