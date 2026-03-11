@@ -240,6 +240,9 @@ export function StagesOverviewPanel({
   // Get unit label
   const unitLabel = EFFORT_UNIT_LABELS[effortUnit];
 
+  // Total actual effort across all stages (for percentage calculation)
+  const totalActualEffort = (stages ?? []).reduce((sum, s) => sum + (s.actualEffort || 0), 0);
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
@@ -384,6 +387,32 @@ export function StagesOverviewPanel({
                       <Typography variant="body2" fontWeight={500} component="span" sx={{ ml: 0.5 }}>
                         {displayEffort(stage.actualEffort || 0)} {unitLabel}
                       </Typography>
+                      {totalActualEffort > 0 && (stage.actualEffort || 0) > 0 && (() => {
+                        const pct = Math.round(((stage.actualEffort || 0) / totalActualEffort) * 100);
+                        return (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={pct}
+                                sx={{
+                                  flex: 1,
+                                  height: 4,
+                                  borderRadius: 1,
+                                  bgcolor: 'grey.200',
+                                  '& .MuiLinearProgress-bar': { bgcolor: 'warning.main' },
+                                }}
+                              />
+                              <Typography variant="caption" fontWeight={600} color="warning.dark" sx={{ whiteSpace: 'nowrap' }}>
+                                {pct}%
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.disabled">
+                              of project effort
+                            </Typography>
+                          </Box>
+                        );
+                      })()}
                     </Grid>
                   </Grid>
                 </Box>
