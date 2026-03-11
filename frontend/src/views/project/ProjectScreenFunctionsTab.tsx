@@ -29,8 +29,6 @@ export function ProjectScreenFunctionsTab({
   filteredScreenFunctions,
   expandedStages,
   setExpandedStages,
-  expandedSteps,
-  setExpandedSteps,
   sfFilter,
   setSfFilter,
   defaultMembers,
@@ -215,132 +213,144 @@ export function ProjectScreenFunctionsTab({
                     </div>
                   }
                 >
-                  <div className="space-y-1">
-                    {selectedStage.steps.map((step: any) => {
-                      const stepKey = `${selectedStage.stageId}-${step.stepId}`;
-                      const isStepExpanded = expandedSteps.has(stepKey);
-                      const hasScreens = step.screenFunctions.length > 0;
-                      return (
-                        <div
-                          key={step.stepId}
-                          className="border rounded-lg overflow-hidden"
-                        >
-                          <div
-                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                              isStepExpanded
-                                ? "bg-gray-100"
-                                : "bg-gray-50 hover:bg-gray-100"
-                            }`}
-                            onClick={() => {
-                              if (!hasScreens) return;
-                              const next = new Set(expandedSteps);
-                              if (isStepExpanded) next.delete(stepKey);
-                              else next.add(stepKey);
-                              setExpandedSteps(next);
-                            }}
-                          >
-                            <span className="text-gray-400 text-xs w-3 text-center">
-                              {hasScreens ? (isStepExpanded ? "▼" : "▶") : "○"}
-                            </span>
-                            <span className="text-sm font-medium text-gray-800 flex-1">
-                              {step.stepName}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {step.totalTasks} tasks
-                            </span>
-                            <div className="flex gap-1 text-xs">
-                              <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-                                {step.completedTasks}
-                              </span>
-                              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                                {step.inProgressTasks}
-                              </span>
-                              <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                                {step.pendingTasks}
-                              </span>
-                            </div>
-                            <div className="w-20">
-                              <ProgressBar progress={step.progress} showLabel />
-                            </div>
-                            <span className="text-xs text-gray-500 w-28 text-right">
-                              {displayEffort(step.estimatedEffort, "man-hour")} /{" "}
-                              {displayEffort(step.actualEffort, "man-hour")}{" "}
-                              {EFFORT_UNIT_LABELS[effortUnit]}
-                            </span>
-                          </div>
+                  {(() => {
+                    // Aggregate all unique screen/functions across all steps in this stage
+                    const screenMap = new Map<
+                      number,
+                      {
+                        screenFunctionId: number;
+                        screenFunctionName: string;
+                        screenFunctionType: string;
+                        byStep: Map<number, { actualEffort: number; estimatedEffort: number; status: string }>;
+                        totalActual: number;
+                        totalEstimated: number;
+                      }
+                    >();
 
-                          {isStepExpanded && hasScreens && (
-                            <table className="min-w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-50/80 text-gray-500">
-                                  <th className="py-1.5 pl-10 pr-3 text-left font-medium">
-                                    {t("common.name")}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-left font-medium">
-                                    {t("common.type")}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-left font-medium">
-                                    {t("common.status")}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-left font-medium">
-                                    {t("common.progress")}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-right font-medium">
-                                    {t("screenFunction.effort")}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {step.screenFunctions.map((sf: any) => (
-                                  <tr key={sf.stepScreenFunctionId} className="hover:bg-gray-50/50">
-                                    <td className="py-1.5 pl-10 pr-3 text-gray-800">
-                                      {sf.screenFunctionName}
-                                    </td>
-                                    <td className="px-3 py-1.5">
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded ${
-                                          sf.screenFunctionType === "Screen"
-                                            ? "bg-purple-100 text-purple-800"
-                                            : "bg-blue-100 text-blue-800"
-                                        }`}
-                                      >
-                                        {sf.screenFunctionType}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-1.5">
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded ${
-                                          sf.status === "Completed"
-                                            ? "bg-green-100 text-green-800"
-                                            : sf.status === "In Progress"
-                                              ? "bg-blue-100 text-blue-800"
-                                              : sf.status === "Skipped"
-                                                ? "bg-yellow-100 text-yellow-800"
-                                                : "bg-gray-100 text-gray-800"
-                                        }`}
-                                      >
-                                        {sf.status}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-1.5">
-                                      <div className="w-16">
-                                        <ProgressBar progress={sf.progress} showLabel />
-                                      </div>
-                                    </td>
-                                    <td className="px-3 py-1.5 text-right text-gray-500">
-                                      {displayEffort(sf.estimatedEffort, "man-hour")} /{" "}
-                                      {displayEffort(sf.actualEffort, "man-hour")}{" "}
-                                      {EFFORT_UNIT_LABELS[effortUnit]}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
+                    for (const step of selectedStage.steps) {
+                      for (const sf of step.screenFunctions) {
+                        if (!screenMap.has(sf.screenFunctionId)) {
+                          screenMap.set(sf.screenFunctionId, {
+                            screenFunctionId: sf.screenFunctionId,
+                            screenFunctionName: sf.screenFunctionName,
+                            screenFunctionType: sf.screenFunctionType,
+                            byStep: new Map(),
+                            totalActual: 0,
+                            totalEstimated: 0,
+                          });
+                        }
+                        const entry = screenMap.get(sf.screenFunctionId)!;
+                        entry.byStep.set(step.stepId, {
+                          actualEffort: sf.actualEffort,
+                          estimatedEffort: sf.estimatedEffort,
+                          status: sf.status,
+                        });
+                        entry.totalActual += sf.actualEffort;
+                        entry.totalEstimated += sf.estimatedEffort;
+                      }
+                    }
+
+                    const screens = Array.from(screenMap.values()).sort((a, b) =>
+                      a.screenFunctionName.localeCompare(b.screenFunctionName),
+                    );
+
+                    if (screens.length === 0) {
+                      return (
+                        <p className="text-sm text-gray-400 text-center py-4">
+                          {t("taskWorkflow.noScreenFunctions")}
+                        </p>
                       );
-                    })}
-                  </div>
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                              <th className="py-2 pl-3 pr-4 text-left font-medium sticky left-0 bg-gray-50 border-r border-gray-200 min-w-[180px]">
+                                {t("common.name")}
+                              </th>
+                              <th className="px-3 py-2 text-left font-medium border-r border-gray-200 w-20">
+                                {t("common.type")}
+                              </th>
+                              {selectedStage.steps.map((step: any) => (
+                                <th
+                                  key={step.stepId}
+                                  className="px-3 py-2 text-right font-medium border-r border-gray-200 whitespace-nowrap min-w-[80px]"
+                                >
+                                  {step.stepName}
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 text-right font-semibold text-gray-700 whitespace-nowrap min-w-[90px]">
+                                Total ({EFFORT_UNIT_LABELS[effortUnit]})
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {screens.map((screen) => (
+                              <tr key={screen.screenFunctionId} className="hover:bg-gray-50/60">
+                                <td className="py-2 pl-3 pr-4 font-medium text-gray-800 sticky left-0 bg-white border-r border-gray-200">
+                                  {screen.screenFunctionName}
+                                </td>
+                                <td className="px-3 py-2 border-r border-gray-200">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded ${
+                                      screen.screenFunctionType === "Screen"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
+                                  >
+                                    {screen.screenFunctionType}
+                                  </span>
+                                </td>
+                                {selectedStage.steps.map((step: any) => {
+                                  const cell = screen.byStep.get(step.stepId);
+                                  return (
+                                    <td
+                                      key={step.stepId}
+                                      className="px-3 py-2 text-right text-gray-600 border-r border-gray-100"
+                                    >
+                                      {cell
+                                        ? displayEffort(cell.actualEffort, "man-hour")
+                                        : <span className="text-gray-300">—</span>}
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-3 py-2 text-right font-semibold text-gray-800">
+                                  {displayEffort(screen.totalActual, "man-hour")}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-gray-50 border-t-2 border-gray-300 font-semibold text-gray-700">
+                              <td className="py-2 pl-3 pr-4 sticky left-0 bg-gray-50 border-r border-gray-200">
+                                Total
+                              </td>
+                              <td className="px-3 py-2 border-r border-gray-200" />
+                              {selectedStage.steps.map((step: any) => {
+                                const stepTotal = step.screenFunctions.reduce(
+                                  (sum: number, sf: any) => sum + sf.actualEffort,
+                                  0,
+                                );
+                                return (
+                                  <td
+                                    key={step.stepId}
+                                    className="px-3 py-2 text-right border-r border-gray-200"
+                                  >
+                                    {displayEffort(stepTotal, "man-hour")}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-2 text-right">
+                                {displayEffort(selectedStage.actualEffort, "man-hour")}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </Card>
               )}
             </div>
