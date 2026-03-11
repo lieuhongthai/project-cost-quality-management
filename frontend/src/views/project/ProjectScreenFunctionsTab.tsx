@@ -221,6 +221,7 @@ export function ProjectScreenFunctionsTab({
                         screenFunctionId: number;
                         screenFunctionName: string;
                         screenFunctionType: string;
+                        displayOrder: number;
                         byStep: Map<number, { actualEffort: number; estimatedEffort: number; status: string }>;
                         totalActual: number;
                         totalEstimated: number;
@@ -234,6 +235,7 @@ export function ProjectScreenFunctionsTab({
                             screenFunctionId: sf.screenFunctionId,
                             screenFunctionName: sf.screenFunctionName,
                             screenFunctionType: sf.screenFunctionType,
+                            displayOrder: sf.displayOrder ?? 9999,
                             byStep: new Map(),
                             totalActual: 0,
                             totalEstimated: 0,
@@ -250,8 +252,8 @@ export function ProjectScreenFunctionsTab({
                       }
                     }
 
-                    const screens = Array.from(screenMap.values()).sort((a, b) =>
-                      a.screenFunctionName.localeCompare(b.screenFunctionName),
+                    const screens = Array.from(screenMap.values()).sort(
+                      (a, b) => a.displayOrder - b.displayOrder,
                     );
 
                     if (screens.length === 0) {

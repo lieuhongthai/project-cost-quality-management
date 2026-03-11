@@ -974,6 +974,7 @@ export class TaskWorkflowService {
             screenFunctionId: ssf.screenFunctionId,
             screenFunctionName: sf?.name || 'Unknown',
             screenFunctionType: sf?.type || 'Screen',
+            displayOrder: sf?.displayOrder ?? 9999,
             estimatedEffort: ssf.estimatedEffort || 0,
             actualEffort: ssf.actualEffort || 0,
             progress: ssf.progress || 0,
