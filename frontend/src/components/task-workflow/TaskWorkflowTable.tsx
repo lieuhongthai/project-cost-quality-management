@@ -389,14 +389,30 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                   className={lastStepIdPerStage.has(step.id) ? 'stage-boundary' : undefined}
                   sx={{
                     bgcolor: 'grey.50',
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     fontWeight: 500,
                     color: 'text.secondary',
                     whiteSpace: 'nowrap',
                     px: 0.5,
+                    py: 1,
+                    width: 36,
+                    maxWidth: 36,
+                    verticalAlign: 'bottom',
                   }}
                 >
-                  {step.name}
+                  <Box
+                    sx={{
+                      display: 'inline-block',
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      maxHeight: 100,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {step.name}
+                  </Box>
                 </TableCell>
               ))}
               <TableCell sx={{ bgcolor: 'grey.50' }} />
@@ -467,7 +483,7 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
                           align="center"
                           title={status ? t(`screenFunction.status${status.replace(' ', '')}`) : t('taskWorkflow.notLinked')}
                           className={lastStepIdPerStage.has(step.id) ? 'stage-boundary' : undefined}
-                          sx={{ px: 0.5 }}
+                          sx={{ px: 0, width: 36, maxWidth: 36 }}
                         >
                           {status === null ? (
                             <Typography color="text.disabled">-</Typography>
