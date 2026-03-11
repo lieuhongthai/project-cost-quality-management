@@ -502,7 +502,17 @@ export function ProjectScreenFunctionsTab({
                     </td>
                     <td className="whitespace-nowrap py-4 pl-2 pr-3 text-sm">
                       <div>
-                        <p className="font-medium text-gray-900">{sf.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-gray-900">{sf.name}</p>
+                          {sf.isCatchAll && (
+                            <span
+                              title="Catch-all: receives all unmatched CSV worklog rows"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                            >
+                              ★ Catch-all
+                            </span>
+                          )}
+                        </div>
                         {sf.description && (
                           <p className="text-gray-500 text-xs truncate max-w-xs">
                             {sf.description}

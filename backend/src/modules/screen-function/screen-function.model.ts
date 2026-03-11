@@ -116,6 +116,13 @@ export class ScreenFunction extends Model {
   })
   displayOrder: number;
 
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+    comment: 'When true, this screen acts as a catch-all for worklog CSV rows that cannot be matched to any other screen/function.',
+  })
+  isCatchAll: boolean;
+
   @BelongsTo(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 }

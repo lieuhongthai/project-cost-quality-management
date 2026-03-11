@@ -132,6 +132,8 @@ export interface ScreenFunction {
   progress: number;
   status: ScreenFunctionStatus;
   displayOrder: number;
+  /** When true, this screen collects all CSV worklog rows that cannot be matched to any other screen/function. Only one catch-all is allowed per project. */
+  isCatchAll?: boolean;
   createdAt: string;
   updatedAt: string;
 }

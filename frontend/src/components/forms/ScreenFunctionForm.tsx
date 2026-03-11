@@ -43,6 +43,7 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     displayOrder: screenFunction?.displayOrder ?? nextDisplayOrder,
   });
   const [autoCreateSteps, setAutoCreateSteps] = useState(false);
+  const [isCatchAll, setIsCatchAll] = useState(screenFunction?.isCatchAll ?? false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -135,9 +136,9 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
     };
 
     if (screenFunction) {
-      updateMutation.mutate(submitData);
+      updateMutation.mutate({ ...submitData, isCatchAll });
     } else {
-      createMutation.mutate({ projectId, ...submitData, autoCreateSteps });
+      createMutation.mutate({ projectId, ...submitData, autoCreateSteps, isCatchAll });
     }
   };
 
@@ -310,6 +311,28 @@ export const ScreenFunctionForm: React.FC<ScreenFunctionFormProps> = ({
         rows={3}
         disabled={isLoading}
       />
+
+      {/* Catch-all flag */}
+      <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <input
+          type="checkbox"
+          checked={isCatchAll}
+          onChange={(e) => setIsCatchAll(e.target.checked)}
+          className="mt-0.5 h-4 w-4 text-amber-600 border-gray-300 rounded"
+          disabled={isLoading}
+        />
+        <div>
+          <span className="text-sm font-medium text-amber-800">
+            {t('screenFunction.isCatchAll', { defaultValue: 'Catch-all screen (Others)' })}
+          </span>
+          <p className="text-xs text-amber-700 mt-0.5">
+            {t('screenFunction.isCatchAllHint', {
+              defaultValue:
+                'When enabled, any CSV worklog row that cannot be matched to a specific screen/function will be automatically assigned here. Only one catch-all screen is allowed per project — enabling this will unset any previous one.',
+            })}
+          </p>
+        </div>
+      </label>
 
       {/* Auto-create steps flag - only for new screen/function */}
       {!screenFunction && (

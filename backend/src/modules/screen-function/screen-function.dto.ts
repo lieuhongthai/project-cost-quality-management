@@ -55,6 +55,11 @@ export class CreateScreenFunctionDto {
   @IsBoolean()
   @Transform(({ value }) => value === true || value === 'true')
   autoCreateSteps?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  isCatchAll?: boolean;
 }
 
 export class UpdateScreenFunctionDto {
@@ -101,6 +106,11 @@ export class UpdateScreenFunctionDto {
   @Type(() => Number)
   @IsNumber()
   displayOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  isCatchAll?: boolean;
 }
 
 export class ReorderScreenFunctionDto {
