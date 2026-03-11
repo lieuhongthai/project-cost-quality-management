@@ -2,6 +2,7 @@ import { Card, Button, Input, Select, ProgressBar, EmptyState } from "@/componen
 import { useTranslation } from "react-i18next";
 import type { EffortUnit, ScreenFunction } from "@/types";
 import { EFFORT_UNIT_LABELS } from "@/utils/effortUtils";
+import { exportScreenFunctionsToExcel } from "@/utils/exportUtils";
 
 interface ProjectScreenFunctionsTabProps {
   sfSummary: any;
@@ -280,7 +281,36 @@ export function ProjectScreenFunctionsTab({
                       );
                     }
 
+                    const handleExport = () => {
+                      exportScreenFunctionsToExcel({
+                        stageName: selectedStage.stageName,
+                        steps: selectedStage.steps.map((s: any) => ({
+                          stepId: s.stepId,
+                          stepName: s.stepName,
+                        })),
+                        screens,
+                        filteredScreenFunctions,
+                        effortUnit,
+                        displayEffort,
+                      });
+                    };
+
                     return (
+                      <div>
+                        <div className="flex justify-end mb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExport}
+                            startIcon={
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                              </svg>
+                            }
+                          >
+                            Export Excel
+                          </Button>
+                        </div>
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-xs border-collapse">
                           <thead>
@@ -386,6 +416,7 @@ export function ProjectScreenFunctionsTab({
                             </tr>
                           </tfoot>
                         </table>
+                      </div>
                       </div>
                     );
                   })()}
