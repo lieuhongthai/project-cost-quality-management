@@ -26,6 +26,7 @@ import {
   ScreenFunctionForm,
   MemberForm,
 } from "@/components/forms";
+import { DuplicateProjectDialog } from "@/components/forms/DuplicateProjectDialog";
 import { AISchedulingDialog } from "@/components/ai/AISchedulingDialog";
 import { AIPlanAllDialog } from "@/components/ai/AIPlanAllDialog";
 import type {
@@ -83,6 +84,7 @@ function ProjectDetail() {
   const queryClient = useQueryClient();
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
   const [showAddScreenFunction, setShowAddScreenFunction] = useState(false);
   const [editingScreenFunction, setEditingScreenFunction] =
     useState<ScreenFunction | null>(null);
@@ -580,6 +582,9 @@ function ProjectDetail() {
             <Button onClick={() => setShowEditProject(true)}>
               {t("project.edit")}
             </Button>
+            <Button variant="secondary" onClick={() => setShowDuplicate(true)}>
+              {t("project.duplicate")}
+            </Button>
             <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
               {t("project.delete")}
             </Button>
@@ -989,6 +994,19 @@ function ProjectDetail() {
       )}
 
       {/* Modals */}
+      <DuplicateProjectDialog
+        open={showDuplicate}
+        project={project ?? null}
+        onClose={() => setShowDuplicate(false)}
+        onSuccess={(newProject) => {
+          navigate({
+            to: '/projects/$projectId',
+            params: { projectId: newProject.id.toString() },
+            search: { tab: 'overview' },
+          });
+        }}
+      />
+
       <Modal
         isOpen={showEditProject}
         onClose={() => setShowEditProject(false)}

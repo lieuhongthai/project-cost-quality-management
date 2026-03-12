@@ -597,6 +597,13 @@ export class TaskWorkflowService {
     return ssf;
   }
 
+  async findAllStepScreenFunctionsByStepIds(stepIds: number[]): Promise<StepScreenFunction[]> {
+    if (stepIds.length === 0) return [];
+    return this.stepScreenFunctionRepository.findAll({
+      where: { stepId: { [Op.in]: stepIds } },
+    });
+  }
+
   async createStepScreenFunction(dto: CreateStepScreenFunctionDto): Promise<StepScreenFunction> {
     const ssf = await this.stepScreenFunctionRepository.create(dto as any);
     // Recalculate parent Stage's effort values

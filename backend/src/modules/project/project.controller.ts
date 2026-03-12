@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto } from './project.dto';
+import { CreateProjectDto, UpdateProjectDto, CreateProjectSettingsDto, UpdateProjectSettingsDto, DuplicateProjectDto } from './project.dto';
 
 @Controller('projects')
 export class ProjectController {
@@ -77,6 +77,14 @@ export class ProjectController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.projectService.remove(id);
+  }
+
+  @Post(':id/duplicate')
+  duplicateProject(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() duplicateProjectDto: DuplicateProjectDto,
+  ) {
+    return this.projectService.duplicateProject(id, duplicateProjectDto);
   }
 
   @Post(':id/quick-setup')
