@@ -2422,6 +2422,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     });
 
     const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
+    const catchAllScreen = screenFunctions.find(sf => (sf as any).isCatchAll === true);
 
     const batch = await this.worklogImportBatchRepository.create({
       projectId,
@@ -2449,7 +2450,11 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const matchedRule = this.findBestMappingRule(rules, workDetail || '');
 
-      const screenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
+      const matchedScreenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
+      // Fall back to catch-all screen when no specific SF matched
+      const screenFunction = matchedScreenFunction
+        ?? (member && catchAllScreen ? catchAllScreen : undefined);
+      const usedCatchAll = !matchedScreenFunction && !!screenFunction && !!catchAllScreen;
 
       const confidence = this.calculateConfidence({
         hasMember: !!member,
@@ -2463,12 +2468,17 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         reason = 'Member email is not in this project';
       } else if (!matchedRule) {
         status = 'needs_review';
-        reason = 'No stage/step mapping rule matched';
+        reason = usedCatchAll
+          ? `No stage/step mapping rule matched (catch-all: ${catchAllScreen!.name})`
+          : 'No stage/step mapping rule matched';
       } else if (!screenFunction) {
         status = 'needs_review';
         reason = 'No screen function matched from workDetail';
       } else {
         status = 'ready';
+        if (usedCatchAll) {
+          reason = `Catch-all screen applied: ${catchAllScreen!.name}`;
+        }
       }
 
       if (rawDay && !day) {

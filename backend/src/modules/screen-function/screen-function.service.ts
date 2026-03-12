@@ -91,6 +91,14 @@ export class ScreenFunctionService {
       displayOrder: createDto.displayOrder ?? maxOrder + 1,
     };
 
+    // Enforce single catch-all per project: unset any existing one before creating
+    if (createDto.isCatchAll === true) {
+      await this.screenFunctionRepository.update(
+        { isCatchAll: false },
+        { where: { projectId: createDto.projectId, isCatchAll: true } },
+      );
+    }
+
     const screenFunction = await this.screenFunctionRepository.create(data as any);
 
     // Auto-link to all workflow stages/steps only when autoCreateSteps flag is explicitly true
@@ -108,6 +116,15 @@ export class ScreenFunctionService {
 
   async update(id: number, updateDto: UpdateScreenFunctionDto): Promise<ScreenFunction> {
     const screenFunction = await this.findOne(id);
+
+    // Enforce single catch-all per project when enabling
+    if (updateDto.isCatchAll === true) {
+      await this.screenFunctionRepository.update(
+        { isCatchAll: false },
+        { where: { projectId: screenFunction.projectId, isCatchAll: true } },
+      );
+    }
+
     await screenFunction.update(updateDto);
 
     return screenFunction;
