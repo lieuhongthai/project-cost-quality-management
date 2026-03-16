@@ -624,6 +624,12 @@ export class MetricsService {
       });
     }
 
+    // Pre-calculate project CPI using project-level data (consistent with Quality Metrics CPI)
+    // Used as fallback when member/role level estimated effort is not set
+    const projectAC = project.actualEffort || 0;
+    const projectEVForCPI = project.estimatedEffort * (project.progress / 100);
+    const projectCPI = projectAC > 0 ? projectEVForCPI / projectAC : 0;
+
     // Calculate efficiency for each member
     const memberProductivity: Array<{
       memberId: number;
@@ -641,7 +647,18 @@ export class MetricsService {
       // Efficiency = EV / AC where EV = Estimated * (Completed/Total)
       const completionRate = stats.tasksTotal > 0 ? stats.tasksCompleted / stats.tasksTotal : 0;
       const ev = stats.totalEstimated * completionRate;
-      const efficiency = stats.totalActual > 0 ? ev / stats.totalActual : (stats.tasksCompleted > 0 ? 1 : 0);
+      let efficiency: number;
+      if (stats.totalActual > 0) {
+        if (stats.totalEstimated > 0) {
+          // Member has estimated effort: use proper CPI (EV / AC)
+          efficiency = ev / stats.totalActual;
+        } else {
+          // No member-level estimates: use project CPI * completion rate as proxy
+          efficiency = projectCPI * completionRate;
+        }
+      } else {
+        efficiency = stats.tasksCompleted > 0 ? 1 : 0;
+      }
 
       memberProductivity.push({
         ...stats,
@@ -668,7 +685,16 @@ export class MetricsService {
     for (const [role, stats] of roleStats) {
       const completionRate = stats.tasksTotal > 0 ? stats.tasksCompleted / stats.tasksTotal : 0;
       const ev = stats.totalEstimated * completionRate;
-      const efficiency = stats.totalActual > 0 ? ev / stats.totalActual : (stats.tasksCompleted > 0 ? 1 : 0);
+      let efficiency: number;
+      if (stats.totalActual > 0) {
+        if (stats.totalEstimated > 0) {
+          efficiency = ev / stats.totalActual;
+        } else {
+          efficiency = projectCPI * completionRate;
+        }
+      } else {
+        efficiency = stats.tasksCompleted > 0 ? 1 : 0;
+      }
       const avgEffortPerTask = stats.tasksCompleted > 0 ? stats.totalActual / stats.tasksCompleted : 0;
 
       roleProductivity.push({
@@ -686,8 +712,8 @@ export class MetricsService {
     const totalActual = stageStats.reduce((sum, p) => sum + p.totalActual, 0);
     const tasksCompleted = stageStats.reduce((sum, p) => sum + p.tasksCompleted, 0);
     const tasksTotal = stageStats.reduce((sum, p) => sum + p.tasksTotal, 0);
-    const projectEV = totalEstimated * (project.progress / 100);
-    const projectEfficiency = totalActual > 0 ? projectEV / totalActual : 0;
+    // Use project-level estimated/actual effort for efficiency — consistent with CPI in Quality Metrics
+    const projectEfficiency = projectCPI;
 
     return {
       projectId,
