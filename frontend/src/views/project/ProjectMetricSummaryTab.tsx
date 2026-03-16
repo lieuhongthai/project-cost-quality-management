@@ -248,6 +248,7 @@ export function ProjectMetricSummaryTab({
                     const metricVisual = getMetricTypeVisual(metricType.name);
                     const { categoryTotals, grandTotal } = getMetricTypeCategoryTotals(metricType);
                     const nonZeroCategories = categoryTotals.filter((cat) => cat.total > 0);
+                    const isTestCases = metricType.name.toLowerCase() === 'test cases';
                     return (
                       <details
                         key={metricType.id}
@@ -296,7 +297,7 @@ export function ProjectMetricSummaryTab({
                                 </div>
                               );
                             })}
-                            {nonZeroCategories.length > 0 && (
+                            {nonZeroCategories.length > 0 && !isTestCases && (
                               <div className="flex items-center justify-between gap-4 border-t border-gray-200 pt-1 mt-1">
                                 <span className="text-xs font-bold text-gray-900">
                                   {t("common.total", "Total")}
@@ -404,7 +405,7 @@ export function ProjectMetricSummaryTab({
                                                             </span>
                                                           </div>
                                                         ))}
-                                                        {screenCategories.length > 0 && (
+                                                        {screenCategories.length > 0 && !isTestCases && (
                                                           <div className="flex items-center justify-between gap-4 border-t border-gray-200 pt-1 mt-1">
                                                             <span className="text-xs font-bold text-gray-900">
                                                               {t("common.total", "Total")}
