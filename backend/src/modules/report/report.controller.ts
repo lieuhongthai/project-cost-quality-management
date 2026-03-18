@@ -74,6 +74,20 @@ export class ReportController {
     res.send(pdfBuffer);
   }
 
+  @Get(':id/export/csv')
+  async exportCsv(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const csv = await this.reportExportService.generateCsv(id);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=report-${id}-${Date.now()}.csv`,
+    );
+    res.send('\uFEFF' + csv); // BOM for Excel UTF-8 compatibility
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.reportService.findOne(id);

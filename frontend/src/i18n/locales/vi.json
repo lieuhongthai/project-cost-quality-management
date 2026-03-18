@@ -429,6 +429,7 @@
     "realtimeNote": "Báo cáo cũ - hiển thị dữ liệu thời gian thực",
     "exportExcel": "Xuất Excel",
     "exportPdf": "Xuất PDF",
+    "exportCsv": "Xuất CSV",
     "exporting": "Đang xuất...",
     "overallHealth": "Tình trạng tổng thể",
     "commentary": "Nhận xét & Phân tích",

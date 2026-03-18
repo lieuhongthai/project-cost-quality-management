@@ -114,6 +114,7 @@ export const reportApi = {
   getOne: (id: number) => api.get<Report>(`/reports/${id}`),
   exportExcel: (id: number) => api.get(`/reports/${id}/export/excel`, { responseType: 'blob' }),
   exportPdf: (id: number) => api.get(`/reports/${id}/export/pdf`, { responseType: 'blob' }),
+  exportCsv: (id: number) => api.get(`/reports/${id}/export/csv`, { responseType: 'blob' }),
   create: (data: Partial<Report>) => api.post<Report>('/reports', data),
   update: (id: number, data: Partial<Report>) => api.put<Report>(`/reports/${id}`, data),
   delete: (id: number) => api.delete(`/reports/${id}`),

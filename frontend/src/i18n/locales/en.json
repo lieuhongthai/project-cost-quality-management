@@ -428,6 +428,7 @@
     "realtimeNote": "Old report - showing real-time data",
     "exportExcel": "Export Excel",
     "exportPdf": "Export PDF",
+    "exportCsv": "Export CSV",
     "exporting": "Exporting...",
     "overallHealth": "Overall Health",
     "commentary": "Commentary & Analysis",
