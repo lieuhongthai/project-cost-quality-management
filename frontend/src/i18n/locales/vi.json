@@ -542,6 +542,91 @@
     "tcpiFormula": "= (BAC - EV) / (BAC - AC)",
     "savingsMessage": "Tiết kiệm {{value}} MM",
     "overrunMessage": "Vượt {{value}} MM ({{percent}}%)",
+    "tooltip": {
+      "spi": {
+        "formula": "SPI = EV / PV",
+        "description": "Đo lường mức độ hiệu quả theo tiến độ kế hoạch. Giá trị ≥1.0 nghĩa là đúng hoặc vượt tiến độ.",
+        "thresholds": "≥0.95: Tốt  |  0.80–0.95: Cảnh báo  |  <0.80: Rủi ro"
+      },
+      "cpi": {
+        "formula": "CPI = EV / AC",
+        "description": "Đo lường hiệu quả chi phí — lượng giá trị tạo ra trên mỗi đơn vị công thực tế. Giá trị ≥1.0 nghĩa là đang trong hoặc dưới ngân sách.",
+        "thresholds": "≥0.95: Tốt  |  0.80–0.95: Cảnh báo  |  <0.80: Rủi ro"
+      },
+      "delayRate": {
+        "formula": "Delay Rate = (AC − BAC) / BAC × 100%",
+        "description": "Tỷ lệ phần trăm công vượt quá ước tính (chỉ áp dụng khi tiến độ < 100%). Cho thấy dự án đang vượt bao nhiêu so với kế hoạch.",
+        "thresholds": "≤5%: Tốt  |  5–20%: Cảnh báo  |  >20%: Rủi ro"
+      },
+      "bac": {
+        "formula": "BAC = Tổng Công Ước Tính",
+        "description": "Budget at Completion — tổng công/ngân sách ban đầu được lên kế hoạch cho toàn bộ dự án. Là cơ sở cho tất cả các tính toán EVM."
+      },
+      "pv": {
+        "formula": "PV = BAC × Tiến Độ Kế Hoạch%",
+        "description": "Planned Value — chi phí ngân sách của công việc được dự kiến hoàn thành đến thời điểm hiện tại. Đại diện cho tiến độ dự kiến."
+      },
+      "ev": {
+        "formula": "EV = BAC × Tiến Độ Thực Tế%",
+        "description": "Earned Value — giá trị công việc đã thực sự hoàn thành, tính theo ngân sách kế hoạch. Cho thấy bao nhiêu giá trị ngân sách đã được 'kiếm được'."
+      },
+      "ac": {
+        "formula": "AC = Tổng Công Thực Tế Đã Chi",
+        "description": "Actual Cost — tổng công hoặc chi phí thực tế đã chi cho dự án đến nay. Được so sánh với EV để đo hiệu quả chi phí (CPI)."
+      },
+      "eac": {
+        "formula": "EAC = AC + (BAC − EV) / CPI",
+        "description": "Estimate at Completion — tổng chi phí hoặc công dự kiến khi hoàn thành dự án, dựa trên hiệu suất CPI hiện tại. Nếu CPI > 1, dự án sẽ hoàn thành dưới ngân sách.",
+        "thresholds": "EAC ≤ BAC: Trong ngân sách  |  EAC > BAC: Vượt ngân sách"
+      },
+      "vac": {
+        "formula": "VAC = BAC − EAC",
+        "description": "Variance at Completion — mức tiết kiệm (dương) hoặc thâm hụt (âm) ngân sách dự kiến khi hoàn thành dự án.",
+        "thresholds": "≥0: Tiết kiệm  |  <0: Vượt ngân sách"
+      },
+      "tcpi": {
+        "formula": "TCPI = (BAC − EV) / (BAC − AC)",
+        "description": "To-Complete Performance Index — mức hiệu quả cần đạt được cho toàn bộ công việc còn lại để hoàn thành trong ngân sách ban đầu. Giá trị càng cao càng khó đạt.",
+        "thresholds": "≤1.1: Khả thi  |  1.1–1.3: Thách thức  |  >1.3: Rất khó"
+      },
+      "defectRate": {
+        "formula": "Defect Rate = Số Lỗi / Tổng Test Case",
+        "description": "Số lỗi phát hiện trên mỗi test case. Giá trị thấp hơn cho thấy chất lượng tốt hơn. Bằng 0 nghĩa là không có lỗi nào được tìm thấy."
+      },
+      "efficiency": {
+        "formula": "Efficiency = CPI × 100%",
+        "description": "Hiệu quả tổng thể của dự án biểu diễn dưới dạng phần trăm CPI. Giá trị trên 100% cho thấy dự án đang tạo ra nhiều giá trị hơn chi phí bỏ ra.",
+        "thresholds": "≥100%: Tốt  |  83–99%: Cảnh báo  |  <83%: Rủi ro"
+      },
+      "teamEfficiency": {
+        "formula": "Team Efficiency = EV / AC",
+        "description": "Mức độ hiệu quả mà nhóm hoàn thành công việc so với ước tính kế hoạch. Sử dụng cùng công thức CPI để đảm bảo nhất quán với các chỉ số chất lượng.",
+        "thresholds": "≥100%: Tốt  |  83–99%: Cảnh báo  |  <83%: Rủi ro"
+      },
+      "memberEfficiency": {
+        "formula": "Nếu có ước tính member: EV / AC\nNếu không: CPI dự án × Tỷ lệ hoàn thành",
+        "description": "Mức độ hiệu quả của member khi hoàn thành các task được giao. Sử dụng ước tính per-member nếu có; nếu không dùng CPI dự án nhân với tỷ lệ hoàn thành.",
+        "thresholds": "≥120%: Xuất sắc  |  100–119%: Tốt  |  80–99%: Đạt yêu cầu  |  <80%: Cần cải thiện"
+      },
+      "memberCostVariance": {
+        "formula": "Cost Variance = Thực Tế − Ước Tính",
+        "description": "Chênh lệch giữa chi phí thực tế và ước tính của member. Âm nghĩa là tiết kiệm; dương nghĩa là vượt ngân sách.",
+        "thresholds": "≤0: Tiết kiệm  |  >0: Vượt ngân sách"
+      },
+      "overallEfficiency": {
+        "formula": "Overall Efficiency = Tổng Giờ Ước Tính / Tổng Giờ Thực Tế",
+        "description": "Tỷ lệ giờ ước tính so với thực tế của tất cả member có nhập đơn giá. Giá trị trên 100% cho thấy nhóm làm việc nhanh hơn kế hoạch.",
+        "thresholds": "≥120%: Xuất sắc  |  100–119%: Tốt  |  80–99%: Đạt yêu cầu  |  <80%: Cần cải thiện"
+      },
+      "avgEffortPerTask": {
+        "formula": "Avg Effort = Tổng Giờ Thực Tế / Số Task Hoàn Thành",
+        "description": "Số man-hours trung bình dành cho mỗi task đã hoàn thành. Hữu ích để ước tính các task trong tương lai và phân tích phân phối khối lượng công việc."
+      },
+      "completionRate": {
+        "formula": "Completion Rate = Task Hoàn Thành / Tổng Task × 100%",
+        "description": "Tỷ lệ phần trăm các task được giao đã hoàn thành. Đạt 100% nghĩa là tất cả task đã xong."
+      }
+    },
     "configTitle": "Cấu hình Metric",
     "configDescription": "Quản lý các loại metric để theo dõi review issues, bugs, test cases",
     "metricTypes": "Loại Metric",

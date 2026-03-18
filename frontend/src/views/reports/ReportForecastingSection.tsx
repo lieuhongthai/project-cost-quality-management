@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Card, ProgressBar } from '@/components/common'
 import { getCPIColor, getDelayRateColor } from './reportUtils'
+import { MetricInfoTooltip } from './MetricInfoTooltip'
 
 interface ReportForecastingSectionProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,7 +21,14 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           {/* EAC Card */}
           <Card className="border-2 border-blue-200 bg-linear-to-br from-blue-50 to-white">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-blue-700">{t('metrics.eacFull')}</p>
+              <p className="text-sm font-medium text-blue-700 flex items-center">
+                {t('metrics.eacFull')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.eac.description')}
+                  formula={t('metrics.tooltip.eac.formula')}
+                  thresholds={t('metrics.tooltip.eac.thresholds')}
+                />
+              </p>
               <span className="text-xl">🎯</span>
             </div>
             <p className="text-3xl font-bold text-blue-900">
@@ -79,7 +87,14 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           {/* VAC Card */}
           <Card>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">{t('metrics.vacFull')}</p>
+              <p className="text-sm font-medium text-gray-600 flex items-center">
+                {t('metrics.vacFull')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.vac.description')}
+                  formula={t('metrics.tooltip.vac.formula')}
+                  thresholds={t('metrics.tooltip.vac.thresholds')}
+                />
+              </p>
               <span className="text-xl">📉</span>
             </div>
             {(() => {
@@ -118,7 +133,14 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           {/* TCPI Card */}
           <Card>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">{t('metrics.tcpiFull')}</p>
+              <p className="text-sm font-medium text-gray-600 flex items-center">
+                {t('metrics.tcpiFull')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.tcpi.description')}
+                  formula={t('metrics.tooltip.tcpi.formula')}
+                  thresholds={t('metrics.tooltip.tcpi.thresholds')}
+                />
+              </p>
               <span className="text-xl">📈</span>
             </div>
             {(() => {
@@ -220,7 +242,13 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           <Card>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">🐛</span>
-              <p className="text-sm font-medium text-gray-600">{t('metrics.defectRate')}</p>
+              <p className="text-sm font-medium text-gray-600 flex items-center">
+                {t('metrics.defectRate')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.defectRate.description')}
+                  formula={t('metrics.tooltip.defectRate.formula')}
+                />
+              </p>
             </div>
             <p className="text-3xl font-bold text-gray-900">{metric.defectRate.toFixed(3)}</p>
             <p className="mt-1 text-xs text-gray-500">{t('metrics.defectsPerTestCase')}</p>
@@ -228,7 +256,14 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           <Card>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">⏱️</span>
-              <p className="text-sm font-medium text-gray-600">{t('metrics.delayRate')}</p>
+              <p className="text-sm font-medium text-gray-600 flex items-center">
+                {t('metrics.delayRate')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.delayRate.description')}
+                  formula={t('metrics.tooltip.delayRate.formula')}
+                  thresholds={t('metrics.tooltip.delayRate.thresholds')}
+                />
+              </p>
             </div>
             <p className={`text-3xl font-bold ${getDelayRateColor(metric.delayRate)}`}>
               {metric.delayRate.toFixed(1)}%
@@ -238,7 +273,14 @@ export function ReportForecastingSection({ metric }: ReportForecastingSectionPro
           <Card>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">⚡</span>
-              <p className="text-sm font-medium text-gray-600">{t('metrics.efficiency')}</p>
+              <p className="text-sm font-medium text-gray-600 flex items-center">
+                {t('metrics.efficiency')}
+                <MetricInfoTooltip
+                  description={t('metrics.tooltip.efficiency.description')}
+                  formula={t('metrics.tooltip.efficiency.formula')}
+                  thresholds={t('metrics.tooltip.efficiency.thresholds')}
+                />
+              </p>
             </div>
             <p className={`text-3xl font-bold ${getCPIColor(metric.costPerformanceIndex)}`}>
               {(metric.costPerformanceIndex * 100).toFixed(0)}%

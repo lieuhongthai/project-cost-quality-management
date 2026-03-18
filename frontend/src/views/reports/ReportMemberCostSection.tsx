@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/common'
+import { MetricInfoTooltip } from './MetricInfoTooltip'
 
 interface ReportMemberCostSectionProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,7 +45,14 @@ export function ReportMemberCostSection({ memberCost }: ReportMemberCostSectionP
           </p>
         </Card>
         <Card>
-          <p className="text-sm font-medium text-gray-600">{t('memberCost.costVariance')}</p>
+          <p className="text-sm font-medium text-gray-600 flex items-center">
+            {t('memberCost.costVariance')}
+            <MetricInfoTooltip
+              description={t('metrics.tooltip.memberCostVariance.description')}
+              formula={t('metrics.tooltip.memberCostVariance.formula')}
+              thresholds={t('metrics.tooltip.memberCostVariance.thresholds')}
+            />
+          </p>
           <p
             className={`text-3xl font-bold ${
               memberCost.summary.totalCostVariance <= 0 ? 'text-green-600' : 'text-red-600'
@@ -71,7 +79,14 @@ export function ReportMemberCostSection({ memberCost }: ReportMemberCostSectionP
           </p>
         </Card>
         <Card>
-          <p className="text-sm font-medium text-gray-600">{t('memberCost.overallEfficiency')}</p>
+          <p className="text-sm font-medium text-gray-600 flex items-center">
+            {t('memberCost.overallEfficiency')}
+            <MetricInfoTooltip
+              description={t('metrics.tooltip.overallEfficiency.description')}
+              formula={t('metrics.tooltip.overallEfficiency.formula')}
+              thresholds={t('metrics.tooltip.overallEfficiency.thresholds')}
+            />
+          </p>
           <p
             className={`text-3xl font-bold ${
               memberCost.summary.overallEfficiency >= 1
@@ -184,7 +199,14 @@ export function ReportMemberCostSection({ memberCost }: ReportMemberCostSectionP
                   {t('memberCost.costVariance')}
                 </th>
                 <th className="px-4 py-3 text-center font-medium text-gray-500">
-                  {t('memberCost.efficiencyRating')}
+                  <span className="inline-flex items-center">
+                    {t('memberCost.efficiencyRating')}
+                    <MetricInfoTooltip
+                      description={t('metrics.tooltip.overallEfficiency.description')}
+                      formula={t('metrics.tooltip.overallEfficiency.formula')}
+                      thresholds={t('metrics.tooltip.overallEfficiency.thresholds')}
+                    />
+                  </span>
                 </th>
               </tr>
             </thead>
@@ -304,7 +326,14 @@ export function ReportMemberCostSection({ memberCost }: ReportMemberCostSectionP
                     {t('memberCost.actualCost')}
                   </th>
                   <th className="px-4 py-3 text-right font-medium text-gray-500">
-                    {t('memberCost.costVariance')}
+                    <span className="inline-flex items-center justify-end">
+                      {t('memberCost.costVariance')}
+                      <MetricInfoTooltip
+                        description={t('metrics.tooltip.memberCostVariance.description')}
+                        formula={t('metrics.tooltip.memberCostVariance.formula')}
+                        thresholds={t('metrics.tooltip.memberCostVariance.thresholds')}
+                      />
+                    </span>
                   </th>
                 </tr>
               </thead>

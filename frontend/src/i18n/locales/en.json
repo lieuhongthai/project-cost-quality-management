@@ -541,6 +541,91 @@
     "tcpiFormula": "= (BAC - EV) / (BAC - AC)",
     "savingsMessage": "Savings {{value}} MM",
     "overrunMessage": "Overrun {{value}} MM ({{percent}}%)",
+    "tooltip": {
+      "spi": {
+        "formula": "SPI = EV / PV",
+        "description": "Measures how efficiently the team is following the planned schedule. A value ≥1.0 means on or ahead of schedule.",
+        "thresholds": "≥0.95: Good  |  0.80–0.95: Warning  |  <0.80: At Risk"
+      },
+      "cpi": {
+        "formula": "CPI = EV / AC",
+        "description": "Measures cost efficiency — how much value is delivered per unit of actual effort spent. A value ≥1.0 means working under or on budget.",
+        "thresholds": "≥0.95: Good  |  0.80–0.95: Warning  |  <0.80: At Risk"
+      },
+      "delayRate": {
+        "formula": "Delay Rate = (AC − BAC) / BAC × 100%",
+        "description": "Percentage of extra effort consumed beyond the estimate (only applies when progress < 100%). Shows how much the project is over its planned effort.",
+        "thresholds": "≤5%: Good  |  5–20%: Warning  |  >20%: At Risk"
+      },
+      "bac": {
+        "formula": "BAC = Total Estimated Effort",
+        "description": "Budget at Completion — the total effort/budget originally planned for the entire project. This is the baseline for all EVM calculations."
+      },
+      "pv": {
+        "formula": "PV = BAC × Planned Progress%",
+        "description": "Planned Value — the budgeted cost of work that was supposed to be completed by now. Represents the intended progress."
+      },
+      "ev": {
+        "formula": "EV = BAC × Actual Progress%",
+        "description": "Earned Value — the value of work actually completed, measured in planned budget terms. Shows how much of the budget's value has been 'earned'."
+      },
+      "ac": {
+        "formula": "AC = Total Actual Effort Spent",
+        "description": "Actual Cost — the total effort or cost actually spent on the project so far. Compared to EV to measure cost efficiency (CPI)."
+      },
+      "eac": {
+        "formula": "EAC = AC + (BAC − EV) / CPI",
+        "description": "Estimate at Completion — projected total cost or effort at project completion, based on current CPI performance. If CPI > 1, the project will finish under budget.",
+        "thresholds": "EAC ≤ BAC: Under budget  |  EAC > BAC: Over budget"
+      },
+      "vac": {
+        "formula": "VAC = BAC − EAC",
+        "description": "Variance at Completion — the projected budget surplus (positive) or deficit (negative) when the project finishes.",
+        "thresholds": "≥0: Savings  |  <0: Overrun"
+      },
+      "tcpi": {
+        "formula": "TCPI = (BAC − EV) / (BAC − AC)",
+        "description": "To-Complete Performance Index — the efficiency level needed for all remaining work in order to finish within the original budget. The higher it is, the harder it becomes.",
+        "thresholds": "≤1.1: Achievable  |  1.1–1.3: Challenging  |  >1.3: Very Difficult"
+      },
+      "defectRate": {
+        "formula": "Defect Rate = Defects Found / Total Test Cases",
+        "description": "Number of defects detected per test case. Lower values indicate better quality. Zero means no defects were found."
+      },
+      "efficiency": {
+        "formula": "Efficiency = CPI × 100%",
+        "description": "Overall project efficiency expressed as a percentage of the CPI. Values above 100% indicate the project is delivering more value than the cost spent.",
+        "thresholds": "≥100%: Good  |  83–99%: Warning  |  <83%: At Risk"
+      },
+      "teamEfficiency": {
+        "formula": "Team Efficiency = EV / AC",
+        "description": "How efficiently the team completes work relative to the planned estimates. Uses the same formula as CPI to ensure consistency with quality metrics.",
+        "thresholds": "≥100%: Good  |  83–99%: Warning  |  <83%: At Risk"
+      },
+      "memberEfficiency": {
+        "formula": "If member estimates exist: EV / AC\nOtherwise: Project CPI × Completion Rate",
+        "description": "How efficiently a member completes their assigned tasks. Uses per-member estimates when available; falls back to project-level CPI multiplied by their completion rate.",
+        "thresholds": "≥120%: Excellent  |  100–119%: Good  |  80–99%: Acceptable  |  <80%: Needs Improvement"
+      },
+      "memberCostVariance": {
+        "formula": "Cost Variance = Actual Cost − Estimated Cost",
+        "description": "Difference between a member's actual cost and their estimated cost. Negative means the member delivered under budget (savings); positive means overrun.",
+        "thresholds": "≤0: Savings  |  >0: Overrun"
+      },
+      "overallEfficiency": {
+        "formula": "Overall Efficiency = Total Estimated Hours / Total Actual Hours",
+        "description": "The ratio of estimated to actual hours across all members with hourly rates. Values above 100% indicate the team worked faster than planned.",
+        "thresholds": "≥120%: Excellent  |  100–119%: Good  |  80–99%: Acceptable  |  <80%: Needs Improvement"
+      },
+      "avgEffortPerTask": {
+        "formula": "Avg Effort = Total Actual Hours / Tasks Completed",
+        "description": "Average man-hours spent per completed task. Useful for estimating future tasks and identifying workload distribution across the team."
+      },
+      "completionRate": {
+        "formula": "Completion Rate = Tasks Completed / Total Tasks × 100%",
+        "description": "Percentage of assigned tasks that have been marked as completed. A rate of 100% means all tasks are done."
+      }
+    },
     "configTitle": "Metric Configuration",
     "configDescription": "Manage metric types for tracking review issues, bugs, test cases",
     "metricTypes": "Metric Types",
