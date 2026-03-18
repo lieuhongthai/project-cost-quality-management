@@ -318,7 +318,6 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                 {t('worklogImport.flags.estimateEffortLabel', { defaultValue: 'Estimated Effort Override' })}
               </FormLabel>
               <RadioGroup
-                row
                 value={estimateEffortMode}
                 onChange={(e) => setEstimateEffortMode(e.target.value as 'none' | 'match_actual' | 'fixed_value')}
               >
@@ -327,33 +326,48 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                   control={<Radio size="small" />}
                   label={<Typography variant="body2">{t('worklogImport.flags.estimateNone', { defaultValue: 'No change (default)' })}</Typography>}
                 />
+                {estimateEffortMode === 'none' && (
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 4, mb: 0.5, display: 'block' }}>
+                    {t('worklogImport.flags.estimateNoneDesc', { defaultValue: 'Estimated effort of each step assignment will not be modified during import.' })}
+                  </Typography>
+                )}
+
                 <FormControlLabel
                   value="match_actual"
                   control={<Radio size="small" />}
                   label={<Typography variant="body2">{t('worklogImport.flags.estimateMatchActual', { defaultValue: 'Set estimated = actual effort from CSV' })}</Typography>}
                 />
+                {estimateEffortMode === 'match_actual' && (
+                  <Typography variant="caption" color="info.main" sx={{ ml: 4, mb: 0.5, display: 'block' }}>
+                    {t('worklogImport.flags.estimateMatchActualDesc', { defaultValue: 'For each imported row, estimatedEffort of the step assignment will be set to the actual effort value (hours) from the CSV record.' })}
+                  </Typography>
+                )}
+
                 <FormControlLabel
                   value="fixed_value"
                   control={<Radio size="small" />}
                   label={<Typography variant="body2">{t('worklogImport.flags.estimateFixedValue', { defaultValue: 'Set estimated = fixed value (hours)' })}</Typography>}
                 />
+                {estimateEffortMode === 'fixed_value' && (
+                  <Box sx={{ ml: 4, mb: 0.5 }}>
+                    <Typography variant="caption" color="info.main" sx={{ display: 'block', mb: 1 }}>
+                      {t('worklogImport.flags.estimateFixedValueDesc', { defaultValue: 'estimatedEffort of every imported step assignment will be set to the fixed number of hours you enter below, regardless of actual effort.' })}
+                    </Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      inputProps={{ min: 0, step: 0.5 }}
+                      label={t('worklogImport.flags.fixedHoursLabel', { defaultValue: 'Hours per task' })}
+                      value={fixedEstimateHours}
+                      onChange={(e) => setFixedEstimateHours(e.target.value)}
+                      sx={{ width: 160 }}
+                    />
+                  </Box>
+                )}
               </RadioGroup>
-              {estimateEffortMode === 'fixed_value' && (
-                <Box sx={{ mt: 1, ml: 0.5 }}>
-                  <TextField
-                    size="small"
-                    type="number"
-                    inputProps={{ min: 0, step: 0.5 }}
-                    label={t('worklogImport.flags.fixedHoursLabel', { defaultValue: 'Hours per task' })}
-                    value={fixedEstimateHours}
-                    onChange={(e) => setFixedEstimateHours(e.target.value)}
-                    sx={{ width: 160 }}
-                  />
-                </Box>
-              )}
             </Box>
 
-            <Box>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -368,6 +382,11 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                   </Typography>
                 }
               />
+              <Typography variant="caption" color={autoUpdateEstimateDate ? 'info.main' : 'text.secondary'} sx={{ display: 'block', ml: 4 }}>
+                {autoUpdateEstimateDate
+                  ? t('worklogImport.flags.autoUpdateEstimateDateActiveDesc', { defaultValue: 'estimatedStartDate and estimatedEndDate of each step assignment will be set to the actual date (day column) of the imported CSV row.' })
+                  : t('worklogImport.flags.autoUpdateEstimateDateDesc', { defaultValue: 'If unchecked, estimated dates will not be changed during import.' })}
+              </Typography>
             </Box>
           </Box>
         )}
