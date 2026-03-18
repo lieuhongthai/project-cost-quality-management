@@ -7,6 +7,7 @@ import {
   IsArray,
   ValidateNested,
   IsEnum,
+  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -834,6 +835,20 @@ export class CommitWorklogImportDto {
   @IsOptional()
   @IsBoolean()
   clearExistingTasks?: boolean;
+
+  @IsOptional()
+  @IsEnum(['none', 'match_actual', 'fixed_value'])
+  estimateEffortMode?: 'none' | 'match_actual' | 'fixed_value';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  fixedEstimateHours?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  autoUpdateEstimateDate?: boolean;
 }
 
 export class AiSuggestWorklogRulesResultDto {

@@ -14,6 +14,10 @@ import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormLabel from '@mui/material/FormLabel';
 import { Modal } from '@/components/common/Modal';
 import { useTranslation } from 'react-i18next';
 
@@ -40,6 +44,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<ItemOverride>({});
   const [clearExistingTasks, setClearExistingTasks] = useState(false);
+  const [estimateEffortMode, setEstimateEffortMode] = useState<'none' | 'match_actual' | 'fixed_value'>('none');
+  const [fixedEstimateHours, setFixedEstimateHours] = useState<string>('');
+  const [autoUpdateEstimateDate, setAutoUpdateEstimateDate] = useState(false);
   const [commitResult, setCommitResult] = useState<null | {
     success: number;
     failed: number;
@@ -71,6 +78,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
       setEditDraft({});
       setCommitResult(null);
       setClearExistingTasks(false);
+      setEstimateEffortMode('none');
+      setFixedEstimateHours('');
+      setAutoUpdateEstimateDate(false);
     },
   });
 
@@ -86,6 +96,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         selectedRowNumbers: selectedIds,
         overrides: overridePayload.map(({ itemId, ...rest }) => ({ rowNumber: itemId, ...rest })),
         clearExistingTasks,
+        estimateEffortMode: estimateEffortMode !== 'none' ? estimateEffortMode : undefined,
+        fixedEstimateHours: estimateEffortMode === 'fixed_value' && fixedEstimateHours ? Number(fixedEstimateHours) : undefined,
+        autoUpdateEstimateDate: autoUpdateEstimateDate || undefined,
       });
       const refreshed = await taskWorkflowApi.getWorklogImportBatch(batchDetail.batch.id);
       setBatchDetail(refreshed.data);
@@ -288,15 +301,74 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         </Box>
 
         {batchDetail && (
-          <Box sx={{ mb: 2 }}>
-            <Checkbox
-              checked={clearExistingTasks}
-              onChange={(e) => setClearExistingTasks(e.target.checked)}
-            />
-            {t('worklogImport.actions.clearExistingTasks', { defaultValue: 'Clear all existing tasks before import' })}
-            <Typography variant="caption" color="warning.main" sx={{ display: 'block', ml: 4 }}>
-              {t('worklogImport.actions.clearExistingTasksHint', { defaultValue: 'Warning: this will remove all existing Step/Screen assignments in current project before import.' })}
-            </Typography>
+          <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box>
+              <Checkbox
+                checked={clearExistingTasks}
+                onChange={(e) => setClearExistingTasks(e.target.checked)}
+              />
+              {t('worklogImport.actions.clearExistingTasks', { defaultValue: 'Clear all existing tasks before import' })}
+              <Typography variant="caption" color="warning.main" sx={{ display: 'block', ml: 4 }}>
+                {t('worklogImport.actions.clearExistingTasksHint', { defaultValue: 'Warning: this will remove all existing Step/Screen assignments in current project before import.' })}
+              </Typography>
+            </Box>
+
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+              <FormLabel component="legend" sx={{ mb: 0.5, fontSize: 13, fontWeight: 600 }}>
+                {t('worklogImport.flags.estimateEffortLabel', { defaultValue: 'Estimated Effort Override' })}
+              </FormLabel>
+              <RadioGroup
+                row
+                value={estimateEffortMode}
+                onChange={(e) => setEstimateEffortMode(e.target.value as 'none' | 'match_actual' | 'fixed_value')}
+              >
+                <FormControlLabel
+                  value="none"
+                  control={<Radio size="small" />}
+                  label={<Typography variant="body2">{t('worklogImport.flags.estimateNone', { defaultValue: 'No change (default)' })}</Typography>}
+                />
+                <FormControlLabel
+                  value="match_actual"
+                  control={<Radio size="small" />}
+                  label={<Typography variant="body2">{t('worklogImport.flags.estimateMatchActual', { defaultValue: 'Set estimated = actual effort from CSV' })}</Typography>}
+                />
+                <FormControlLabel
+                  value="fixed_value"
+                  control={<Radio size="small" />}
+                  label={<Typography variant="body2">{t('worklogImport.flags.estimateFixedValue', { defaultValue: 'Set estimated = fixed value (hours)' })}</Typography>}
+                />
+              </RadioGroup>
+              {estimateEffortMode === 'fixed_value' && (
+                <Box sx={{ mt: 1, ml: 0.5 }}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0, step: 0.5 }}
+                    label={t('worklogImport.flags.fixedHoursLabel', { defaultValue: 'Hours per task' })}
+                    value={fixedEstimateHours}
+                    onChange={(e) => setFixedEstimateHours(e.target.value)}
+                    sx={{ width: 160 }}
+                  />
+                </Box>
+              )}
+            </Box>
+
+            <Box>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={autoUpdateEstimateDate}
+                    onChange={(e) => setAutoUpdateEstimateDate(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    {t('worklogImport.flags.autoUpdateEstimateDate', { defaultValue: 'Auto-update estimated date = actual date from CSV record' })}
+                  </Typography>
+                }
+              />
+            </Box>
           </Box>
         )}
 
