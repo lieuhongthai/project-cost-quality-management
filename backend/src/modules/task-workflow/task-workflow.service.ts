@@ -2765,6 +2765,14 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       }
 
       try {
+        // Determine estimatedEffort override based on flags
+        let estimatedEffortOverride: number | undefined;
+        if (dto.estimateEffortMode === 'match_actual') {
+          estimatedEffortOverride = resolved.effortHours || 0;
+        } else if (dto.estimateEffortMode === 'fixed_value' && dto.fixedEstimateHours !== undefined) {
+          estimatedEffortOverride = dto.fixedEstimateHours;
+        }
+
         const [stepScreenFunction] = await this.stepScreenFunctionRepository.findOrCreate({
           where: {
             stepId: resolved.stepId,
@@ -2777,30 +2785,47 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           } as any,
         });
 
+        const assignmentDefaults: any = {
+          stepScreenFunctionId: stepScreenFunction.id,
+          memberId: resolved.memberId,
+          actualEffort: resolved.effortHours || 0,
+          progress: 100,
+          note: `${resolved.day || ''}: ${resolved.workDetail || ''}`,
+          actualStartDate: resolved.day,
+          actualEndDate: resolved.day,
+        };
+        if (estimatedEffortOverride !== undefined) {
+          assignmentDefaults.estimatedEffort = estimatedEffortOverride;
+        }
+        if (dto.autoUpdateEstimateDate && resolved.day) {
+          assignmentDefaults.estimatedStartDate = resolved.day;
+          assignmentDefaults.estimatedEndDate = resolved.day;
+        }
+
         const [assignment, created] = await this.stepScreenFunctionMemberRepository.findOrCreate({
           where: {
             stepScreenFunctionId: stepScreenFunction.id,
             memberId: resolved.memberId,
           },
-          defaults: {
-            stepScreenFunctionId: stepScreenFunction.id,
-            memberId: resolved.memberId,
-            actualEffort: resolved.effortHours || 0,
-            progress: 100,
-            note: `${resolved.day || ''}: ${resolved.workDetail || ''}`,
-            actualStartDate: resolved.day,
-            actualEndDate: resolved.day,
-          } as any,
+          defaults: assignmentDefaults,
         });
 
         if (!created) {
-          await assignment.update({
+          const updatePayload: any = {
             actualEffort: Number((Number(assignment.actualEffort || 0) + Number(resolved.effortHours || 0)).toFixed(2)),
             progress: 100,
             note: [assignment.note, `${resolved.day || ''}: ${resolved.workDetail || ''}`].filter(Boolean).join('\n'),
             actualStartDate: assignment.actualStartDate || resolved.day,
             actualEndDate: resolved.day || assignment.actualEndDate,
-          });
+          };
+          if (estimatedEffortOverride !== undefined) {
+            updatePayload.estimatedEffort = estimatedEffortOverride;
+          }
+          if (dto.autoUpdateEstimateDate && resolved.day) {
+            updatePayload.estimatedStartDate = resolved.day;
+            updatePayload.estimatedEndDate = resolved.day;
+          }
+          await assignment.update(updatePayload);
         }
 
         await this.recalculateStepScreenFunctionFromMembers(stepScreenFunction.id);

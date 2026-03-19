@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/common'
+import { MetricInfoTooltip } from './MetricInfoTooltip'
 
 interface ReportProductivitySectionProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,7 +20,14 @@ export function ReportProductivitySection({ productivity }: ReportProductivitySe
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <Card className="bg-linear-to-br from-indigo-50 to-white">
-          <p className="text-sm font-medium text-indigo-600">{t('productivity.teamEfficiency')}</p>
+          <p className="text-sm font-medium text-indigo-600 flex items-center">
+            {t('productivity.teamEfficiency')}
+            <MetricInfoTooltip
+              description={t('metrics.tooltip.teamEfficiency.description')}
+              formula={t('metrics.tooltip.teamEfficiency.formula')}
+              thresholds={t('metrics.tooltip.teamEfficiency.thresholds')}
+            />
+          </p>
           <p
             className={`text-3xl font-bold ${
               productivity.summary.efficiency >= 1
@@ -34,7 +42,13 @@ export function ReportProductivitySection({ productivity }: ReportProductivitySe
           <p className="text-xs text-gray-500">{t('productivity.overallTeamEfficiency')}</p>
         </Card>
         <Card>
-          <p className="text-sm font-medium text-gray-600">{t('productivity.tasksCompleted')}</p>
+          <p className="text-sm font-medium text-gray-600 flex items-center">
+            {t('productivity.tasksCompleted')}
+            <MetricInfoTooltip
+              description={t('metrics.tooltip.completionRate.description')}
+              formula={t('metrics.tooltip.completionRate.formula')}
+            />
+          </p>
           <p className="text-3xl font-bold text-blue-600">
             {productivity.summary.tasksCompleted}/{productivity.summary.tasksTotal}
           </p>
@@ -43,7 +57,13 @@ export function ReportProductivitySection({ productivity }: ReportProductivitySe
           </p>
         </Card>
         <Card>
-          <p className="text-sm font-medium text-gray-600">{t('productivity.avgEffortPerTask')}</p>
+          <p className="text-sm font-medium text-gray-600 flex items-center">
+            {t('productivity.avgEffortPerTask')}
+            <MetricInfoTooltip
+              description={t('metrics.tooltip.avgEffortPerTask.description')}
+              formula={t('metrics.tooltip.avgEffortPerTask.formula')}
+            />
+          </p>
           <p className="text-3xl font-bold text-gray-900">
             {productivity.summary.avgEffortPerTask.toFixed(1)}
           </p>
@@ -80,7 +100,14 @@ export function ReportProductivitySection({ productivity }: ReportProductivitySe
                     {t('productivity.tasks')}
                   </th>
                   <th className="px-3 py-2 text-right font-medium text-gray-500">
-                    {t('metrics.efficiency')}
+                    <span className="inline-flex items-center">
+                      {t('metrics.efficiency')}
+                      <MetricInfoTooltip
+                        description={t('metrics.tooltip.memberEfficiency.description')}
+                        formula={t('metrics.tooltip.memberEfficiency.formula')}
+                        thresholds={t('metrics.tooltip.memberEfficiency.thresholds')}
+                      />
+                    </span>
                   </th>
                 </tr>
               </thead>
@@ -134,7 +161,14 @@ export function ReportProductivitySection({ productivity }: ReportProductivitySe
                     {t('productivity.avgPerTask')}
                   </th>
                   <th className="px-3 py-2 text-right font-medium text-gray-500">
-                    {t('metrics.efficiency')}
+                    <span className="inline-flex items-center">
+                      {t('metrics.efficiency')}
+                      <MetricInfoTooltip
+                        description={t('metrics.tooltip.memberEfficiency.description')}
+                        formula={t('metrics.tooltip.memberEfficiency.formula')}
+                        thresholds={t('metrics.tooltip.memberEfficiency.thresholds')}
+                      />
+                    </span>
                   </th>
                 </tr>
               </thead>

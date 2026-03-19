@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { reportApi, metricsApi, commentaryApi } from '@/services/api';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import { FileSpreadsheet, FileText, FileDown } from 'lucide-react';
 import { LoadingSpinner, Button, Modal } from '@/components/common';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
@@ -25,20 +25,29 @@ function ReportDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
   const queryClient = useQueryClient();
 
-  const handleExport = async (type: 'excel' | 'pdf') => {
-    const setLoading = type === 'excel' ? setIsExportingExcel : setIsExportingPdf;
+  const handleExport = async (type: 'excel' | 'pdf' | 'csv') => {
+    const setLoading = type === 'excel' ? setIsExportingExcel : type === 'pdf' ? setIsExportingPdf : setIsExportingCsv;
     setLoading(true);
     try {
       const response = type === 'excel'
         ? await reportApi.exportExcel(parseInt(reportId))
-        : await reportApi.exportPdf(parseInt(reportId));
-      const blob = new Blob([response.data]);
+        : type === 'pdf'
+          ? await reportApi.exportPdf(parseInt(reportId))
+          : await reportApi.exportCsv(parseInt(reportId));
+      const extMap = { excel: 'xlsx', pdf: 'pdf', csv: 'csv' };
+      const mimeMap = {
+        excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pdf: 'application/pdf',
+        csv: 'text/csv',
+      };
+      const blob = new Blob([response.data], { type: mimeMap[type] });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `report-${reportId}.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+      link.download = `report-${reportId}.${extMap[type]}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -207,6 +216,10 @@ function ReportDetail() {
             <Button variant="secondary" onClick={() => handleExport('pdf')} disabled={isExportingPdf}>
               <FileText className="w-4 h-4 mr-1.5 inline" />
               {isExportingPdf ? t('report.exporting') : t('report.exportPdf')}
+            </Button>
+            <Button variant="secondary" onClick={() => handleExport('csv')} disabled={isExportingCsv}>
+              <FileDown className="w-4 h-4 mr-1.5 inline" />
+              {isExportingCsv ? t('report.exporting') : t('report.exportCsv')}
             </Button>
             <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
               {t('report.delete')}
