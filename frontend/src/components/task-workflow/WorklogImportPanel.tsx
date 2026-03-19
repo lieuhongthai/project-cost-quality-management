@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
 import type { WorklogImportBatchDetail } from '@/types';
@@ -18,6 +18,7 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormLabel from '@mui/material/FormLabel';
+import LinearProgress from '@mui/material/LinearProgress';
 import { Modal } from '@/components/common/Modal';
 import { useTranslation } from 'react-i18next';
 
@@ -53,6 +54,16 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     skipped: number;
     total: number;
   }>(null);
+  const [commitProgress, setCommitProgress] = useState<null | {
+    processed: number;
+    total: number;
+    success: number;
+    failed: number;
+    skipped: number;
+  }>(null);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { data: config } = useQuery({
     queryKey: ['workflowConfig', projectId],
@@ -84,30 +95,88 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     },
   });
 
-  const commitMutation = useMutation({
-    mutationFn: async () => {
-      if (!batchDetail) throw new Error(t('worklogImport.errors.noPreviewData', { defaultValue: 'No preview data' }));
-      const overridePayload = Object.entries(overrides)
-        .map(([itemId, value]) => ({ itemId: Number(itemId), ...value }))
-        .filter((x) => x.stageId || x.stepId || x.screenFunctionId);
+  const handleCommit = async () => {
+    if (!batchDetail) return;
+    const overridePayload = Object.entries(overrides)
+      .map(([itemId, value]) => ({ itemId: Number(itemId), ...value }))
+      .filter((x) => x.stageId || x.stepId || x.screenFunctionId);
 
-      const response = await taskWorkflowApi.commitWorklogImport({
-        batchId: batchDetail.batch.id,
-        selectedRowNumbers: selectedIds,
-        overrides: overridePayload.map(({ itemId, ...rest }) => ({ rowNumber: itemId, ...rest })),
-        clearExistingTasks,
-        estimateEffortMode: estimateEffortMode !== 'none' ? estimateEffortMode : undefined,
-        fixedEstimateHours: estimateEffortMode === 'fixed_value' && fixedEstimateHours ? Number(fixedEstimateHours) : undefined,
-        autoUpdateEstimateDate: autoUpdateEstimateDate || undefined,
+    const dto = {
+      batchId: batchDetail.batch.id,
+      selectedRowNumbers: selectedIds,
+      overrides: overridePayload.map(({ itemId, ...rest }) => ({ rowNumber: itemId, ...rest })),
+      clearExistingTasks,
+      estimateEffortMode: estimateEffortMode !== 'none' ? estimateEffortMode : undefined,
+      fixedEstimateHours: estimateEffortMode === 'fixed_value' && fixedEstimateHours ? Number(fixedEstimateHours) : undefined,
+      autoUpdateEstimateDate: autoUpdateEstimateDate || undefined,
+    };
+
+    setIsCommitting(true);
+    setCommitProgress(null);
+    setCommitResult(null);
+    setCommitError(null);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const token = localStorage.getItem('pcqm.auth.token');
+      const response = await fetch('/api/task-workflow/worklog-import/commit-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(dto),
+        signal: controller.signal,
       });
-      const refreshed = await taskWorkflowApi.getWorklogImportBatch(batchDetail.batch.id);
-      setBatchDetail(refreshed.data);
-      return response;
-    },
-    onSuccess: (response) => {
-      setCommitResult(response.data);
-    },
-  });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.done) {
+                if (event.error) {
+                  setCommitError(event.error);
+                } else {
+                  setCommitResult({ success: event.success, failed: event.failed, skipped: event.skipped, total: event.total });
+                  const refreshed = await taskWorkflowApi.getWorklogImportBatch(batchDetail.batch.id);
+                  setBatchDetail(refreshed.data);
+                }
+              } else {
+                setCommitProgress(event);
+              }
+            } catch {
+              // ignore malformed SSE line
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setCommitError(err.message || t('worklogImport.errors.commitFailed', { defaultValue: 'Commit failed' }));
+      }
+    } finally {
+      setIsCommitting(false);
+      setCommitProgress(null);
+      abortControllerRef.current = null;
+    }
+  };
+
 
   const createScreenFunctionMutation = useMutation({
     mutationFn: async ({ itemId, suggestedName }: { itemId: number; suggestedName: string }) => {
@@ -290,7 +359,7 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
           </Button>
           {batchDetail && (
             <>
-              <Button variant="contained" color="success" onClick={() => commitMutation.mutate()} disabled={selectedIds.length === 0 || commitMutation.isPending}>
+              <Button variant="contained" color="success" onClick={handleCommit} disabled={selectedIds.length === 0 || isCommitting}>
                 {t('worklogImport.actions.commitSelected', { defaultValue: 'Commit Selected' })} ({selectedIds.length})
               </Button>
               <Button variant="outlined" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
@@ -392,7 +461,36 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
         )}
 
         {previewMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>{t('worklogImport.errors.previewFailed', { defaultValue: 'Preview failed' })}</Alert>}
-        {commitMutation.isError && <Alert severity="error" sx={{ mb: 2 }}>{t('worklogImport.errors.commitFailed', { defaultValue: 'Commit failed' })}</Alert>}
+        {commitError && <Alert severity="error" sx={{ mb: 2 }}>{commitError}</Alert>}
+
+        {commitProgress && (
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('worklogImport.progress.importing', { defaultValue: 'Importing...' })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {commitProgress.processed}/{commitProgress.total} ({Math.round((commitProgress.processed / commitProgress.total) * 100)}%)
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={(commitProgress.processed / commitProgress.total) * 100}
+              sx={{ mb: 0.5 }}
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Typography variant="caption" color="success.main">
+                {t('worklogImport.progress.success', { defaultValue: '✓ {{value}}', value: commitProgress.success })}
+              </Typography>
+              <Typography variant="caption" color="error.main">
+                {t('worklogImport.progress.failed', { defaultValue: '✗ {{value}}', value: commitProgress.failed })}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t('worklogImport.progress.skipped', { defaultValue: '⟶ {{value}} skipped', value: commitProgress.skipped })}
+              </Typography>
+            </Box>
+          </Box>
+        )}
 
         {commitResult && (
           <Alert severity="info" sx={{ mb: 2 }}>

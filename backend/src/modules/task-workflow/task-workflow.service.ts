@@ -2696,7 +2696,10 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     };
   }
 
-  async commitWorklogImport(dto: CommitWorklogImportDto): Promise<any> {
+  async commitWorklogImport(
+    dto: CommitWorklogImportDto,
+    onProgress?: (progress: { processed: number; total: number; success: number; failed: number; skipped: number }) => void,
+  ): Promise<any> {
     const batch = await this.worklogImportBatchRepository.findByPk(dto.batchId);
     if (!batch) {
       throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
@@ -2719,6 +2722,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     let success = 0;
     let failed = 0;
     let skipped = 0;
+    let processed = 0;
+    const total = batch.previewData.length;
 
     for (const itemData of batch.previewData) {
       const isSelected = selectedSet.has(itemData.rowNumber);
@@ -2731,6 +2736,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           reason: itemData.reason || 'Not selected by user',
         });
         skipped += 1;
+        processed++;
+        onProgress?.({ processed, total, success, failed, skipped });
         continue;
       }
 
@@ -2752,6 +2759,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           if (!sf || sf.projectId !== batch.projectId) {
             itemsToSave.push({ ...resolved, status: 'error', reason: 'Invalid screen function override' });
             failed += 1;
+            processed++;
+            onProgress?.({ processed, total, success, failed, skipped });
             continue;
           }
           resolved.screenFunctionId = sf.id;
@@ -2761,6 +2770,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       if (!resolved.memberId || !resolved.stepId || !resolved.screenFunctionId) {
         itemsToSave.push({ ...resolved, status: 'error', reason: 'Missing mapping data for commit' });
         failed += 1;
+        processed++;
+        onProgress?.({ processed, total, success, failed, skipped });
         continue;
       }
 
@@ -2836,6 +2847,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         itemsToSave.push({ ...resolved, status: 'error', reason: error?.message || 'Commit failed' });
         failed += 1;
       }
+      processed++;
+      onProgress?.({ processed, total, success, failed, skipped });
     }
 
     await this.worklogImportItemRepository.bulkCreate(itemsToSave as any[]);
