@@ -960,6 +960,19 @@
     },
     "editModal": {
       "title": "Chỉnh mapping cho dòng #{{row}}"
+    },
+    "flags": {
+      "estimateEffortLabel": "Ghi đè Effort Dự kiến",
+      "estimateNone": "Không thay đổi (mặc định)",
+      "estimateNoneDesc": "Effort dự kiến của mỗi assignment sẽ không bị thay đổi trong quá trình import.",
+      "estimateMatchActual": "Đặt estimated = actual effort từ CSV",
+      "estimateMatchActualDesc": "Với mỗi dòng được import, estimatedEffort của assignment sẽ được gán bằng giá trị actual effort (số giờ) từ bản ghi CSV tương ứng.",
+      "estimateFixedValue": "Đặt estimated = giá trị cố định (giờ)",
+      "estimateFixedValueDesc": "estimatedEffort của tất cả assignment được import sẽ được gán bằng số giờ cố định bạn nhập bên dưới, bất kể actual effort là bao nhiêu.",
+      "fixedHoursLabel": "Số giờ mỗi task",
+      "autoUpdateEstimateDate": "Tự động cập nhật ngày dự kiến = ngày thực tế từ bản ghi CSV",
+      "autoUpdateEstimateDateDesc": "Nếu không bật, ngày dự kiến sẽ không bị thay đổi trong quá trình import.",
+      "autoUpdateEstimateDateActiveDesc": "estimatedStartDate và estimatedEndDate của mỗi assignment sẽ được gán bằng ngày thực tế (cột day) từ bản ghi CSV tương ứng."
     }
   },
   "worklogMapping": {

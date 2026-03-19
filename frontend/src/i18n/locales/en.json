@@ -961,6 +961,19 @@
     },
     "editModal": {
       "title": "Edit mapping for row #{{row}}"
+    },
+    "flags": {
+      "estimateEffortLabel": "Estimated Effort Override",
+      "estimateNone": "No change (default)",
+      "estimateNoneDesc": "Estimated effort of each step assignment will not be modified during import.",
+      "estimateMatchActual": "Set estimated = actual effort from CSV",
+      "estimateMatchActualDesc": "For each imported row, estimatedEffort of the step assignment will be set to the actual effort value (hours) from the CSV record.",
+      "estimateFixedValue": "Set estimated = fixed value (hours)",
+      "estimateFixedValueDesc": "estimatedEffort of every imported step assignment will be set to the fixed number of hours you enter below, regardless of actual effort.",
+      "fixedHoursLabel": "Hours per task",
+      "autoUpdateEstimateDate": "Auto-update estimated date = actual date from CSV record",
+      "autoUpdateEstimateDateDesc": "If unchecked, estimated dates will not be changed during import.",
+      "autoUpdateEstimateDateActiveDesc": "estimatedStartDate and estimatedEndDate of each step assignment will be set to the actual date (day column) of the imported CSV row."
     }
   },
   "worklogMapping": {
