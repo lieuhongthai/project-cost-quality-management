@@ -19,6 +19,8 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormLabel from '@mui/material/FormLabel';
 import LinearProgress from '@mui/material/LinearProgress';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { Modal } from '@/components/common/Modal';
 import { useTranslation } from 'react-i18next';
 
@@ -74,6 +76,11 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
     queryKey: ['screenFunctions', projectId],
     queryFn: async () => (await screenFunctionApi.getByProject(projectId)).data,
   });
+
+  // Find default import step from workflow config
+  const defaultImportStep = config?.stages
+    ?.flatMap((s: any) => (s.steps || []).map((step: any) => ({ step, stageName: s.name })))
+    .find(({ step }: { step: any }) => step.isDefaultImport);
 
   const previewMutation = useMutation({
     mutationFn: () => {
@@ -371,6 +378,29 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
 
         {batchDetail && (
           <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* Default import step info */}
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.5, bgcolor: defaultImportStep ? 'warning.50' : 'grey.50', border: '1px solid', borderColor: defaultImportStep ? 'warning.200' : 'divider', borderRadius: 1 }}>
+              {defaultImportStep
+                ? <BookmarkIcon sx={{ fontSize: 16, color: 'warning.main', mt: 0.25, flexShrink: 0 }} />
+                : <BookmarkBorderIcon sx={{ fontSize: 16, color: 'text.disabled', mt: 0.25, flexShrink: 0 }} />}
+              <Box>
+                {defaultImportStep ? (
+                  <>
+                    <Typography variant="caption" fontWeight={600} color="warning.dark">
+                      {t('worklogImport.defaultImportStep', { defaultValue: 'CSV import fallback step: {{stage}} › {{step}}', stage: defaultImportStep.stageName, step: defaultImportStep.step.name })}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {t('worklogImport.defaultImportStepDesc', { defaultValue: 'Needs_review records with no matched rule will be pre-assigned to this step.' })}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('worklogImport.noDefaultImportStep', { defaultValue: 'No default import step configured. Set one in Workflow Configuration to auto-assign needs_review records.' })}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
             <Box>
               <Checkbox
                 checked={clearExistingTasks}

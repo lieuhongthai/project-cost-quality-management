@@ -87,6 +87,13 @@ export class WorkflowStep extends Model {
   })
   isActive: boolean;
 
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+    comment: 'When true, this step is used as a fallback step for needs_review records in CSV worklog import. Only one step per project can have this flag.',
+  })
+  isDefaultImport: boolean;
+
   @BelongsTo(() => WorkflowStage, { onDelete: "CASCADE" })
   stage: WorkflowStage;
 }
