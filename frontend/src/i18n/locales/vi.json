@@ -917,7 +917,14 @@
     "stepName": "Tên bước",
     "editStep": "Sửa bước",
     "confirmDeleteStep": "Bạn có chắc muốn xóa bước này? Tất cả dữ liệu workflow của bước sẽ bị mất.",
-    "notLinked": "Chưa liên kết với task trong giai đoạn"
+    "notLinked": "Chưa liên kết với task trong giai đoạn",
+    "setDefaultImportStep": "Đặt làm bước fallback import CSV",
+    "unsetDefaultImportStep": "Bỏ đặt làm bước fallback import CSV",
+    "setAsDefaultImport": "Đặt làm bước fallback import CSV",
+    "defaultImportStepInfo": "Bước fallback import CSV: {{stage}} › {{step}}",
+    "defaultImportStepDesc": "Các record 'needs_review' không khớp rule nào sẽ được tự động gán vào bước này.",
+    "noDefaultImportStep": "Chưa cấu hình bước fallback import. Nhấn icon bookmark (🔖) trên một bước để đặt làm fallback cho CSV import.",
+    "defaultImportStepModalDesc": "Khi bật, các record needs_review CSV không khớp rule mapping sẽ tự động dùng bước này. Chỉ một bước mỗi project được phép đặt."
   },
   "worklogImport": {
     "title": "Import CSV Worklog",
@@ -937,6 +944,15 @@
       "commitFailed": "Commit thất bại"
     },
     "commitResult": "Kết quả commit: thành công {{success}}, lỗi {{failed}}, bỏ qua {{skipped}}, tổng {{total}}",
+    "progress": {
+      "importing": "Đang import...",
+      "success": "✓ {{value}} thành công",
+      "failed": "✗ {{value}} lỗi",
+      "skipped": "⟶ {{value}} bỏ qua"
+    },
+    "defaultImportStep": "Bước fallback import CSV: {{stage}} › {{step}}",
+    "defaultImportStepDesc": "Các record needs_review không khớp rule sẽ được tự động gán vào bước này.",
+    "noDefaultImportStep": "Chưa cấu hình bước fallback import. Cài đặt trong Cấu hình Workflow để tự động gán record needs_review.",
     "summary": {
       "total": "Tổng: {{value}}",
       "ready": "Sẵn sàng: {{value}}",

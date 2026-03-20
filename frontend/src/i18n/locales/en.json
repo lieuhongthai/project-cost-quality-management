@@ -918,7 +918,14 @@
     "stepName": "Step Name",
     "editStep": "Edit Step",
     "confirmDeleteStep": "Are you sure you want to delete this step? All workflow data for this step will be lost.",
-    "notLinked": "Not linked to any stage task"
+    "notLinked": "Not linked to any stage task",
+    "setDefaultImportStep": "Set as CSV import fallback step",
+    "unsetDefaultImportStep": "Remove as CSV import fallback step",
+    "setAsDefaultImport": "Set as CSV import fallback step",
+    "defaultImportStepInfo": "CSV import fallback step: {{stage}} › {{step}}",
+    "defaultImportStepDesc": "Needs_review records with no matched rule will automatically use this step.",
+    "noDefaultImportStep": "No default import step configured. Click the bookmark icon (🔖) on a step to set it as the CSV import fallback.",
+    "defaultImportStepModalDesc": "When enabled, needs_review CSV records with no matching rule will automatically use this step. Only one step per project can be set."
   },
   "worklogImport": {
     "title": "Import CSV Worklog",
@@ -938,6 +945,15 @@
       "commitFailed": "Commit failed"
     },
     "commitResult": "Commit result: success {{success}}, failed {{failed}}, skipped {{skipped}}, total {{total}}",
+    "progress": {
+      "importing": "Importing...",
+      "success": "✓ {{value}} success",
+      "failed": "✗ {{value}} failed",
+      "skipped": "⟶ {{value}} skipped"
+    },
+    "defaultImportStep": "CSV import fallback step: {{stage}} › {{step}}",
+    "defaultImportStepDesc": "Needs_review records with no matched rule will be pre-assigned to this step.",
+    "noDefaultImportStep": "No default import step configured. Set one in Workflow Configuration to auto-assign needs_review records.",
     "summary": {
       "total": "Total: {{value}}",
       "ready": "Ready: {{value}}",
