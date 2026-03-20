@@ -562,6 +562,7 @@ export class TaskWorkflowService {
         name: string;
         displayOrder: number;
         isActive: boolean;
+        isDefaultImport: boolean;
       }>;
     }>;
   }> {
@@ -589,6 +590,7 @@ export class TaskWorkflowService {
           name: s.name,
           displayOrder: s.displayOrder,
           isActive: s.isActive,
+          isDefaultImport: (s as any).isDefaultImport ?? false,
         })),
     }));
 
