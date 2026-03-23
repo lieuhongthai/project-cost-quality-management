@@ -49,7 +49,7 @@ export function ProjectStagesTab({
         stagesOverview.map((s: StageOverviewData) => taskWorkflowApi.getStageDetail(s.id))
       );
       const stagesDetail = detailResults.map((r: { data: any }) => r.data);
-      exportStagesToExcel({
+      await exportStagesToExcel({
         projectName: projectName ?? projectId,
         stagesOverview,
         stagesDetail,

@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { EffortUnit, StageDetailData, StageOverviewData } from "@/types";
 import { EFFORT_UNIT_LABELS } from "./effortUtils";
 
@@ -162,11 +163,50 @@ export function exportScreenFunctionsToExcel(opts: {
   XLSX.writeFile(wb, fileName);
 }
 
+// ── Color palette ─────────────────────────────────────────────────────────────
+// Stage row  : dark navy bg + white bold text
+// Step row   : light blue bg + dark bold text
+// Task row   : white bg (alternating very-light-gray) + normal text
+// Header row : teal bg + white bold text
+const COLOR = {
+  headerBg: "1F6B75",
+  headerFg: "FFFFFF",
+  stageBg: "2F5496",
+  stageFg: "FFFFFF",
+  stepBg: "BDD7EE",
+  stepFg: "1F2937",
+  taskAltBg: "F2F7FD",   // every other task row gets a subtle tint
+  taskFg: "374151",
+  border: "CBD5E1",
+};
+
+function applyRowStyle(
+  row: ExcelJS.Row,
+  bgHex: string,
+  fgHex: string,
+  bold: boolean,
+  indent = 0,
+) {
+  row.eachCell({ includeEmpty: true }, (cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${bgHex}` } };
+    cell.font = { bold, color: { argb: `FF${fgHex}` }, size: 11 };
+    cell.border = {
+      bottom: { style: "thin", color: { argb: `FF${COLOR.border}` } },
+    };
+    cell.alignment = { vertical: "middle", wrapText: false };
+  });
+  // Indent task-name cell (col 2)
+  if (indent > 0) {
+    const nameCell = row.getCell(2);
+    nameCell.alignment = { indent, vertical: "middle" };
+  }
+}
+
 /**
- * Export all stages statistics to Excel with hierarchical rows:
- * Stage → Step → Screen/Function
+ * Export all stages statistics to Excel with colour-coded hierarchy:
+ *   Stage (navy)  →  Step (light-blue)  →  Screen/Function (white)
  */
-export function exportStagesToExcel(opts: {
+export async function exportStagesToExcel(opts: {
   projectName: string;
   stagesOverview: StageOverviewData[];
   stagesDetail: StageDetailData[];
@@ -176,67 +216,89 @@ export function exportStagesToExcel(opts: {
   const { projectName, stagesOverview, stagesDetail, effortUnit, displayEffort } = opts;
   const unit = unitLabel(effortUnit);
 
-  const formatDate = (dateStr?: string): string => {
+  const fmt = (dateStr?: string): string => {
     if (!dateStr) return "";
     const d = new Date(dateStr);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}/${mm}/${dd}`;
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
   };
 
-  const headers = [
+  const eff = (v: number) => parseFloat(convertEffort(v, displayEffort)) || 0;
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Stage Statistics");
+
+  // ── Column widths ──────────────────────────────────────────────────────────
+  ws.columns = [
+    { key: "taskId",    width: 14 },
+    { key: "name",      width: 38 },
+    { key: "planStart", width: 14 },
+    { key: "planEnd",   width: 14 },
+    { key: "estimate",  width: 16 },
+    { key: "actStart",  width: 14 },
+    { key: "actEnd",    width: 14 },
+    { key: "actual",    width: 16 },
+    { key: "members",   width: 36 },
+    { key: "progress",  width: 13 },
+  ];
+
+  // ── Header row ─────────────────────────────────────────────────────────────
+  const headerRow = ws.addRow([
     "Task ID",
     "Task Name",
-    `Planned Start`,
-    `Planned End`,
+    "Planned Start",
+    "Planned End",
     `Estimate (${unit})`,
-    `Actual Start`,
-    `Actual End`,
+    "Actual Start",
+    "Actual End",
     `Actual (${unit})`,
     "Members",
     "Progress (%)",
-  ];
+  ]);
+  headerRow.height = 22;
+  applyRowStyle(headerRow, COLOR.headerBg, COLOR.headerFg, true);
+  headerRow.eachCell({ includeEmpty: true }, (cell) => {
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+  });
 
-  const rows: (string | number)[][] = [headers];
-
+  // ── Data rows ──────────────────────────────────────────────────────────────
   stagesDetail.forEach((detail, stageIdx) => {
     const overview = stagesOverview.find((s) => s.id === detail.stage.id);
     const stageOrder = overview?.displayOrder ?? stageIdx + 1;
 
     // Stage row
-    rows.push([
+    const stageRow = ws.addRow([
       String(stageOrder),
       detail.stage.name,
-      formatDate(detail.stage.startDate),
-      formatDate(detail.stage.endDate),
-      parseFloat(convertEffort(detail.effort.estimated, displayEffort)),
-      formatDate(detail.stage.actualStartDate),
-      formatDate(detail.stage.actualEndDate),
-      parseFloat(convertEffort(detail.effort.actual, displayEffort)),
+      fmt(detail.stage.startDate),
+      fmt(detail.stage.endDate),
+      eff(detail.effort.estimated),
+      fmt(detail.stage.actualStartDate),
+      fmt(detail.stage.actualEndDate),
+      eff(detail.effort.actual),
       "",
       detail.progress.percentage,
     ]);
+    stageRow.height = 20;
+    applyRowStyle(stageRow, COLOR.stageBg, COLOR.stageFg, true, 0);
 
     detail.steps.forEach((step, stepIdx) => {
       const stepOrder = step.displayOrder ?? stepIdx + 1;
-      const stepEstimated = step.statistics?.estimatedEffort ?? 0;
-      const stepActual = step.statistics?.actualEffort ?? 0;
-      const stepProgress = step.statistics?.progressPercentage ?? 0;
 
       // Step row
-      rows.push([
+      const stepRow = ws.addRow([
         `${stageOrder}_${stepOrder}`,
         step.name,
         "",
         "",
-        parseFloat(convertEffort(stepEstimated, displayEffort)),
+        eff(step.statistics?.estimatedEffort ?? 0),
         "",
         "",
-        parseFloat(convertEffort(stepActual, displayEffort)),
+        eff(step.statistics?.actualEffort ?? 0),
         "",
-        stepProgress,
+        step.statistics?.progressPercentage ?? 0,
       ]);
+      stepRow.height = 18;
+      applyRowStyle(stepRow, COLOR.stepBg, COLOR.stepFg, true, 2);
 
       step.screenFunctions.forEach((ssf, sfIdx) => {
         const taskOrder = sfIdx + 1;
@@ -245,42 +307,42 @@ export function exportStagesToExcel(opts: {
           .filter(Boolean)
           .join(", ");
 
-        // Screen/Function task row
-        rows.push([
+        // Task row (alternate subtle tint on even rows)
+        const useAlt = sfIdx % 2 === 1;
+        const taskRow = ws.addRow([
           `${stageOrder}_${stepOrder}_${taskOrder}`,
           ssf.screenFunction.name,
-          formatDate(ssf.estimatedStartDate),
-          formatDate(ssf.estimatedEndDate),
-          parseFloat(convertEffort(ssf.estimatedEffort, displayEffort)),
-          formatDate(ssf.actualStartDate),
-          formatDate(ssf.actualEndDate),
-          parseFloat(convertEffort(ssf.actualEffort, displayEffort)),
+          fmt(ssf.estimatedStartDate),
+          fmt(ssf.estimatedEndDate),
+          eff(ssf.estimatedEffort),
+          fmt(ssf.actualStartDate),
+          fmt(ssf.actualEndDate),
+          eff(ssf.actualEffort),
           memberNames,
           ssf.progress,
         ]);
+        taskRow.height = 17;
+        applyRowStyle(
+          taskRow,
+          useAlt ? COLOR.taskAltBg : "FFFFFF",
+          COLOR.taskFg,
+          false,
+          4,
+        );
       });
     });
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-
-  ws["!cols"] = [
-    { wch: 14 }, // Task ID
-    { wch: 35 }, // Task Name
-    { wch: 14 }, // Planned Start
-    { wch: 14 }, // Planned End
-    { wch: 16 }, // Estimate
-    { wch: 14 }, // Actual Start
-    { wch: 14 }, // Actual End
-    { wch: 16 }, // Actual
-    { wch: 35 }, // Members
-    { wch: 14 }, // Progress
-  ];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Stage Statistics");
-
+  // ── Download ───────────────────────────────────────────────────────────────
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
   const safeName = projectName.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
-  const fileName = `stages-${safeName}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  a.href = url;
+  a.download = `stages-${safeName}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
