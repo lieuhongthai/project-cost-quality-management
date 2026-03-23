@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { EffortUnit } from "@/types";
+import type { EffortUnit, StageDetailData, StageOverviewData } from "@/types";
 import { EFFORT_UNIT_LABELS } from "./effortUtils";
 
 // Converts man-hour value to display string via the caller's displayEffort function
@@ -159,5 +159,128 @@ export function exportScreenFunctionsToExcel(opts: {
   }
 
   const fileName = `screens-${stageName.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
+
+/**
+ * Export all stages statistics to Excel with hierarchical rows:
+ * Stage → Step → Screen/Function
+ */
+export function exportStagesToExcel(opts: {
+  projectName: string;
+  stagesOverview: StageOverviewData[];
+  stagesDetail: StageDetailData[];
+  effortUnit: EffortUnit;
+  displayEffort: (v: number, src: EffortUnit) => string;
+}) {
+  const { projectName, stagesOverview, stagesDetail, effortUnit, displayEffort } = opts;
+  const unit = unitLabel(effortUnit);
+
+  const formatDate = (dateStr?: string): string => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}/${mm}/${dd}`;
+  };
+
+  const headers = [
+    "Task ID",
+    "Task Name",
+    `Planned Start`,
+    `Planned End`,
+    `Estimate (${unit})`,
+    `Actual Start`,
+    `Actual End`,
+    `Actual (${unit})`,
+    "Members",
+    "Progress (%)",
+  ];
+
+  const rows: (string | number)[][] = [headers];
+
+  stagesDetail.forEach((detail, stageIdx) => {
+    const overview = stagesOverview.find((s) => s.id === detail.stage.id);
+    const stageOrder = overview?.displayOrder ?? stageIdx + 1;
+
+    // Stage row
+    rows.push([
+      String(stageOrder),
+      detail.stage.name,
+      formatDate(detail.stage.startDate),
+      formatDate(detail.stage.endDate),
+      parseFloat(convertEffort(detail.effort.estimated, displayEffort)),
+      formatDate(detail.stage.actualStartDate),
+      formatDate(detail.stage.actualEndDate),
+      parseFloat(convertEffort(detail.effort.actual, displayEffort)),
+      "",
+      detail.progress.percentage,
+    ]);
+
+    detail.steps.forEach((step, stepIdx) => {
+      const stepOrder = step.displayOrder ?? stepIdx + 1;
+      const stepEstimated = step.statistics?.estimatedEffort ?? 0;
+      const stepActual = step.statistics?.actualEffort ?? 0;
+      const stepProgress = step.statistics?.progressPercentage ?? 0;
+
+      // Step row
+      rows.push([
+        `${stageOrder}_${stepOrder}`,
+        step.name,
+        "",
+        "",
+        parseFloat(convertEffort(stepEstimated, displayEffort)),
+        "",
+        "",
+        parseFloat(convertEffort(stepActual, displayEffort)),
+        "",
+        stepProgress,
+      ]);
+
+      step.screenFunctions.forEach((ssf, sfIdx) => {
+        const taskOrder = sfIdx + 1;
+        const memberNames = (ssf.members ?? [])
+          .map((m) => m.member?.name ?? "")
+          .filter(Boolean)
+          .join(", ");
+
+        // Screen/Function task row
+        rows.push([
+          `${stageOrder}_${stepOrder}_${taskOrder}`,
+          ssf.screenFunction.name,
+          formatDate(ssf.estimatedStartDate),
+          formatDate(ssf.estimatedEndDate),
+          parseFloat(convertEffort(ssf.estimatedEffort, displayEffort)),
+          formatDate(ssf.actualStartDate),
+          formatDate(ssf.actualEndDate),
+          parseFloat(convertEffort(ssf.actualEffort, displayEffort)),
+          memberNames,
+          ssf.progress,
+        ]);
+      });
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  ws["!cols"] = [
+    { wch: 14 }, // Task ID
+    { wch: 35 }, // Task Name
+    { wch: 14 }, // Planned Start
+    { wch: 14 }, // Planned End
+    { wch: 16 }, // Estimate
+    { wch: 14 }, // Actual Start
+    { wch: 14 }, // Actual End
+    { wch: 16 }, // Actual
+    { wch: 35 }, // Members
+    { wch: 14 }, // Progress
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Stage Statistics");
+
+  const safeName = projectName.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
+  const fileName = `stages-${safeName}-${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }

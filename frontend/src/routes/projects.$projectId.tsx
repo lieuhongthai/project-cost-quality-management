@@ -915,6 +915,7 @@ function ProjectDetail() {
       {activeTab === "stages" && (
         <ProjectStagesTab
           projectId={projectId}
+          projectName={project?.name}
           effortUnit={effortUnit}
           workSettings={settingsForm}
           setShowAIPlanAll={setShowAIPlanAll}
