@@ -302,21 +302,53 @@ export async function exportStagesToExcel(opts: {
 
       step.screenFunctions.forEach((ssf, sfIdx) => {
         const taskOrder = sfIdx + 1;
-        const memberNames = (ssf.members ?? [])
+        const members = ssf.members ?? [];
+        const memberNames = members
           .map((m) => m.member?.name ?? "")
           .filter(Boolean)
           .join(", ");
+
+        // Derive plan dates from member-level estimated dates (fallback to ssf-level)
+        const memberEstStarts = members
+          .map((m) => m.estimatedStartDate)
+          .filter(Boolean) as string[];
+        const memberEstEnds = members
+          .map((m) => m.estimatedEndDate)
+          .filter(Boolean) as string[];
+        const memberActStarts = members
+          .map((m) => m.actualStartDate)
+          .filter(Boolean) as string[];
+        const memberActEnds = members
+          .map((m) => m.actualEndDate)
+          .filter(Boolean) as string[];
+
+        const planStart =
+          memberEstStarts.length > 0
+            ? memberEstStarts.reduce((a, b) => (a < b ? a : b))
+            : ssf.estimatedStartDate;
+        const planEnd =
+          memberEstEnds.length > 0
+            ? memberEstEnds.reduce((a, b) => (a > b ? a : b))
+            : ssf.estimatedEndDate;
+        const actStart =
+          memberActStarts.length > 0
+            ? memberActStarts.reduce((a, b) => (a < b ? a : b))
+            : ssf.actualStartDate;
+        const actEnd =
+          memberActEnds.length > 0
+            ? memberActEnds.reduce((a, b) => (a > b ? a : b))
+            : ssf.actualEndDate;
 
         // Task row (alternate subtle tint on even rows)
         const useAlt = sfIdx % 2 === 1;
         const taskRow = ws.addRow([
           `${stageOrder}_${stepOrder}_${taskOrder}`,
           ssf.screenFunction.name,
-          fmt(ssf.estimatedStartDate),
-          fmt(ssf.estimatedEndDate),
+          fmt(planStart),
+          fmt(planEnd),
           eff(ssf.estimatedEffort),
-          fmt(ssf.actualStartDate),
-          fmt(ssf.actualEndDate),
+          fmt(actStart),
+          fmt(actEnd),
           eff(ssf.actualEffort),
           memberNames,
           ssf.progress,
