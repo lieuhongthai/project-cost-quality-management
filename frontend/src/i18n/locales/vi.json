@@ -953,6 +953,7 @@
     "defaultImportStep": "Bước fallback import CSV: {{stage}} › {{step}}",
     "defaultImportStepDesc": "Các record needs_review không khớp rule sẽ được tự động gán vào bước này.",
     "noDefaultImportStep": "Chưa cấu hình bước fallback import. Cài đặt trong Cấu hình Workflow để tự động gán record needs_review.",
+    "fallbackStepTooltip": "Stage/Step được gán tự động từ bước fallback mặc định (không tìm thấy rule mapping phù hợp)",
     "summary": {
       "total": "Tổng: {{value}}",
       "ready": "Sẵn sàng: {{value}}",

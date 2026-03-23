@@ -954,6 +954,7 @@
     "defaultImportStep": "CSV import fallback step: {{stage}} › {{step}}",
     "defaultImportStepDesc": "Needs_review records with no matched rule will be pre-assigned to this step.",
     "noDefaultImportStep": "No default import step configured. Set one in Workflow Configuration to auto-assign needs_review records.",
+    "fallbackStepTooltip": "Stage/Step assigned automatically via fallback default step (no mapping rule matched)",
     "summary": {
       "total": "Total: {{value}}",
       "ready": "Ready: {{value}}",

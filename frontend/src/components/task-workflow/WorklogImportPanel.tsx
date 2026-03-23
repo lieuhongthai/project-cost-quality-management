@@ -19,6 +19,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormLabel from '@mui/material/FormLabel';
 import LinearProgress from '@mui/material/LinearProgress';
+import Tooltip from '@mui/material/Tooltip';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { Modal } from '@/components/common/Modal';
@@ -578,10 +579,25 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
                     const effectiveStepId = getEffectiveValue(item.rowNumber, 'stepId', item.stepId);
                     const stage = stageOptions.find((s: any) => s.id === Number(effectiveStageId));
                     const stepName = stage?.steps?.find((sp: any) => sp.id === Number(effectiveStepId))?.name || item.step?.name || '-';
+                    const isFallback = !!item.reason?.includes('fallback step:');
                     return (
                       <Box sx={{ minWidth: 100 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
-                        <Typography variant="caption" color="text.secondary">{stepName}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{stage?.name || '-'}</Typography>
+                          {isFallback && (
+                            <Tooltip
+                              title={t('worklogImport.fallbackStepTooltip', {
+                                defaultValue: 'Stage/Step assigned via fallback default step (no mapping rule matched)',
+                              })}
+                              placement="top"
+                            >
+                              <BookmarkIcon sx={{ fontSize: 13, color: 'warning.main', flexShrink: 0, cursor: 'help' }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                        <Typography variant="caption" color={isFallback ? 'warning.dark' : 'text.secondary'}>
+                          {stepName}
+                        </Typography>
                       </Box>
                     );
                   },
