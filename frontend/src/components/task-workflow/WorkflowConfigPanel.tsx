@@ -14,8 +14,15 @@ import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import type { WorkflowStage, WorkflowStep } from '@/types';
 
 interface WorkflowConfigPanelProps {
@@ -31,6 +38,7 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
   const [editingStep, setEditingStep] = useState<{ step: WorkflowStep; stageId: number } | null>(null);
   const [newStageName, setNewStageName] = useState('');
   const [newStepName, setNewStepName] = useState('');
+  const [newStepIsDefault, setNewStepIsDefault] = useState(false);
   const [addingStepToStage, setAddingStepToStage] = useState<number | null>(null);
   const [showAddStage, setShowAddStage] = useState(false);
 
@@ -42,6 +50,13 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
       return response.data;
     },
   });
+
+  // Compute current default import step
+  const defaultImportStep = config?.stages
+    ?.flatMap((s: WorkflowStage & { steps?: WorkflowStep[] }) =>
+      (s.steps || []).map((step) => ({ step, stageName: s.name })),
+    )
+    .find(({ step }) => step.isDefaultImport);
 
   // Initialize workflow mutation
   const initializeMutation = useMutation({
@@ -81,21 +96,30 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
 
   // Step mutations
   const createStepMutation = useMutation({
-    mutationFn: ({ stageId, name }: { stageId: number; name: string }) =>
-      taskWorkflowApi.createStep({ stageId, name }),
+    mutationFn: ({ stageId, name, isDefaultImport }: { stageId: number; name: string; isDefaultImport?: boolean }) =>
+      taskWorkflowApi.createStep({ stageId, name, isDefaultImport }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflowConfig', projectId] });
       setNewStepName('');
+      setNewStepIsDefault(false);
       setAddingStepToStage(null);
     },
   });
 
   const updateStepMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) =>
-      taskWorkflowApi.updateStep(id, { name }),
+    mutationFn: ({ id, name, isDefaultImport }: { id: number; name: string; isDefaultImport: boolean }) =>
+      taskWorkflowApi.updateStep(id, { name, isDefaultImport }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflowConfig', projectId] });
       setEditingStep(null);
+    },
+  });
+
+  const setDefaultImportMutation = useMutation({
+    mutationFn: ({ id, isDefaultImport }: { id: number; isDefaultImport: boolean }) =>
+      taskWorkflowApi.updateStep(id, { isDefaultImport }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflowConfig', projectId] });
     },
   });
 
@@ -153,9 +177,35 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
         </Button>
       </Box>
 
+      {/* Default Import Step Banner */}
+      {defaultImportStep ? (
+        <Alert severity="info" icon={<BookmarkIcon fontSize="inherit" />} sx={{ py: 0.5 }}>
+          <Typography variant="body2">
+            {t('taskWorkflow.defaultImportStepInfo', {
+              defaultValue: 'Default import step for CSV Worklog: {{stage}} › {{step}}',
+              stage: defaultImportStep.stageName,
+              step: defaultImportStep.step.name,
+            })}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {t('taskWorkflow.defaultImportStepDesc', {
+              defaultValue: 'Records with "needs_review" status and no mapped rule will use this step as fallback.',
+            })}
+          </Typography>
+        </Alert>
+      ) : (
+        <Alert severity="warning" icon={<BookmarkBorderIcon fontSize="inherit" />} sx={{ py: 0.5 }}>
+          <Typography variant="body2">
+            {t('taskWorkflow.noDefaultImportStep', {
+              defaultValue: 'No default import step configured. Click the bookmark icon (🔖) on a step to set it as the CSV import fallback.',
+            })}
+          </Typography>
+        </Alert>
+      )}
+
       {/* Stages List */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {config.stages.map((stage, stageIndex) => (
+        {config.stages.map((stage: WorkflowStage & { steps?: WorkflowStep[] }, stageIndex: number) => (
           <Card key={stage.id}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -194,73 +244,131 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
               <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2, bgcolor: 'grey.50' }}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
                   {stage.steps?.map((step, stepIndex) => (
-                    <Chip
-                      key={step.id}
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">{stepIndex + 1}.</Typography>
-                          <span>{step.name}</span>
-                        </Box>
-                      }
-                      onDelete={() => {
-                        if (confirm(t('taskWorkflow.confirmDeleteStep'))) {
-                          deleteStepMutation.mutate(step.id);
+                    <Box key={step.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                      {/* Bookmark flag button */}
+                      <Tooltip
+                        title={
+                          step.isDefaultImport
+                            ? t('taskWorkflow.unsetDefaultImportStep', { defaultValue: 'Remove as CSV import fallback step' })
+                            : t('taskWorkflow.setDefaultImportStep', { defaultValue: 'Set as CSV import fallback step' })
                         }
-                      }}
-                      deleteIcon={<CloseIcon fontSize="small" />}
-                      sx={{
-                        '& .MuiChip-label': { display: 'flex', alignItems: 'center' },
-                        '&:hover .edit-icon': { opacity: 1 },
-                      }}
-                      icon={
+                      >
                         <IconButton
                           size="small"
-                          className="edit-icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingStep({ step, stageId: stage.id });
+                          onClick={() =>
+                            setDefaultImportMutation.mutate({ id: step.id, isDefaultImport: !step.isDefaultImport })
+                          }
+                          disabled={setDefaultImportMutation.isPending}
+                          sx={{
+                            p: 0.25,
+                            color: step.isDefaultImport ? 'warning.main' : 'action.disabled',
+                            '&:hover': { color: step.isDefaultImport ? 'warning.dark' : 'warning.main' },
                           }}
-                          sx={{ opacity: 0, transition: 'opacity 0.2s', p: 0, ml: 0.5 }}
                         >
-                          <EditIcon sx={{ fontSize: 14 }} />
+                          {step.isDefaultImport ? (
+                            <BookmarkIcon sx={{ fontSize: 16 }} />
+                          ) : (
+                            <BookmarkBorderIcon sx={{ fontSize: 16 }} />
+                          )}
                         </IconButton>
-                      }
-                    />
+                      </Tooltip>
+
+                      {/* Step Chip */}
+                      <Chip
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">{stepIndex + 1}.</Typography>
+                            <span>{step.name}</span>
+                          </Box>
+                        }
+                        onDelete={() => {
+                          if (confirm(t('taskWorkflow.confirmDeleteStep'))) {
+                            deleteStepMutation.mutate(step.id);
+                          }
+                        }}
+                        deleteIcon={<CloseIcon fontSize="small" />}
+                        sx={{
+                          '& .MuiChip-label': { display: 'flex', alignItems: 'center' },
+                          '&:hover .edit-icon': { opacity: 1 },
+                          ...(step.isDefaultImport && {
+                            borderColor: 'warning.main',
+                            border: '1.5px solid',
+                            bgcolor: 'warning.50',
+                          }),
+                        }}
+                        icon={
+                          <IconButton
+                            size="small"
+                            className="edit-icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingStep({ step, stageId: stage.id });
+                            }}
+                            sx={{ opacity: 0, transition: 'opacity 0.2s', p: 0, ml: 0.5 }}
+                          >
+                            <EditIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        }
+                      />
+                    </Box>
                   ))}
                 </Box>
 
                 {/* Add Step */}
                 {addingStepToStage === stage.id ? (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      value={newStepName}
-                      onChange={(e) => setNewStepName(e.target.value)}
-                      placeholder={t('taskWorkflow.stepName')}
-                      size="small"
-                      sx={{ flex: 1 }}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <TextField
+                        value={newStepName}
+                        onChange={(e) => setNewStepName(e.target.value)}
+                        placeholder={t('taskWorkflow.stepName')}
+                        size="small"
+                        sx={{ flex: 1 }}
+                      />
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => {
+                          if (newStepName.trim()) {
+                            createStepMutation.mutate({
+                              stageId: stage.id,
+                              name: newStepName.trim(),
+                              isDefaultImport: newStepIsDefault,
+                            });
+                          }
+                        }}
+                        disabled={createStepMutation.isPending}
+                      >
+                        {t('common.add')}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          setAddingStepToStage(null);
+                          setNewStepName('');
+                          setNewStepIsDefault(false);
+                        }}
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={newStepIsDefault}
+                          onChange={(e) => setNewStepIsDefault(e.target.checked)}
+                          icon={<BookmarkBorderIcon fontSize="small" />}
+                          checkedIcon={<BookmarkIcon fontSize="small" sx={{ color: 'warning.main' }} />}
+                        />
+                      }
+                      label={
+                        <Typography variant="caption" color={newStepIsDefault ? 'warning.main' : 'text.secondary'}>
+                          {t('taskWorkflow.setAsDefaultImport', { defaultValue: 'Set as CSV import fallback step' })}
+                        </Typography>
+                      }
                     />
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => {
-                        if (newStepName.trim()) {
-                          createStepMutation.mutate({ stageId: stage.id, name: newStepName.trim() });
-                        }
-                      }}
-                      disabled={createStepMutation.isPending}
-                    >
-                      {t('common.add')}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => {
-                        setAddingStepToStage(null);
-                        setNewStepName('');
-                      }}
-                    >
-                      {t('common.cancel')}
-                    </Button>
                   </Box>
                 ) : (
                   <Button
@@ -390,6 +498,38 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
                 size="small"
                 fullWidth
               />
+
+              {/* Default import step toggle */}
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={!!editingStep.step.isDefaultImport}
+                      onChange={(e) =>
+                        setEditingStep({
+                          ...editingStep,
+                          step: { ...editingStep.step, isDefaultImport: e.target.checked },
+                        })
+                      }
+                      color="warning"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <BookmarkIcon sx={{ fontSize: 16, color: editingStep.step.isDefaultImport ? 'warning.main' : 'action.disabled' }} />
+                      <Typography variant="body2">
+                        {t('taskWorkflow.setAsDefaultImport', { defaultValue: 'Set as CSV import fallback step' })}
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 5.5 }}>
+                  {t('taskWorkflow.defaultImportStepModalDesc', {
+                    defaultValue: 'When enabled, needs_review CSV records with no matching rule will automatically use this step. Only one step per project can be set.',
+                  })}
+                </Typography>
+              </Box>
+
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 <Button variant="outlined" onClick={() => setEditingStep(null)}>
                   {t('common.cancel')}
@@ -398,7 +538,11 @@ export function WorkflowConfigPanel({ projectId }: WorkflowConfigPanelProps) {
                   variant="contained"
                   onClick={() => {
                     if (editingStep.step.name.trim()) {
-                      updateStepMutation.mutate({ id: editingStep.step.id, name: editingStep.step.name.trim() });
+                      updateStepMutation.mutate({
+                        id: editingStep.step.id,
+                        name: editingStep.step.name.trim(),
+                        isDefaultImport: !!editingStep.step.isDefaultImport,
+                      });
                     }
                   }}
                   disabled={updateStepMutation.isPending}

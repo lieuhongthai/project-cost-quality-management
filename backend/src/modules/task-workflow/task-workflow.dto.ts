@@ -133,6 +133,10 @@ export class CreateWorkflowStepDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isDefaultImport?: boolean;
 }
 
 export class UpdateWorkflowStepDto {
@@ -148,6 +152,10 @@ export class UpdateWorkflowStepDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isDefaultImport?: boolean;
 }
 
 export class StepOrderDto {

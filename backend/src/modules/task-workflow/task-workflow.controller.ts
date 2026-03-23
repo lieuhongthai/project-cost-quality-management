@@ -289,6 +289,29 @@ export class TaskWorkflowController {
     return this.taskWorkflowService.commitWorklogImport(dto);
   }
 
+  @Post('worklog-import/commit-stream')
+  async commitWorklogImportStream(
+    @Body() dto: CommitWorklogImportDto,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    try {
+      const result = await this.taskWorkflowService.commitWorklogImport(dto, (progress) => {
+        res.write(`data: ${JSON.stringify(progress)}\n\n`);
+      });
+      res.write(`data: ${JSON.stringify({ ...result, done: true })}\n\n`);
+    } catch (error: any) {
+      res.write(`data: ${JSON.stringify({ error: error.message || 'Commit failed', done: true })}\n\n`);
+    }
+
+    res.end();
+  }
+
   @Get('worklog-import/:batchId')
   getWorklogImportBatch(@Param('batchId', ParseIntPipe) batchId: number) {
     return this.taskWorkflowService.getWorklogImportBatch(batchId);

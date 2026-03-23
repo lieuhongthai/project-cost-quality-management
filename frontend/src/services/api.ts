@@ -299,11 +299,11 @@ export const taskWorkflowApi = {
   // Workflow Steps
   getSteps: (stageId: number) =>
     api.get<WorkflowStep[]>(`/task-workflow/steps/stage/${stageId}`),
-  createStep: (data: { stageId: number; name: string; displayOrder?: number }) =>
+  createStep: (data: { stageId: number; name: string; displayOrder?: number; isDefaultImport?: boolean }) =>
     api.post<WorkflowStep>('/task-workflow/steps', data),
   bulkCreateSteps: (data: { stageId: number; stepNames: string[] }) =>
     api.post<WorkflowStep[]>('/task-workflow/steps/bulk', data),
-  updateStep: (id: number, data: { name?: string; displayOrder?: number; isActive?: boolean }) =>
+  updateStep: (id: number, data: { name?: string; displayOrder?: number; isActive?: boolean; isDefaultImport?: boolean }) =>
     api.put<WorkflowStep>(`/task-workflow/steps/${id}`, data),
   deleteStep: (id: number) => api.delete(`/task-workflow/steps/${id}`),
   reorderSteps: (stepOrders: Array<{ id: number; displayOrder: number }>) =>

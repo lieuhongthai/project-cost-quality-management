@@ -157,6 +157,10 @@ export class TaskWorkflowService {
       ? Math.max(...steps.map(s => s.displayOrder || 0))
       : 0;
 
+    if (dto.isDefaultImport) {
+      await this.clearDefaultImportStepForProject(dto.stageId);
+    }
+
     return this.stepRepository.create({
       ...dto,
       displayOrder: dto.displayOrder ?? maxOrder + 1,
@@ -165,8 +169,27 @@ export class TaskWorkflowService {
 
   async updateStep(id: number, dto: UpdateWorkflowStepDto): Promise<WorkflowStep> {
     const step = await this.findStepById(id);
+
+    if (dto.isDefaultImport) {
+      await this.clearDefaultImportStepForProject(step.stageId, id);
+    }
+
     await step.update(dto);
     return step;
+  }
+
+  private async clearDefaultImportStepForProject(stageId: number, excludeStepId?: number): Promise<void> {
+    const stage = await this.findStageById(stageId);
+    const projectStages = await this.stageRepository.findAll({
+      where: { projectId: stage.projectId },
+      attributes: ['id'],
+    });
+    const stageIds = projectStages.map((s) => s.id);
+    const whereClause: any = { stageId: { [Op.in]: stageIds }, isDefaultImport: true };
+    if (excludeStepId !== undefined) {
+      whereClause.id = { [Op.ne]: excludeStepId };
+    }
+    await this.stepRepository.update({ isDefaultImport: false }, { where: whereClause });
   }
 
   async deleteStep(id: number): Promise<void> {
@@ -539,6 +562,7 @@ export class TaskWorkflowService {
         name: string;
         displayOrder: number;
         isActive: boolean;
+        isDefaultImport: boolean;
       }>;
     }>;
   }> {
@@ -566,6 +590,7 @@ export class TaskWorkflowService {
           name: s.name,
           displayOrder: s.displayOrder,
           isActive: s.isActive,
+          isDefaultImport: (s as any).isDefaultImport ?? false,
         })),
     }));
 
@@ -2431,6 +2456,15 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     const screenFunctions = await this.screenFunctionRepository.findAll({ where: { projectId } });
     const catchAllScreen = screenFunctions.find(sf => (sf as any).isCatchAll === true);
 
+    // Load the default import step (fallback for needs_review records with no matched rule)
+    const projectStageIds = (await this.stageRepository.findAll({ where: { projectId }, attributes: ['id'] })).map(s => s.id);
+    const defaultImportStep = projectStageIds.length > 0
+      ? await this.stepRepository.findOne({
+          where: { stageId: { [Op.in]: projectStageIds }, isDefaultImport: true },
+          include: [{ model: WorkflowStage, attributes: ['id', 'name'] }],
+        })
+      : null;
+
     const batch = await this.worklogImportBatchRepository.create({
       projectId,
       sourceFileName: file.originalname || 'worklog.csv',
@@ -2475,9 +2509,12 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         reason = 'Member email is not in this project';
       } else if (!matchedRule) {
         status = 'needs_review';
+        const defaultStepLabel = defaultImportStep
+          ? `; fallback step: ${(defaultImportStep as any).stage?.name ?? ''} > ${defaultImportStep.name}`
+          : '';
         reason = usedCatchAll
-          ? `No stage/step mapping rule matched (catch-all: ${catchAllScreen!.name})`
-          : 'No stage/step mapping rule matched';
+          ? `No stage/step mapping rule matched (catch-all: ${catchAllScreen!.name})${defaultStepLabel}`
+          : `No stage/step mapping rule matched${defaultStepLabel}`;
       } else if (!screenFunction) {
         status = 'needs_review';
         reason = 'No screen function matched from workDetail';
@@ -2495,6 +2532,9 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           : `Invalid day format: ${rawDay}`;
       }
 
+      // Apply default import step as fallback for needs_review records with no matched rule
+      const useDefaultStep = status === 'needs_review' && !!member && !matchedRule && !!defaultImportStep;
+
       itemsToCreate.push({
         batchId: batch.id,
         rowNumber: i + 2,
@@ -2509,8 +2549,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         effortHours,
         effortDays,
         memberId: member?.id,
-        stageId: matchedRule?.stageId,
-        stepId: matchedRule?.stepId,
+        stageId: useDefaultStep ? defaultImportStep!.stageId : matchedRule?.stageId,
+        stepId: useDefaultStep ? defaultImportStep!.id : matchedRule?.stepId,
         screenFunctionId: screenFunction?.id,
         confidence,
         status,
@@ -2696,7 +2736,10 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     };
   }
 
-  async commitWorklogImport(dto: CommitWorklogImportDto): Promise<any> {
+  async commitWorklogImport(
+    dto: CommitWorklogImportDto,
+    onProgress?: (progress: { processed: number; total: number; success: number; failed: number; skipped: number }) => void,
+  ): Promise<any> {
     const batch = await this.worklogImportBatchRepository.findByPk(dto.batchId);
     if (!batch) {
       throw new NotFoundException(`Worklog import batch with ID ${dto.batchId} not found`);
@@ -2719,6 +2762,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     let success = 0;
     let failed = 0;
     let skipped = 0;
+    let processed = 0;
+    const total = batch.previewData.length;
 
     for (const itemData of batch.previewData) {
       const isSelected = selectedSet.has(itemData.rowNumber);
@@ -2731,6 +2776,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           reason: itemData.reason || 'Not selected by user',
         });
         skipped += 1;
+        processed++;
+        onProgress?.({ processed, total, success, failed, skipped });
         continue;
       }
 
@@ -2752,6 +2799,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
           if (!sf || sf.projectId !== batch.projectId) {
             itemsToSave.push({ ...resolved, status: 'error', reason: 'Invalid screen function override' });
             failed += 1;
+            processed++;
+            onProgress?.({ processed, total, success, failed, skipped });
             continue;
           }
           resolved.screenFunctionId = sf.id;
@@ -2761,6 +2810,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       if (!resolved.memberId || !resolved.stepId || !resolved.screenFunctionId) {
         itemsToSave.push({ ...resolved, status: 'error', reason: 'Missing mapping data for commit' });
         failed += 1;
+        processed++;
+        onProgress?.({ processed, total, success, failed, skipped });
         continue;
       }
 
@@ -2836,6 +2887,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         itemsToSave.push({ ...resolved, status: 'error', reason: error?.message || 'Commit failed' });
         failed += 1;
       }
+      processed++;
+      onProgress?.({ processed, total, success, failed, skipped });
     }
 
     await this.worklogImportItemRepository.bulkCreate(itemsToSave as any[]);

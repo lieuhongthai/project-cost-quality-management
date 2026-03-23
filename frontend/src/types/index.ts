@@ -294,6 +294,7 @@ export interface WorkflowStep {
   name: string;
   displayOrder: number;
   isActive: boolean;
+  isDefaultImport?: boolean;
 }
 
 export interface TaskWorkflow {
