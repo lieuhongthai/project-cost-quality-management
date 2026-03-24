@@ -27,7 +27,7 @@ interface StageModalsProps {
   stage: any;
   calculatedDates: { start: string | null; end: string | null };
   updateStageDatesMutation: { isPending: boolean };
-  confirmUpdateActualDate: (opts: { syncEstStep: boolean; syncEstStage: boolean; syncOverrideEst: boolean }) => void;
+  confirmUpdateActualDate: (opts: { syncEstStep: boolean; syncEstStage: boolean; syncEstEffortStep: boolean; syncEstEffortStage: boolean; syncOverrideEst: boolean }) => void;
 
   // Quick Link Modal
   showQuickLink: boolean;
@@ -87,12 +87,16 @@ export function StageModals({
 
   const [syncEstStep, setSyncEstStep] = useState(false);
   const [syncEstStage, setSyncEstStage] = useState(false);
+  const [syncEstEffortStep, setSyncEstEffortStep] = useState(false);
+  const [syncEstEffortStage, setSyncEstEffortStage] = useState(false);
   const [syncOverrideEst, setSyncOverrideEst] = useState(false);
 
   useEffect(() => {
     if (!showUpdateActualDateConfirm) {
       setSyncEstStep(false);
       setSyncEstStage(false);
+      setSyncEstEffortStep(false);
+      setSyncEstEffortStage(false);
       setSyncOverrideEst(false);
     }
   }, [showUpdateActualDateConfirm]);
@@ -270,11 +274,37 @@ export function StageModals({
               <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstStageDesc')}</p>
             )}
 
-            <label className={`flex items-center gap-2 select-none ${!syncEstStep && !syncEstStage ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={syncEstEffortStep}
+                onChange={(e) => setSyncEstEffortStep(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary"
+              />
+              <span className="text-sm text-gray-700">{t('stages.syncEstEffortStep')}</span>
+            </label>
+            {syncEstEffortStep && (
+              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstEffortStepDesc')}</p>
+            )}
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={syncEstEffortStage}
+                onChange={(e) => setSyncEstEffortStage(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary"
+              />
+              <span className="text-sm text-gray-700">{t('stages.syncEstEffortStage')}</span>
+            </label>
+            {syncEstEffortStage && (
+              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstEffortStageDesc')}</p>
+            )}
+
+            <label className={`flex items-center gap-2 select-none ${!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={syncOverrideEst}
-                disabled={!syncEstStep && !syncEstStage}
+                disabled={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage}
                 onChange={(e) => setSyncOverrideEst(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-primary disabled:cursor-not-allowed"
               />
@@ -293,7 +323,7 @@ export function StageModals({
               {t('common.cancel')}
             </Button>
             <Button
-              onClick={() => confirmUpdateActualDate({ syncEstStep, syncEstStage, syncOverrideEst })}
+              onClick={() => confirmUpdateActualDate({ syncEstStep, syncEstStage, syncEstEffortStep, syncEstEffortStage, syncOverrideEst })}
               disabled={(!calculatedDates.start && !calculatedDates.end) || updateStageDatesMutation.isPending}
               loading={updateStageDatesMutation.isPending}
             >

@@ -44,7 +44,7 @@ function StageDetail() {
   } | null>(null);
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
-  const [ssfDateUpdates, setSsfDateUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }>>([]);
+  const [ssfDateUpdates, setSsfDateUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean; actualEffort: number; hasEstEffort: boolean }>>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
   const [showQuickLink, setShowQuickLink] = useState(false);
@@ -182,12 +182,20 @@ function StageDetail() {
       actualEndDate?: string;
       syncEstStep: boolean;
       syncEstStage: boolean;
+      syncEstEffortStep: boolean;
+      syncEstEffortStage: boolean;
       syncOverrideEst: boolean;
     }) => {
-      // Step 1: update each SSF with member-derived actual dates + optional est dates
+      // Step 1: update each SSF with member-derived actual dates + optional est dates/effort
       await Promise.all(
         ssfDateUpdates.map((u) => {
-          const payload: Record<string, string | undefined> = {
+          const payload: {
+            actualStartDate?: string;
+            actualEndDate?: string;
+            estimatedStartDate?: string;
+            estimatedEndDate?: string;
+            estimatedEffort?: number;
+          } = {
             actualStartDate: u.actualStartDate,
             actualEndDate: u.actualEndDate,
           };
@@ -195,17 +203,29 @@ function StageDetail() {
             if (data.syncOverrideEst || !u.hasEstStart) payload.estimatedStartDate = u.actualStartDate;
             if (data.syncOverrideEst || !u.hasEstEnd) payload.estimatedEndDate = u.actualEndDate;
           }
+          if (data.syncEstEffortStep) {
+            if (data.syncOverrideEst || !u.hasEstEffort) payload.estimatedEffort = u.actualEffort;
+          }
           return taskWorkflowApi.updateStepScreenFunction(u.id, payload);
         })
       );
-      // Step 2: update stage actual + optional est dates
-      const stagePayload: Record<string, string | undefined> = {
+      // Step 2: update stage actual + optional est dates/effort
+      const stagePayload: {
+        actualStartDate?: string;
+        actualEndDate?: string;
+        startDate?: string;
+        endDate?: string;
+        estimatedEffort?: number;
+      } = {
         actualStartDate: data.actualStartDate,
         actualEndDate: data.actualEndDate,
       };
       if (data.syncEstStage) {
         if (data.syncOverrideEst || !stage.startDate) stagePayload.startDate = data.actualStartDate;
         if (data.syncOverrideEst || !stage.endDate) stagePayload.endDate = data.actualEndDate;
+      }
+      if (data.syncEstEffortStage) {
+        if (data.syncOverrideEst || !stage.estimatedEffort) stagePayload.estimatedEffort = stage.actualEffort;
       }
       return taskWorkflowApi.updateStage(parseInt(stageId), stagePayload);
     },
@@ -312,7 +332,7 @@ function StageDetail() {
 
     let minStartDate: string | null = null;
     let maxEndDate: string | null = null;
-    const updates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }> = [];
+    const updates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean; actualEffort: number; hasEstEffort: boolean }> = [];
 
     // Iterate through all steps and screen functions
     stageDetail.steps.forEach(step => {
@@ -335,6 +355,8 @@ function StageDetail() {
             actualEndDate: ssfMax || undefined,
             hasEstStart: !!ssf.estimatedStartDate,
             hasEstEnd: !!ssf.estimatedEndDate,
+            actualEffort: ssf.actualEffort || 0,
+            hasEstEffort: (ssf.estimatedEffort || 0) > 0,
           });
         }
 
@@ -348,7 +370,7 @@ function StageDetail() {
     setShowUpdateActualDateConfirm(true);
   };
 
-  const confirmUpdateActualDate = (opts: { syncEstStep: boolean; syncEstStage: boolean; syncOverrideEst: boolean }) => {
+  const confirmUpdateActualDate = (opts: { syncEstStep: boolean; syncEstStage: boolean; syncEstEffortStep: boolean; syncEstEffortStage: boolean; syncOverrideEst: boolean }) => {
     updateStageDatesMutation.mutate({
       actualStartDate: calculatedDates.start || undefined,
       actualEndDate: calculatedDates.end || undefined,
