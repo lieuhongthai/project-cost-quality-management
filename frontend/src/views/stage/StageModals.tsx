@@ -1,7 +1,20 @@
-import { Modal, Button, EmptyState } from "@/components/common";
+import { useEffect, useState } from "react";
+import { Modal, Button, EmptyState, Checkbox } from "@/components/common";
 import { StepScreenFunctionEditModal } from "@/components/task-workflow";
 import { useTranslation } from "react-i18next";
 import type { ScreenFunctionType } from "@/types";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Alert from "@mui/material/Alert";
+import MuiCheckbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Paper from "@mui/material/Paper";
 
 interface StageModalsProps {
   // Link Screen Function Modal
@@ -26,7 +39,7 @@ interface StageModalsProps {
   stage: any;
   calculatedDates: { start: string | null; end: string | null };
   updateStageDatesMutation: { isPending: boolean };
-  confirmUpdateActualDate: () => void;
+  confirmUpdateActualDate: (opts: { syncEstStep: boolean; syncEstStage: boolean; syncEstEffortStep: boolean; syncEstEffortStage: boolean; syncOverrideEst: boolean }) => void;
 
   // Quick Link Modal
   showQuickLink: boolean;
@@ -48,6 +61,18 @@ interface StageModalsProps {
   quickLinkMutation: { isPending: boolean };
   steps: any[];
 }
+
+const sfTypeColor: Record<string, 'secondary' | 'primary' | 'warning'> = {
+  Screen: 'secondary',
+  Function: 'primary',
+  Other: 'warning',
+};
+
+const priorityColor: Record<string, 'error' | 'warning' | 'default'> = {
+  High: 'error',
+  Medium: 'warning',
+  Low: 'default',
+};
 
 export function StageModals({
   showLinkScreenFunction,
@@ -84,95 +109,100 @@ export function StageModals({
 }: StageModalsProps) {
   const { t } = useTranslation();
 
+  const [syncEstStep, setSyncEstStep] = useState(false);
+  const [syncEstStage, setSyncEstStage] = useState(false);
+  const [syncEstEffortStep, setSyncEstEffortStep] = useState(false);
+  const [syncEstEffortStage, setSyncEstEffortStage] = useState(false);
+  const [syncOverrideEst, setSyncOverrideEst] = useState(false);
+
+  useEffect(() => {
+    if (!showUpdateActualDateConfirm) {
+      setSyncEstStep(false);
+      setSyncEstStage(false);
+      setSyncEstEffortStep(false);
+      setSyncEstEffortStage(false);
+      setSyncOverrideEst(false);
+    }
+  }, [showUpdateActualDateConfirm]);
+
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString();
   };
 
+  const noSyncSelected = !syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage;
+
   return (
     <>
-      {/* Link Screen Function Modal */}
+      {/* ── Link Screen Function Modal ── */}
       <Modal
         isOpen={showLinkScreenFunction}
-        onClose={() => {
-          setShowLinkScreenFunction(false);
-        }}
+        onClose={() => setShowLinkScreenFunction(false)}
         title={t('stages.linkScreenFunctionModalTitle')}
         size="lg"
-      >
-        <div className="space-y-4">
-          {availableScreenFunctions && availableScreenFunctions.length > 0 ? (
+        footer={
+          availableScreenFunctions && availableScreenFunctions.length > 0 ? (
             <>
-              <p className="text-sm text-gray-500">
-                {t('stages.linkScreenFunctionModalDescription')}
-              </p>
-              <div className="max-h-96 overflow-y-auto border rounded-lg divide-y">
-                {availableScreenFunctions.map((sf) => (
-                  <label
-                    key={sf.id}
-                    className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedSFIds.includes(sf.id)}
-                      onChange={() => toggleSFSelection(sf.id)}
-                      className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
-                    />
-                    <div className="ml-3 flex-1">
-                      <p className="font-medium text-gray-900">{sf.name}</p>
-                      <div className="flex gap-2 mt-1">
-                        <span className={`px-2 py-0.5 text-xs rounded ${
-                          sf.type === 'Screen' ? 'bg-purple-100 text-purple-800' :
-                          sf.type === 'Function' ? 'bg-blue-100 text-blue-800' :
-                          'bg-orange-100 text-orange-800'
-                        }`}>
-                          {sf.type}
-                        </span>
-                        <span className={`px-2 py-0.5 text-xs rounded ${
-                          sf.priority === 'High' ? 'bg-red-100 text-red-800' :
-                          sf.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {sf.priority}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {sf.complexity}
-                        </span>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowLinkScreenFunction(false);
-                  }}
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={handleLinkScreenFunctions}
-                  disabled={selectedSFIds.length === 0 || linkMutation.isPending}
-                  loading={linkMutation.isPending}
-                >
-                  {selectedSFIds.length > 0
-                    ? t('stages.linkWithCount', { count: selectedSFIds.length })
-                    : t('stages.link')}
-                </Button>
-              </div>
+              <Button variant="secondary" onClick={() => setShowLinkScreenFunction(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={handleLinkScreenFunctions}
+                disabled={selectedSFIds.length === 0 || linkMutation.isPending}
+                loading={linkMutation.isPending}
+              >
+                {selectedSFIds.length > 0
+                  ? t('stages.linkWithCount', { count: selectedSFIds.length })
+                  : t('stages.link')}
+              </Button>
             </>
-          ) : (
-            <EmptyState
-              title={t('stages.noAvailableScreenFunctions')}
-              description={t('stages.allScreenFunctionsLinked')}
-            />
-          )}
-        </div>
+          ) : undefined
+        }
+      >
+        {availableScreenFunctions && availableScreenFunctions.length > 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('stages.linkScreenFunctionModalDescription')}
+            </Typography>
+            <List dense disablePadding sx={{ maxHeight: 380, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+              {availableScreenFunctions.map((sf, idx) => (
+                <Box key={sf.id}>
+                  <ListItemButton onClick={() => toggleSFSelection(sf.id)} selected={selectedSFIds.includes(sf.id)}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <MuiCheckbox
+                        edge="start"
+                        checked={selectedSFIds.includes(sf.id)}
+                        tabIndex={-1}
+                        size="small"
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={<Typography variant="body2" fontWeight={500}>{sf.name}</Typography>}
+                      secondary={
+                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                          <Chip label={sf.type} color={sfTypeColor[sf.type] ?? 'default'} size="small" />
+                          <Chip label={sf.priority} color={priorityColor[sf.priority] ?? 'default'} size="small" variant="outlined" />
+                          <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                            {sf.complexity}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItemButton>
+                  {idx < availableScreenFunctions.length - 1 && <Divider />}
+                </Box>
+              ))}
+            </List>
+          </Box>
+        ) : (
+          <EmptyState
+            title={t('stages.noAvailableScreenFunctions')}
+            description={t('stages.allScreenFunctionsLinked')}
+          />
+        )}
       </Modal>
 
-      {/* Edit Screen Function Modal */}
+      {/* ── Edit Screen Function Modal ── */}
       {editingSSF && members && (
         <StepScreenFunctionEditModal
           data={editingSSF}
@@ -180,269 +210,309 @@ export function StageModals({
           projectId={parseInt(projectId)}
           onClose={(saved) => {
             setEditingSSF(null);
-            if (saved) {
-              invalidateStageQueries();
-            }
+            if (saved) invalidateStageQueries();
           }}
         />
       )}
 
-      {/* Update Actual Date Confirmation Modal */}
+      {/* ── Update Actual Date Confirmation Modal ── */}
       <Modal
         isOpen={showUpdateActualDateConfirm}
         onClose={() => setShowUpdateActualDateConfirm(false)}
         title={t('stages.updateActualDateTitle')}
         size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            {t('stages.updateActualDateDescription')}
-          </p>
-
-          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{t('stages.currentActualStart')}:</span>
-              <span className="font-medium">{formatDate(stage.actualStartDate)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{t('stages.newActualStart')}:</span>
-              <span className={`font-medium ${calculatedDates.start ? 'text-green-600' : 'text-gray-400'}`}>
-                {formatDate(calculatedDates.start || undefined)}
-              </span>
-            </div>
-            <div className="border-t my-2" />
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{t('stages.currentActualEnd')}:</span>
-              <span className="font-medium">{formatDate(stage.actualEndDate)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{t('stages.newActualEnd')}:</span>
-              <span className={`font-medium ${calculatedDates.end ? 'text-green-600' : 'text-gray-400'}`}>
-                {formatDate(calculatedDates.end || undefined)}
-              </span>
-            </div>
-          </div>
-
-          {!calculatedDates.start && !calculatedDates.end && (
-            <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
-              {t('stages.noActualDatesFound')}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setShowUpdateActualDateConfirm(false)}
-            >
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowUpdateActualDateConfirm(false)}>
               {t('common.cancel')}
             </Button>
             <Button
-              onClick={confirmUpdateActualDate}
+              onClick={() => confirmUpdateActualDate({ syncEstStep, syncEstStage, syncEstEffortStep, syncEstEffortStage, syncOverrideEst })}
               disabled={(!calculatedDates.start && !calculatedDates.end) || updateStageDatesMutation.isPending}
               loading={updateStageDatesMutation.isPending}
             >
               {t('stages.confirmUpdate')}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('stages.updateActualDateDescription')}
+          </Typography>
+
+          {/* Date comparison */}
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">{t('stages.currentActualStart')}:</Typography>
+              <Typography variant="body2" fontWeight={500}>{formatDate(stage.actualStartDate)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">{t('stages.newActualStart')}:</Typography>
+              <Typography variant="body2" fontWeight={500} color={calculatedDates.start ? 'success.main' : 'text.disabled'}>
+                {formatDate(calculatedDates.start || undefined)}
+              </Typography>
+            </Box>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">{t('stages.currentActualEnd')}:</Typography>
+              <Typography variant="body2" fontWeight={500}>{formatDate(stage.actualEndDate)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" color="text.secondary">{t('stages.newActualEnd')}:</Typography>
+              <Typography variant="body2" fontWeight={500} color={calculatedDates.end ? 'success.main' : 'text.disabled'}>
+                {formatDate(calculatedDates.end || undefined)}
+              </Typography>
+            </Box>
+          </Paper>
+
+          {!calculatedDates.start && !calculatedDates.end && (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              {t('stages.noActualDatesFound')}
+            </Alert>
+          )}
+
+          {/* Sync est. values — 2×2 grid */}
+          <Box>
+            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
+              {t('stages.syncEstTitle', 'Update estimated values')}
+            </Typography>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+              {/* Header */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ p: 1 }} />
+                <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">Steps / SSF</Typography>
+                </Box>
+                <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">Stage</Typography>
+                </Box>
+              </Box>
+              {/* Dates row */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>📅</span>
+                  <Typography variant="body2">Dates</Typography>
+                </Box>
+                <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Checkbox checked={syncEstStep} onChange={(v) => setSyncEstStep(v)} />
+                </Box>
+                <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Checkbox checked={syncEstStage} onChange={(v) => setSyncEstStage(v)} />
+                </Box>
+              </Box>
+              {/* Effort row */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr' }}>
+                <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>⏱</span>
+                  <Typography variant="body2">Effort</Typography>
+                </Box>
+                <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Checkbox checked={syncEstEffortStep} onChange={(v) => setSyncEstEffortStep(v)} />
+                </Box>
+                <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Checkbox checked={syncEstEffortStage} onChange={(v) => setSyncEstEffortStage(v)} />
+                </Box>
+              </Box>
+            </Box>
+            {/* Override option */}
+            <Box sx={{ mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <MuiCheckbox
+                    checked={syncOverrideEst}
+                    disabled={noSyncSelected}
+                    onChange={(e) => setSyncOverrideEst(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2" color={noSyncSelected ? 'text.disabled' : 'text.primary'}>
+                    {t('stages.syncOverrideEst')}
+                  </Typography>
+                }
+              />
+              {syncOverrideEst && !noSyncSelected && (
+                <Typography variant="caption" color="warning.main" sx={{ pl: 4, display: 'block' }}>
+                  {t('stages.syncOverrideEstDesc')}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </Box>
       </Modal>
 
-      {/* Quick Link Modal */}
+      {/* ── Quick Link Modal ── */}
       <Modal
         isOpen={showQuickLink}
-        onClose={() => {
-          setShowQuickLink(false);
-          setQuickLinkResult(null);
-        }}
+        onClose={() => { setShowQuickLink(false); setQuickLinkResult(null); }}
         title={t('stages.quickLinkTitle', { defaultValue: 'Quick Link Screen/Functions' })}
         size="md"
-      >
-        <div className="space-y-4">
-          {!quickLinkResult ? (
+        footer={
+          !quickLinkResult ? (
             <>
-              <p className="text-sm text-gray-600">
-                {t('stages.quickLinkDescription', {
-                  defaultValue: 'Automatically link all Screen/Functions of a selected type to every step of this stage. Existing links will be skipped.',
-                })}
-              </p>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('stages.quickLinkSelectType', { defaultValue: 'Select type to link' })}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['Screen', 'Function', 'Other'] as ScreenFunctionType[]).map((type) => {
-                    const count = sfSummary?.byType?.[type] ?? 0;
-                    const isSelected = quickLinkType === type;
-                    const colorMap: Record<string, string> = {
-                      Screen: isSelected ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' : 'border-gray-200 hover:border-purple-300',
-                      Function: isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300',
-                      Other: isSelected ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-200 hover:border-orange-300',
-                    };
-                    const badgeColor: Record<string, string> = {
-                      Screen: 'bg-purple-100 text-purple-800',
-                      Function: 'bg-blue-100 text-blue-800',
-                      Other: 'bg-orange-100 text-orange-800',
-                    };
-
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setQuickLinkType(type)}
-                        className={`p-3 rounded-lg border-2 text-center transition-all cursor-pointer ${colorMap[type]}`}
-                      >
-                        <span className={`inline-block px-2 py-0.5 text-xs rounded mb-1 ${badgeColor[type]}`}>
-                          {type}
-                        </span>
-                        <p className="text-lg font-semibold text-gray-900">{count}</p>
-                        <p className="text-xs text-gray-500">{t('stages.items', { defaultValue: 'items' })}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {steps.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">
-                    {t('stages.quickLinkPreview', { defaultValue: 'Preview' })}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {t('stages.quickLinkPreviewText', {
-                      defaultValue: `${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s) × ${steps.length} step(s) = up to ${(sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length} tasks`,
-                      count: sfSummary?.byType?.[quickLinkType] ?? 0,
-                      type: quickLinkType,
-                      steps: steps.length,
-                      total: (sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length,
-                    })}
-                  </p>
-                </div>
-              )}
-
-              {/* Assign Members Option */}
-              {(() => {
-                const sfIdsWithMembers = new Set(defaultMembers?.map(dm => dm.screenFunctionId) || []);
-                const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
-
-                return (
-                  <div className="border border-gray-200 rounded-lg p-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={quickLinkAssignMembers}
-                        onChange={(e) => setQuickLinkAssignMembers(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {t('stages.quickLinkAssignMembers', { defaultValue: 'Auto-assign default members' })}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {hasAnyDefaultMembers
-                            ? t('stages.quickLinkAssignMembersDesc', {
-                                defaultValue: 'Automatically assign default members configured in Screen/Functions tab to newly created tasks.',
-                              })
-                            : t('stages.quickLinkNoDefaultMembers', {
-                                defaultValue: 'No default members configured. Go to Screen/Functions tab to assign default members first.',
-                              })
-                          }
-                        </p>
-                        {hasAnyDefaultMembers && (
-                          <p className="text-xs text-indigo-600 mt-1">
-                            {sfIdsWithMembers.size} {t('stages.sfWithAssignees', { defaultValue: 'Screen/Function(s) with default assignees' })}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                );
-              })()}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowQuickLink(false);
-                    setQuickLinkResult(null);
-                  }}
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={handleQuickLink}
-                  disabled={quickLinkMutation.isPending || (sfSummary?.byType?.[quickLinkType] ?? 0) === 0}
-                  loading={quickLinkMutation.isPending}
-                >
-                  {t('stages.quickLinkAction', { defaultValue: `Link ${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s)` })}
-                </Button>
-              </div>
+              <Button variant="secondary" onClick={() => { setShowQuickLink(false); setQuickLinkResult(null); }}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={handleQuickLink}
+                disabled={quickLinkMutation.isPending || (sfSummary?.byType?.[quickLinkType] ?? 0) === 0}
+                loading={quickLinkMutation.isPending}
+              >
+                {t('stages.quickLinkAction', { defaultValue: `Link ${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s)` })}
+              </Button>
             </>
           ) : (
-            <>
-              <div className="text-center py-2">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  {t('stages.quickLinkComplete', { defaultValue: 'Quick Link Complete' })}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {t('stages.quickLinkCreated', {
-                    defaultValue: `Created ${quickLinkResult.created} new task(s), skipped ${quickLinkResult.skipped} existing`,
-                    created: quickLinkResult.created,
-                    skipped: quickLinkResult.skipped,
+            <Button onClick={() => { setShowQuickLink(false); setQuickLinkResult(null); }}>
+              {t('common.close', { defaultValue: 'Close' })}
+            </Button>
+          )
+        }
+      >
+        {!quickLinkResult ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('stages.quickLinkDescription', {
+                defaultValue: 'Automatically link all Screen/Functions of a selected type to every step of this stage. Existing links will be skipped.',
+              })}
+            </Typography>
+
+            {/* Type selector */}
+            <Box>
+              <Typography variant="body2" fontWeight={500} gutterBottom>
+                {t('stages.quickLinkSelectType', { defaultValue: 'Select type to link' })}
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
+                {(['Screen', 'Function', 'Other'] as ScreenFunctionType[]).map((type) => {
+                  const count = sfSummary?.byType?.[type] ?? 0;
+                  const isSelected = quickLinkType === type;
+                  return (
+                    <Box
+                      key={type}
+                      onClick={() => setQuickLinkType(type)}
+                      sx={{
+                        p: 1.5,
+                        border: 2,
+                        borderColor: isSelected ? `${sfTypeColor[type]}.main` : 'divider',
+                        borderRadius: 1,
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'action.selected' : 'background.paper',
+                        transition: 'all 0.15s',
+                        '&:hover': { borderColor: `${sfTypeColor[type]}.main` },
+                      }}
+                    >
+                      <Chip label={type} color={sfTypeColor[type]} size="small" sx={{ mb: 0.5 }} />
+                      <Typography variant="h6" fontWeight={600}>{count}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('stages.items', { defaultValue: 'items' })}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+
+            {/* Preview */}
+            {steps.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                  {t('stages.quickLinkPreview', { defaultValue: 'Preview' })}
+                </Typography>
+                <Typography variant="body2">
+                  {t('stages.quickLinkPreviewText', {
+                    defaultValue: `${sfSummary?.byType?.[quickLinkType] ?? 0} ${quickLinkType}(s) × ${steps.length} step(s) = up to ${(sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length} tasks`,
+                    count: sfSummary?.byType?.[quickLinkType] ?? 0,
+                    type: quickLinkType,
+                    steps: steps.length,
+                    total: (sfSummary?.byType?.[quickLinkType] ?? 0) * steps.length,
                   })}
-                </p>
-                {quickLinkResult.membersAssigned > 0 && (
-                  <p className="text-sm text-indigo-600 mt-1">
-                    {t('stages.quickLinkMembersAssigned', {
-                      defaultValue: `${quickLinkResult.membersAssigned} member assignment(s) created`,
-                      count: quickLinkResult.membersAssigned,
-                    })}
-                  </p>
-                )}
-              </div>
+                </Typography>
+              </Paper>
+            )}
 
-              {quickLinkResult.details.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                    {t('stages.quickLinkDetails', { defaultValue: 'Details by step' })}
-                  </p>
-                  <div className="space-y-1">
-                    {quickLinkResult.details.map((d) => (
-                      <div key={d.stepId} className="flex justify-between text-sm">
-                        <span className="text-gray-700">{d.stepName}</span>
-                        <div className="flex gap-3">
-                          <span className={d.linked > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
-                            +{d.linked} {t('stages.tasks', { defaultValue: 'tasks' })}
-                          </span>
-                          {d.membersAssigned > 0 && (
-                            <span className="text-indigo-600 font-medium">
-                              +{d.membersAssigned} {t('stages.assignees', { defaultValue: 'assignees' })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* Assign Members option */}
+            {(() => {
+              const sfIdsWithMembers = new Set(defaultMembers?.map(dm => dm.screenFunctionId) || []);
+              const hasAnyDefaultMembers = sfIdsWithMembers.size > 0;
+              return (
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Checkbox
+                    checked={quickLinkAssignMembers}
+                    onChange={(v) => setQuickLinkAssignMembers(v)}
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>
+                          {t('stages.quickLinkAssignMembers', { defaultValue: 'Auto-assign default members' })}
+                        </Typography>
+                        <Typography variant="caption" color={hasAnyDefaultMembers ? 'text.secondary' : 'text.disabled'}>
+                          {hasAnyDefaultMembers
+                            ? t('stages.quickLinkAssignMembersDesc', { defaultValue: 'Automatically assign default members configured in Screen/Functions tab to newly created tasks.' })
+                            : t('stages.quickLinkNoDefaultMembers', { defaultValue: 'No default members configured. Go to Screen/Functions tab to assign default members first.' })
+                          }
+                        </Typography>
+                        {hasAnyDefaultMembers && (
+                          <Typography variant="caption" color="primary" display="block">
+                            {sfIdsWithMembers.size} {t('stages.sfWithAssignees', { defaultValue: 'Screen/Function(s) with default assignees' })}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+                </Paper>
+              );
+            })()}
+          </Box>
+        ) : (
+          /* Quick Link result */
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="success">
+              <Typography variant="body2" fontWeight={500} gutterBottom>
+                {t('stages.quickLinkComplete', { defaultValue: 'Quick Link Complete' })}
+              </Typography>
+              <Typography variant="body2">
+                {t('stages.quickLinkCreated', {
+                  defaultValue: `Created ${quickLinkResult.created} new task(s), skipped ${quickLinkResult.skipped} existing`,
+                  created: quickLinkResult.created,
+                  skipped: quickLinkResult.skipped,
+                })}
+              </Typography>
+              {quickLinkResult.membersAssigned > 0 && (
+                <Typography variant="body2">
+                  {t('stages.quickLinkMembersAssigned', {
+                    defaultValue: `${quickLinkResult.membersAssigned} member assignment(s) created`,
+                    count: quickLinkResult.membersAssigned,
+                  })}
+                </Typography>
               )}
+            </Alert>
 
-              <div className="flex justify-end pt-2">
-                <Button
-                  onClick={() => {
-                    setShowQuickLink(false);
-                    setQuickLinkResult(null);
-                  }}
-                >
-                  {t('common.close', { defaultValue: 'Close' })}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
+            {quickLinkResult.details.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 1.5 }}>
+                <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
+                  {t('stages.quickLinkDetails', { defaultValue: 'Details by step' })}
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {quickLinkResult.details.map((d) => (
+                    <Box key={d.stepId} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">{d.stepName}</Typography>
+                      <Box sx={{ display: 'flex', gap: 1.5 }}>
+                        <Typography variant="body2" color={d.linked > 0 ? 'success.main' : 'text.disabled'} fontWeight={d.linked > 0 ? 500 : 400}>
+                          +{d.linked} {t('stages.tasks', { defaultValue: 'tasks' })}
+                        </Typography>
+                        {d.membersAssigned > 0 && (
+                          <Typography variant="body2" color="primary" fontWeight={500}>
+                            +{d.membersAssigned} {t('stages.assignees', { defaultValue: 'assignees' })}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            )}
+          </Box>
+        )}
       </Modal>
     </>
   );

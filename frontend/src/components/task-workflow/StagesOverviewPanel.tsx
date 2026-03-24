@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
@@ -38,8 +38,13 @@ export function StagesOverviewPanel({
   const [quickLinkStageId, setQuickLinkStageId] = useState<number | null>(null);
   const [syncStageId, setSyncStageId] = useState<number | null>(null);
   const [syncCalcDates, setSyncCalcDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
-  const [syncSsfUpdates, setSyncSsfUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>>([]);
+  const [syncSsfUpdates, setSyncSsfUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean; actualEffort: number; hasEstEffort: boolean }>>([]);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [syncEstStep, setSyncEstStep] = useState(false);
+  const [syncEstStage, setSyncEstStage] = useState(false);
+  const [syncEstEffortStep, setSyncEstEffortStep] = useState(false);
+  const [syncEstEffortStage, setSyncEstEffortStage] = useState(false);
+  const [syncOverrideEst, setSyncOverrideEst] = useState(false);
   const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
   const [quickLinkAssignMembers, setQuickLinkAssignMembers] = useState(false);
   const [quickLinkResult, setQuickLinkResult] = useState<{
@@ -48,6 +53,16 @@ export function StagesOverviewPanel({
     membersAssigned: number;
     details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }>;
   } | null>(null);
+
+  useEffect(() => {
+    if (!syncStageId) {
+      setSyncEstStep(false);
+      setSyncEstStage(false);
+      setSyncEstEffortStep(false);
+      setSyncEstEffortStage(false);
+      setSyncOverrideEst(false);
+    }
+  }, [syncStageId]);
 
   // Fetch stages overview
   const { data: stages, isLoading, refetch } = useQuery({
@@ -102,24 +117,61 @@ export function StagesOverviewPanel({
   const syncActualDatesMutation = useMutation({
     mutationFn: async (data: {
       stageId: number;
-      ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>;
+      ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean; actualEffort: number; hasEstEffort: boolean }>;
       actualStartDate?: string;
       actualEndDate?: string;
+      syncEstStep: boolean;
+      syncEstStage: boolean;
+      syncEstEffortStep: boolean;
+      syncEstEffortStage: boolean;
+      syncOverrideEst: boolean;
+      currentStageStartDate?: string;
+      currentStageEndDate?: string;
+      currentStageActualEffort: number;
+      currentStageHasEstEffort: boolean;
     }) => {
-      // Step 1: update each SSF with dates derived from its members
+      // Step 1: update each SSF actual + optional est dates/effort
       await Promise.all(
-        data.ssfUpdates.map((u) =>
-          taskWorkflowApi.updateStepScreenFunction(u.id, {
+        data.ssfUpdates.map((u) => {
+          const payload: {
+            actualStartDate?: string;
+            actualEndDate?: string;
+            estimatedStartDate?: string;
+            estimatedEndDate?: string;
+            estimatedEffort?: number;
+          } = {
             actualStartDate: u.actualStartDate,
             actualEndDate: u.actualEndDate,
-          })
-        )
+          };
+          if (data.syncEstStep) {
+            if (data.syncOverrideEst || !u.hasEstStart) payload.estimatedStartDate = u.actualStartDate;
+            if (data.syncOverrideEst || !u.hasEstEnd) payload.estimatedEndDate = u.actualEndDate;
+          }
+          if (data.syncEstEffortStep) {
+            if (data.syncOverrideEst || !u.hasEstEffort) payload.estimatedEffort = u.actualEffort;
+          }
+          return taskWorkflowApi.updateStepScreenFunction(u.id, payload);
+        })
       );
-      // Step 2: update stage with global min/max
-      return taskWorkflowApi.updateStage(data.stageId, {
+      // Step 2: update stage actual + optional est dates/effort
+      const stagePayload: {
+        actualStartDate?: string;
+        actualEndDate?: string;
+        startDate?: string;
+        endDate?: string;
+        estimatedEffort?: number;
+      } = {
         actualStartDate: data.actualStartDate,
         actualEndDate: data.actualEndDate,
-      });
+      };
+      if (data.syncEstStage) {
+        if (data.syncOverrideEst || !data.currentStageStartDate) stagePayload.startDate = data.actualStartDate;
+        if (data.syncOverrideEst || !data.currentStageEndDate) stagePayload.endDate = data.actualEndDate;
+      }
+      if (data.syncEstEffortStage) {
+        if (data.syncOverrideEst || !data.currentStageHasEstEffort) stagePayload.estimatedEffort = data.currentStageActualEffort;
+      }
+      return taskWorkflowApi.updateStage(data.stageId, stagePayload);
     },
     onSuccess: () => {
       refetch();
@@ -136,7 +188,7 @@ export function StagesOverviewPanel({
       const detail = response.data;
       let minStart: string | null = null;
       let maxEnd: string | null = null;
-      const ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }> = [];
+      const ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean; actualEffort: number; hasEstEffort: boolean }> = [];
 
       detail.steps.forEach((step: any) => {
         step.screenFunctions?.forEach((ssf: any) => {
@@ -152,6 +204,10 @@ export function StagesOverviewPanel({
               id: ssf.id,
               actualStartDate: ssfMin || undefined,
               actualEndDate: ssfMax || undefined,
+              hasEstStart: !!ssf.estimatedStartDate,
+              hasEstEnd: !!ssf.estimatedEndDate,
+              actualEffort: ssf.actualEffort || 0,
+              hasEstEffort: (ssf.estimatedEffort || 0) > 0,
             });
           }
           // Also aggregate for stage-level min/max (use member-derived dates)
@@ -173,11 +229,21 @@ export function StagesOverviewPanel({
 
   const confirmSyncActualDates = () => {
     if (!syncStageId) return;
+    const currentStage = stages?.find((s) => s.id === syncStageId);
     syncActualDatesMutation.mutate({
       stageId: syncStageId,
       ssfUpdates: syncSsfUpdates,
       actualStartDate: syncCalcDates.start || undefined,
       actualEndDate: syncCalcDates.end || undefined,
+      syncEstStep,
+      syncEstStage,
+      syncEstEffortStep,
+      syncEstEffortStage,
+      syncOverrideEst,
+      currentStageStartDate: currentStage?.startDate,
+      currentStageEndDate: currentStage?.endDate,
+      currentStageActualEffort: currentStage?.actualEffort || 0,
+      currentStageHasEstEffort: (currentStage?.estimatedEffort || 0) > 0,
     });
   };
 
@@ -495,6 +561,75 @@ export function StagesOverviewPanel({
                   })}
                 </Typography>
               )}
+
+              {/* Sync est. values — 2×2 grid */}
+              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
+                  {t('stages.syncEstTitle', 'Update estimated values')}
+                </Typography>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                  {/* Header row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ p: 1 }} />
+                    <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary">Steps / SSF</Typography>
+                    </Box>
+                    <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary">Stage</Typography>
+                    </Box>
+                  </Box>
+                  {/* Dates row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>📅</span>
+                      <Typography variant="body2">Dates</Typography>
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstStep} onChange={(e) => setSyncEstStep(e.target.checked)} size="small" />
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstStage} onChange={(e) => setSyncEstStage(e.target.checked)} size="small" />
+                    </Box>
+                  </Box>
+                  {/* Effort row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr' }}>
+                    <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>⏱</span>
+                      <Typography variant="body2">Effort</Typography>
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstEffortStep} onChange={(e) => setSyncEstEffortStep(e.target.checked)} size="small" />
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstEffortStage} onChange={(e) => setSyncEstEffortStage(e.target.checked)} size="small" />
+                    </Box>
+                  </Box>
+                </Box>
+                {/* Override option */}
+                <Box sx={{ mt: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={syncOverrideEst}
+                        disabled={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage}
+                        onChange={(e) => setSyncOverrideEst(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage ? 'text.disabled' : 'text.primary'}>
+                        {t('stages.syncOverrideEst')}
+                      </Typography>
+                    }
+                    sx={{ display: 'flex' }}
+                  />
+                  {syncOverrideEst && (syncEstStep || syncEstStage || syncEstEffortStep || syncEstEffortStage) && (
+                    <Typography variant="caption" color="warning.main" sx={{ pl: 4, display: 'block' }}>
+                      {t('stages.syncOverrideEstDesc')}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
             </Box>
           )}
         </DialogContent>
