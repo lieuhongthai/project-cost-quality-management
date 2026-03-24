@@ -3,6 +3,8 @@ import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/common/Modal";
@@ -36,6 +38,7 @@ export function ExportFilterDialog({
 }: ExportFilterDialogProps) {
   const { t } = useTranslation();
 
+  const [activeTab, setActiveTab] = useState(0);
   const [selectedStages, setSelectedStages] = useState<Set<number>>(new Set());
   const [selectedSteps, setSelectedSteps] = useState<Set<StepId>>(new Set());
   const [selectedSsfs, setSelectedSsfs] = useState<Set<SsfId>>(new Set());
@@ -242,7 +245,7 @@ export function ExportFilterDialog({
 
   const canExport = filteredData.filteredDetail.length > 0;
 
-  // Right panel: steps that are currently selected, in order
+  // Tab 1 right panel: selected steps in order (for grouped view)
   const selectedStepRows = useMemo(() =>
     stagesDetail.flatMap((detail) =>
       detail.steps
@@ -251,6 +254,41 @@ export function ExportFilterDialog({
     ),
     [stagesDetail, selectedSteps]
   );
+
+  // Tab 2 right panel: flat list of all SSFs from selected steps
+  const flatSsfRows = useMemo(() =>
+    stagesDetail.flatMap((detail) =>
+      detail.steps
+        .filter((step) => selectedSteps.has(step.id))
+        .flatMap((step) =>
+          step.screenFunctions.map((ssf) => ({ detail, step, ssf }))
+        )
+    ),
+    [stagesDetail, selectedSteps]
+  );
+
+  const toggleAllFlatSsfs = () => {
+    const allIds = flatSsfRows.map((r) => r.ssf.id);
+    const allSelected = allIds.every((id) => selectedSsfs.has(id));
+    setSelectedSsfs((prev) => {
+      const next = new Set(prev);
+      allIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+    // sync steps & stages
+    if (allSelected) {
+      setSelectedSteps((prev) => {
+        const next = new Set(prev);
+        flatSsfRows.forEach(({ step }) => next.delete(step.id));
+        return next;
+      });
+      setSelectedStages((prev) => {
+        const next = new Set(prev);
+        flatSsfRows.forEach(({ detail }) => next.delete(detail.stage.id));
+        return next;
+      });
+    }
+  };
 
   return (
     <Modal
@@ -307,8 +345,25 @@ export function ExportFilterDialog({
           {t("taskWorkflow.exportDialog.noStages")}
         </Typography>
       ) : (
-        <div className="flex" style={{ minHeight: 360, maxHeight: 480 }}>
-          {/* ── Left: Stage / Step selection ── */}
+        <>
+          <Tabs
+            value={activeTab}
+            onChange={(_, v) => setActiveTab(v)}
+            sx={{ borderBottom: 1, borderColor: "divider", mb: 0 }}
+            variant="fullWidth"
+          >
+            <Tab
+              label={t("taskWorkflow.exportDialog.tabByStep")}
+              sx={{ fontSize: 12, textTransform: "none", minHeight: 36, py: 0.5 }}
+            />
+            <Tab
+              label={t("taskWorkflow.exportDialog.tabFlat")}
+              sx={{ fontSize: 12, textTransform: "none", minHeight: 36, py: 0.5 }}
+            />
+          </Tabs>
+
+          <div className="flex" style={{ minHeight: 360, maxHeight: 480 }}>
+          {/* ── Left: Stage / Step selection (shared) ── */}
           <div
             className="flex flex-col overflow-y-auto"
             style={{ width: 200, flexShrink: 0, borderRight: "1px solid #e5e7eb" }}
@@ -355,92 +410,143 @@ export function ExportFilterDialog({
             ))}
           </div>
 
-          {/* ── Right: Screen functions of selected steps only ── */}
+          {/* ── Right panel ── */}
           <div className="flex-1 overflow-y-auto">
-            {selectedStepRows.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <Typography fontSize={12} color="text.disabled" align="center" sx={{ px: 2 }}>
-                  {t("taskWorkflow.exportDialog.noStepSelected")}
-                </Typography>
-              </div>
-            ) : (
-              selectedStepRows.map(({ detail, step }, idx) => (
-                <div key={step.id}>
-                  {/* Step header */}
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 sticky top-0 z-10">
-                    <Typography fontSize={12} fontWeight={600} color="text.primary">
-                      {step.name}
-                    </Typography>
-                    {step.screenFunctions.length > 0 && (
-                      <Typography
-                        component="span"
-                        fontSize={11}
-                        sx={{
-                          color: "primary.main",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          "&:hover": { textDecoration: "underline" },
-                        }}
-                        onClick={() => toggleAllSsfsForStep(detail, step.id)}
-                      >
-                        {allSsfIdsForStep(detail, step.id).every((id) =>
-                          selectedSsfs.has(id)
-                        )
-                          ? t("taskWorkflow.exportDialog.deselectStep")
-                          : t("taskWorkflow.exportDialog.selectStep")}
+            {/* Tab 0: grouped by step */}
+            {activeTab === 0 && (
+              selectedStepRows.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <Typography fontSize={12} color="text.disabled" align="center" sx={{ px: 2 }}>
+                    {t("taskWorkflow.exportDialog.noStepSelected")}
+                  </Typography>
+                </div>
+              ) : (
+                selectedStepRows.map(({ detail, step }, idx) => (
+                  <div key={step.id}>
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 sticky top-0 z-10">
+                      <Typography fontSize={12} fontWeight={600} color="text.primary">
+                        {step.name}
                       </Typography>
+                      {step.screenFunctions.length > 0 && (
+                        <Typography
+                          component="span"
+                          fontSize={11}
+                          sx={{
+                            color: "primary.main",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            "&:hover": { textDecoration: "underline" },
+                          }}
+                          onClick={() => toggleAllSsfsForStep(detail, step.id)}
+                        >
+                          {allSsfIdsForStep(detail, step.id).every((id) =>
+                            selectedSsfs.has(id)
+                          )
+                            ? t("taskWorkflow.exportDialog.deselectStep")
+                            : t("taskWorkflow.exportDialog.selectStep")}
+                        </Typography>
+                      )}
+                    </div>
+                    {step.screenFunctions.length === 0 ? (
+                      <Typography fontSize={11} color="text.disabled" sx={{ px: 3, py: 1 }}>
+                        {t("taskWorkflow.exportDialog.noScreenFunctions")}
+                      </Typography>
+                    ) : (
+                      <div className="px-2 pb-1">
+                        {step.screenFunctions.map((ssf) => {
+                          const selected = selectedSsfs.has(ssf.id);
+                          return (
+                            <FormControlLabel
+                              key={ssf.id}
+                              sx={{ m: 0, display: "flex", px: 1, py: 0.25 }}
+                              control={
+                                <Checkbox
+                                  checked={selected}
+                                  onChange={() => toggleSsf(detail, step.id, ssf.id)}
+                                  size="small"
+                                  sx={{ p: 0.5 }}
+                                />
+                              }
+                              label={
+                                <Typography fontSize={12} color={selected ? "text.primary" : "text.disabled"}>
+                                  {ssf.screenFunction.name}
+                                </Typography>
+                              }
+                            />
+                          );
+                        })}
+                      </div>
                     )}
+                    {idx < selectedStepRows.length - 1 && <Divider sx={{ opacity: 0.5 }} />}
+                  </div>
+                ))
+              )
+            )}
+
+            {/* Tab 1: flat list */}
+            {activeTab === 1 && (
+              flatSsfRows.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <Typography fontSize={12} color="text.disabled" align="center" sx={{ px: 2 }}>
+                    {t("taskWorkflow.exportDialog.noStepSelected")}
+                  </Typography>
+                </div>
+              ) : (
+                <>
+                  {/* Flat list header */}
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 sticky top-0 z-10">
+                    <Typography fontSize={12} fontWeight={600} color="text.secondary">
+                      {t("taskWorkflow.exportDialog.allScreenFunctions", {
+                        count: flatSsfRows.length,
+                      })}
+                    </Typography>
+                    <Typography
+                      component="span"
+                      fontSize={11}
+                      sx={{
+                        color: "primary.main",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        "&:hover": { textDecoration: "underline" },
+                      }}
+                      onClick={toggleAllFlatSsfs}
+                    >
+                      {flatSsfRows.every((r) => selectedSsfs.has(r.ssf.id))
+                        ? t("taskWorkflow.exportDialog.deselectStep")
+                        : t("taskWorkflow.exportDialog.selectStep")}
+                    </Typography>
                   </div>
 
-                  {/* SSF list */}
-                  {step.screenFunctions.length === 0 ? (
-                    <Typography
-                      fontSize={11}
-                      color="text.disabled"
-                      sx={{ px: 3, py: 1 }}
-                    >
-                      {t("taskWorkflow.exportDialog.noScreenFunctions")}
-                    </Typography>
-                  ) : (
-                    <div className="px-2 pb-1">
-                      {step.screenFunctions.map((ssf) => {
-                        const selected = selectedSsfs.has(ssf.id);
-                        return (
-                          <FormControlLabel
-                            key={ssf.id}
-                            sx={{ m: 0, display: "flex", px: 1, py: 0.25 }}
-                            control={
-                              <Checkbox
-                                checked={selected}
-                                onChange={() =>
-                                  toggleSsf(detail, step.id, ssf.id)
-                                }
-                                size="small"
-                                sx={{ p: 0.5 }}
-                              />
-                            }
-                            label={
-                              <Typography
-                                fontSize={12}
-                                color={selected ? "text.primary" : "text.disabled"}
-                              >
-                                {ssf.screenFunction.name}
-                              </Typography>
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {idx < selectedStepRows.length - 1 && (
-                    <Divider sx={{ opacity: 0.5 }} />
-                  )}
-                </div>
-              ))
+                  <div className="px-2 pb-1">
+                    {flatSsfRows.map(({ detail, step, ssf }) => {
+                      const selected = selectedSsfs.has(ssf.id);
+                      return (
+                        <FormControlLabel
+                          key={ssf.id}
+                          sx={{ m: 0, display: "flex", px: 1, py: 0.25 }}
+                          control={
+                            <Checkbox
+                              checked={selected}
+                              onChange={() => toggleSsf(detail, step.id, ssf.id)}
+                              size="small"
+                              sx={{ p: 0.5 }}
+                            />
+                          }
+                          label={
+                            <Typography fontSize={12} color={selected ? "text.primary" : "text.disabled"}>
+                              {ssf.screenFunction.name}
+                            </Typography>
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </>
+              )
             )}
           </div>
         </div>
+        </>
       )}
     </Modal>
   );

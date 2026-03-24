@@ -909,7 +909,10 @@
       "selectedCount": "Đã chọn {{count}}",
       "selectStep": "Chọn tất cả",
       "deselectStep": "Bỏ chọn tất cả",
-      "noStepSelected": "Chọn ít nhất một bước để xem màn hình/chức năng"
+      "noStepSelected": "Chọn ít nhất một bước để xem màn hình/chức năng",
+      "tabByStep": "Theo bước",
+      "tabFlat": "Tất cả màn hình/CN",
+      "allScreenFunctions": "{{count}} màn hình/chức năng"
     },
     "noWorkflow": "Chưa cấu hình workflow",
     "initializeDescription": "Khởi tạo các giai đoạn và bước mặc định để bắt đầu.",
