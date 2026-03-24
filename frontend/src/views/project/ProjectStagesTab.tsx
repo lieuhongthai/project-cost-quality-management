@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/common";
 import { StagesOverviewPanel } from "@/components/task-workflow";
+import { ExportFilterDialog } from "@/components/task-workflow/ExportFilterDialog";
 import { useTranslation } from "react-i18next";
-import type { EffortUnit, StageOverviewData } from "@/types";
+import type { EffortUnit, StageDetailData, StageOverviewData } from "@/types";
 import { taskWorkflowApi } from "@/services/api";
 import { exportStagesToExcel } from "@/utils/exportUtils";
 import { convertEffort, formatEffort } from "@/utils/effortUtils";
@@ -26,7 +27,10 @@ export function ProjectStagesTab({
   setShowAIScheduling,
 }: ProjectStagesTabProps) {
   const { t } = useTranslation();
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [stagesDetail, setStagesDetail] = useState<StageDetailData[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const { data: stagesOverview } = useQuery({
     queryKey: ["stagesOverview", parseInt(projectId)],
@@ -41,21 +45,36 @@ export function ProjectStagesTab({
     return formatEffort(converted, effortUnit);
   };
 
-  const handleExportExcel = async () => {
+  const handleOpenExportDialog = async () => {
     if (!stagesOverview || stagesOverview.length === 0) return;
-    setExporting(true);
+    setShowExportDialog(true);
+    setLoadingDetail(true);
     try {
       const detailResults = await Promise.all(
-        stagesOverview.map((s: StageOverviewData) => taskWorkflowApi.getStageDetail(s.id))
+        stagesOverview.map((s: StageOverviewData) =>
+          taskWorkflowApi.getStageDetail(s.id)
+        )
       );
-      const stagesDetail = detailResults.map((r: { data: any }) => r.data);
+      setStagesDetail(detailResults.map((r: { data: any }) => r.data));
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleExport = async (
+    filteredOverview: StageOverviewData[],
+    filteredDetail: StageDetailData[]
+  ) => {
+    setExporting(true);
+    try {
       await exportStagesToExcel({
         projectName: projectName ?? projectId,
-        stagesOverview,
-        stagesDetail,
+        stagesOverview: filteredOverview,
+        stagesDetail: filteredDetail,
         effortUnit,
         displayEffort,
       });
+      setShowExportDialog(false);
     } finally {
       setExporting(false);
     }
@@ -66,12 +85,10 @@ export function ProjectStagesTab({
       <div className="flex justify-end gap-2 mb-4">
         <Button
           variant="secondary"
-          onClick={handleExportExcel}
-          disabled={exporting}
+          onClick={handleOpenExportDialog}
+          disabled={!stagesOverview || stagesOverview.length === 0}
         >
-          {exporting
-            ? t("common.exporting", "Exporting...")
-            : t("stages.exportExcel", "Export Excel")}
+          {t("stages.exportExcel", "Export Excel")}
         </Button>
         <Button variant="primary" onClick={() => setShowAIPlanAll(true)}>
           {t('ai.planAll', 'AI Plan Everything')}
@@ -80,10 +97,21 @@ export function ProjectStagesTab({
           {t('ai.advancedOptions', 'Advanced AI Options')}
         </Button>
       </div>
+
       <StagesOverviewPanel
         projectId={parseInt(projectId)}
         effortUnit={effortUnit}
         workSettings={workSettings}
+      />
+
+      <ExportFilterDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        stagesOverview={stagesOverview ?? []}
+        stagesDetail={stagesDetail}
+        loading={loadingDetail}
+        onExport={handleExport}
+        exporting={exporting}
       />
     </div>
   );
