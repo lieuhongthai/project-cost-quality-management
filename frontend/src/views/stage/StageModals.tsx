@@ -246,60 +246,70 @@ export function StageModals({
             </p>
           )}
 
-          {/* Optional est. date sync checkboxes */}
-          <div className="space-y-1.5 pt-3 border-t">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={syncEstStep}
-                onChange={(e) => setSyncEstStep(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary"
-              />
-              <span className="text-sm text-gray-700">{t('stages.syncEstStep')}</span>
-            </label>
-            {syncEstStep && (
-              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstStepDesc')}</p>
-            )}
-
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={syncEstStage}
-                onChange={(e) => setSyncEstStage(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary"
-              />
-              <span className="text-sm text-gray-700">{t('stages.syncEstStage')}</span>
-            </label>
-            {syncEstStage && (
-              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstStageDesc')}</p>
-            )}
-
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={syncEstEffortStep}
-                onChange={(e) => setSyncEstEffortStep(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary"
-              />
-              <span className="text-sm text-gray-700">{t('stages.syncEstEffortStep')}</span>
-            </label>
-            {syncEstEffortStep && (
-              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstEffortStepDesc')}</p>
-            )}
-
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={syncEstEffortStage}
-                onChange={(e) => setSyncEstEffortStage(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary"
-              />
-              <span className="text-sm text-gray-700">{t('stages.syncEstEffortStage')}</span>
-            </label>
-            {syncEstEffortStage && (
-              <p className="text-xs text-blue-600 pl-6">{t('stages.syncEstEffortStageDesc')}</p>
-            )}
-
+          {/* Sync est. values — 2×2 grid */}
+          <div className="pt-3 border-t space-y-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              {t('stages.syncEstTitle', 'Update estimated values')}
+            </p>
+            <div className="border rounded-lg overflow-hidden text-sm">
+              {/* Header */}
+              <div className="grid grid-cols-3 bg-gray-50 border-b">
+                <div className="p-2" />
+                <div className="p-2 border-l text-center">
+                  <span className="text-xs font-semibold text-gray-500">Steps / SSF</span>
+                </div>
+                <div className="p-2 border-l text-center">
+                  <span className="text-xs font-semibold text-gray-500">Stage</span>
+                </div>
+              </div>
+              {/* Dates row */}
+              <div className="grid grid-cols-3 border-b">
+                <div className="p-2 flex items-center gap-1.5">
+                  <span>📅</span>
+                  <span className="text-gray-700">Dates</span>
+                </div>
+                <div className="border-l flex justify-center items-center py-1">
+                  <input
+                    type="checkbox"
+                    checked={syncEstStep}
+                    onChange={(e) => setSyncEstStep(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary cursor-pointer"
+                  />
+                </div>
+                <div className="border-l flex justify-center items-center py-1">
+                  <input
+                    type="checkbox"
+                    checked={syncEstStage}
+                    onChange={(e) => setSyncEstStage(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+              {/* Effort row */}
+              <div className="grid grid-cols-3">
+                <div className="p-2 flex items-center gap-1.5">
+                  <span>⏱</span>
+                  <span className="text-gray-700">Effort</span>
+                </div>
+                <div className="border-l flex justify-center items-center py-1">
+                  <input
+                    type="checkbox"
+                    checked={syncEstEffortStep}
+                    onChange={(e) => setSyncEstEffortStep(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary cursor-pointer"
+                  />
+                </div>
+                <div className="border-l flex justify-center items-center py-1">
+                  <input
+                    type="checkbox"
+                    checked={syncEstEffortStage}
+                    onChange={(e) => setSyncEstEffortStage(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Override option */}
             <label className={`flex items-center gap-2 select-none ${!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
@@ -310,7 +320,7 @@ export function StageModals({
               />
               <span className="text-sm text-gray-700">{t('stages.syncOverrideEst')}</span>
             </label>
-            {syncOverrideEst && (
+            {syncOverrideEst && (syncEstStep || syncEstStage || syncEstEffortStep || syncEstEffortStage) && (
               <p className="text-xs text-amber-600 pl-6">{t('stages.syncOverrideEstDesc')}</p>
             )}
           </div>

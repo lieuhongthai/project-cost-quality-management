@@ -562,97 +562,73 @@ export function StagesOverviewPanel({
                 </Typography>
               )}
 
-              {/* Optional est. date sync checkboxes */}
+              {/* Sync est. values — 2×2 grid */}
               <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={syncEstStep}
-                      onChange={(e) => setSyncEstStep(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={<Typography variant="body2">{t('stages.syncEstStep')}</Typography>}
-                  sx={{ display: 'flex', mb: 0.5 }}
-                />
-                {syncEstStep && (
-                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
-                    {t('stages.syncEstStepDesc')}
-                  </Typography>
-                )}
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={syncEstStage}
-                      onChange={(e) => setSyncEstStage(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={<Typography variant="body2">{t('stages.syncEstStage')}</Typography>}
-                  sx={{ display: 'flex', mb: 0.5 }}
-                />
-                {syncEstStage && (
-                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
-                    {t('stages.syncEstStageDesc')}
-                  </Typography>
-                )}
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={syncEstEffortStep}
-                      onChange={(e) => setSyncEstEffortStep(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={<Typography variant="body2">{t('stages.syncEstEffortStep')}</Typography>}
-                  sx={{ display: 'flex', mb: 0.5 }}
-                />
-                {syncEstEffortStep && (
-                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
-                    {t('stages.syncEstEffortStepDesc')}
-                  </Typography>
-                )}
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={syncEstEffortStage}
-                      onChange={(e) => setSyncEstEffortStage(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={<Typography variant="body2">{t('stages.syncEstEffortStage')}</Typography>}
-                  sx={{ display: 'flex', mb: 0.5 }}
-                />
-                {syncEstEffortStage && (
-                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
-                    {t('stages.syncEstEffortStageDesc')}
-                  </Typography>
-                )}
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={syncOverrideEst}
-                      disabled={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage}
-                      onChange={(e) => setSyncOverrideEst(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" color={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage ? 'text.disabled' : 'text.primary'}>
-                      {t('stages.syncOverrideEst')}
+                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
+                  {t('stages.syncEstTitle', 'Update estimated values')}
+                </Typography>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                  {/* Header row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ p: 1 }} />
+                    <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary">Steps / SSF</Typography>
+                    </Box>
+                    <Box sx={{ p: 1, borderLeft: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary">Stage</Typography>
+                    </Box>
+                  </Box>
+                  {/* Dates row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>📅</span>
+                      <Typography variant="body2">Dates</Typography>
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstStep} onChange={(e) => setSyncEstStep(e.target.checked)} size="small" />
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstStage} onChange={(e) => setSyncEstStage(e.target.checked)} size="small" />
+                    </Box>
+                  </Box>
+                  {/* Effort row */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr' }}>
+                    <Box sx={{ px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>⏱</span>
+                      <Typography variant="body2">Effort</Typography>
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstEffortStep} onChange={(e) => setSyncEstEffortStep(e.target.checked)} size="small" />
+                    </Box>
+                    <Box sx={{ borderLeft: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Checkbox checked={syncEstEffortStage} onChange={(e) => setSyncEstEffortStage(e.target.checked)} size="small" />
+                    </Box>
+                  </Box>
+                </Box>
+                {/* Override option */}
+                <Box sx={{ mt: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={syncOverrideEst}
+                        disabled={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage}
+                        onChange={(e) => setSyncOverrideEst(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color={!syncEstStep && !syncEstStage && !syncEstEffortStep && !syncEstEffortStage ? 'text.disabled' : 'text.primary'}>
+                        {t('stages.syncOverrideEst')}
+                      </Typography>
+                    }
+                    sx={{ display: 'flex' }}
+                  />
+                  {syncOverrideEst && (syncEstStep || syncEstStage || syncEstEffortStep || syncEstEffortStage) && (
+                    <Typography variant="caption" color="warning.main" sx={{ pl: 4, display: 'block' }}>
+                      {t('stages.syncOverrideEstDesc')}
                     </Typography>
-                  }
-                  sx={{ display: 'flex' }}
-                />
-                {syncOverrideEst && (
-                  <Typography variant="caption" color="warning.main" sx={{ pl: 4, display: 'block' }}>
-                    {t('stages.syncOverrideEstDesc')}
-                  </Typography>
-                )}
+                  )}
+                </Box>
               </Box>
             </Box>
           )}
