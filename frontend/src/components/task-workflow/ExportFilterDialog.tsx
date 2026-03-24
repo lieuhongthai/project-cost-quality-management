@@ -255,39 +255,100 @@ export function ExportFilterDialog({
     [stagesDetail, selectedSteps]
   );
 
-  // Tab 2 right panel: flat list of all SSFs from selected steps
-  const flatSsfRows = useMemo(() =>
-    stagesDetail.flatMap((detail) =>
+  // Tab 2 right panel: unique screen functions (dedup by screenFunctionId)
+  // from selected steps only
+  const uniqueScreenRows = useMemo(() => {
+    const map = new Map<
+      number,
+      { screenFunctionId: number; name: string; ssfIds: SsfId[] }
+    >();
+    stagesDetail.forEach((detail) => {
       detail.steps
         .filter((step) => selectedSteps.has(step.id))
-        .flatMap((step) =>
-          step.screenFunctions.map((ssf) => ({ detail, step, ssf }))
-        )
-    ),
-    [stagesDetail, selectedSteps]
+        .forEach((step) => {
+          step.screenFunctions.forEach((ssf) => {
+            const existing = map.get(ssf.screenFunctionId);
+            if (existing) {
+              existing.ssfIds.push(ssf.id);
+            } else {
+              map.set(ssf.screenFunctionId, {
+                screenFunctionId: ssf.screenFunctionId,
+                name: ssf.screenFunction.name,
+                ssfIds: [ssf.id],
+              });
+            }
+          });
+        });
+    });
+    return Array.from(map.values());
+  }, [stagesDetail, selectedSteps]);
+
+  // All raw SSF ids in selected steps (for select-all in tab 2)
+  const allFlatSsfIds = useMemo(
+    () => uniqueScreenRows.flatMap((r) => r.ssfIds),
+    [uniqueScreenRows]
   );
 
   const toggleAllFlatSsfs = () => {
-    const allIds = flatSsfRows.map((r) => r.ssf.id);
-    const allSelected = allIds.every((id) => selectedSsfs.has(id));
+    const allSelected = allFlatSsfIds.every((id) => selectedSsfs.has(id));
     setSelectedSsfs((prev) => {
       const next = new Set(prev);
-      allIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      allFlatSsfIds.forEach((id) =>
+        allSelected ? next.delete(id) : next.add(id)
+      );
       return next;
     });
-    // sync steps & stages
     if (allSelected) {
+      // sync step & stage checkboxes off
+      const affectedStepIds = new Set(
+        stagesDetail.flatMap((d) =>
+          d.steps
+            .filter((s) => selectedSteps.has(s.id))
+            .map((s) => s.id)
+        )
+      );
       setSelectedSteps((prev) => {
         const next = new Set(prev);
-        flatSsfRows.forEach(({ step }) => next.delete(step.id));
+        affectedStepIds.forEach((id) => next.delete(id));
         return next;
       });
       setSelectedStages((prev) => {
         const next = new Set(prev);
-        flatSsfRows.forEach(({ detail }) => next.delete(detail.stage.id));
+        stagesDetail.forEach((d) => next.delete(d.stage.id));
         return next;
       });
     }
+  };
+
+  // Toggle all instances of one unique screen function
+  const toggleUniqueScreen = (ssfIds: SsfId[]) => {
+    const allSelected = ssfIds.every((id) => selectedSsfs.has(id));
+    setSelectedSsfs((prev) => {
+      const next = new Set(prev);
+      ssfIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+    // propagate to steps & stages
+    stagesDetail.forEach((detail) => {
+      detail.steps.forEach((step) => {
+        if (!selectedSteps.has(step.id)) return;
+        const stepSsfIds = step.screenFunctions.map((s) => s.id);
+        const relevantIds = stepSsfIds.filter((id) => ssfIds.includes(id));
+        if (!relevantIds.length) return;
+        // recalc step state
+        const remainingSsfIds = stepSsfIds.filter((id) => !ssfIds.includes(id));
+        const anyOtherSelected = remainingSsfIds.some((id) =>
+          selectedSsfs.has(id)
+        );
+        setSelectedSteps((prev) => {
+          const next = new Set(prev);
+          anyOtherSelected || !allSelected
+            ? next.add(step.id)
+            : next.delete(step.id);
+          return next;
+        });
+      });
+    });
   };
 
   return (
@@ -483,9 +544,9 @@ export function ExportFilterDialog({
               )
             )}
 
-            {/* Tab 1: flat list */}
+            {/* Tab 1: deduplicated flat list */}
             {activeTab === 1 && (
-              flatSsfRows.length === 0 ? (
+              uniqueScreenRows.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <Typography fontSize={12} color="text.disabled" align="center" sx={{ px: 2 }}>
                     {t("taskWorkflow.exportDialog.noStepSelected")}
@@ -493,11 +554,11 @@ export function ExportFilterDialog({
                 </div>
               ) : (
                 <>
-                  {/* Flat list header */}
+                  {/* Header */}
                   <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 sticky top-0 z-10">
                     <Typography fontSize={12} fontWeight={600} color="text.secondary">
                       {t("taskWorkflow.exportDialog.allScreenFunctions", {
-                        count: flatSsfRows.length,
+                        count: uniqueScreenRows.length,
                       })}
                     </Typography>
                     <Typography
@@ -511,30 +572,35 @@ export function ExportFilterDialog({
                       }}
                       onClick={toggleAllFlatSsfs}
                     >
-                      {flatSsfRows.every((r) => selectedSsfs.has(r.ssf.id))
+                      {allFlatSsfIds.every((id) => selectedSsfs.has(id))
                         ? t("taskWorkflow.exportDialog.deselectStep")
                         : t("taskWorkflow.exportDialog.selectStep")}
                     </Typography>
                   </div>
 
                   <div className="px-2 pb-1">
-                    {flatSsfRows.map(({ detail, step, ssf }) => {
-                      const selected = selectedSsfs.has(ssf.id);
+                    {uniqueScreenRows.map(({ screenFunctionId, name, ssfIds }) => {
+                      const allSelected = ssfIds.every((id) => selectedSsfs.has(id));
+                      const someSelected = ssfIds.some((id) => selectedSsfs.has(id));
                       return (
                         <FormControlLabel
-                          key={ssf.id}
+                          key={screenFunctionId}
                           sx={{ m: 0, display: "flex", px: 1, py: 0.25 }}
                           control={
                             <Checkbox
-                              checked={selected}
-                              onChange={() => toggleSsf(detail, step.id, ssf.id)}
+                              checked={allSelected}
+                              indeterminate={!allSelected && someSelected}
+                              onChange={() => toggleUniqueScreen(ssfIds)}
                               size="small"
                               sx={{ p: 0.5 }}
                             />
                           }
                           label={
-                            <Typography fontSize={12} color={selected ? "text.primary" : "text.disabled"}>
-                              {ssf.screenFunction.name}
+                            <Typography
+                              fontSize={12}
+                              color={someSelected ? "text.primary" : "text.disabled"}
+                            >
+                              {name}
                             </Typography>
                           }
                         />
