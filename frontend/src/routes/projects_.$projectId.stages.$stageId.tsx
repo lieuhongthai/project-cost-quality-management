@@ -595,6 +595,7 @@ function StageDetail() {
           </Card>
         </div>
 
+        {stageTestInsights && (stageTestInsights.totalTestCases > 0 || stageTestInsights.bugCount > 0) && (
         <div className="mt-6">
           <Card title={t('metrics.testMetricsStage')}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -638,6 +639,7 @@ function StageDetail() {
             </div>
           </Card>
         </div>
+        )}
       </div>
 
       {/* Steps Tabs */}
