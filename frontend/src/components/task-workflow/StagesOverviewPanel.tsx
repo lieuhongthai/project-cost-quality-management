@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi, screenFunctionApi } from '@/services/api';
@@ -38,8 +38,11 @@ export function StagesOverviewPanel({
   const [quickLinkStageId, setQuickLinkStageId] = useState<number | null>(null);
   const [syncStageId, setSyncStageId] = useState<number | null>(null);
   const [syncCalcDates, setSyncCalcDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
-  const [syncSsfUpdates, setSyncSsfUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>>([]);
+  const [syncSsfUpdates, setSyncSsfUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }>>([]);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [syncEstStep, setSyncEstStep] = useState(false);
+  const [syncEstStage, setSyncEstStage] = useState(false);
+  const [syncOverrideEst, setSyncOverrideEst] = useState(false);
   const [quickLinkType, setQuickLinkType] = useState<ScreenFunctionType>('Screen');
   const [quickLinkAssignMembers, setQuickLinkAssignMembers] = useState(false);
   const [quickLinkResult, setQuickLinkResult] = useState<{
@@ -48,6 +51,14 @@ export function StagesOverviewPanel({
     membersAssigned: number;
     details: Array<{ stepId: number; stepName: string; linked: number; membersAssigned: number }>;
   } | null>(null);
+
+  useEffect(() => {
+    if (!syncStageId) {
+      setSyncEstStep(false);
+      setSyncEstStage(false);
+      setSyncOverrideEst(false);
+    }
+  }, [syncStageId]);
 
   // Fetch stages overview
   const { data: stages, isLoading, refetch } = useQuery({
@@ -102,24 +113,39 @@ export function StagesOverviewPanel({
   const syncActualDatesMutation = useMutation({
     mutationFn: async (data: {
       stageId: number;
-      ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>;
+      ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }>;
       actualStartDate?: string;
       actualEndDate?: string;
+      syncEstStep: boolean;
+      syncEstStage: boolean;
+      syncOverrideEst: boolean;
+      currentStageStartDate?: string;
+      currentStageEndDate?: string;
     }) => {
-      // Step 1: update each SSF with dates derived from its members
+      // Step 1: update each SSF actual + optional est dates
       await Promise.all(
-        data.ssfUpdates.map((u) =>
-          taskWorkflowApi.updateStepScreenFunction(u.id, {
+        data.ssfUpdates.map((u) => {
+          const payload: Record<string, string | undefined> = {
             actualStartDate: u.actualStartDate,
             actualEndDate: u.actualEndDate,
-          })
-        )
+          };
+          if (data.syncEstStep) {
+            if (data.syncOverrideEst || !u.hasEstStart) payload.estimatedStartDate = u.actualStartDate;
+            if (data.syncOverrideEst || !u.hasEstEnd) payload.estimatedEndDate = u.actualEndDate;
+          }
+          return taskWorkflowApi.updateStepScreenFunction(u.id, payload);
+        })
       );
-      // Step 2: update stage with global min/max
-      return taskWorkflowApi.updateStage(data.stageId, {
+      // Step 2: update stage actual + optional est dates
+      const stagePayload: Record<string, string | undefined> = {
         actualStartDate: data.actualStartDate,
         actualEndDate: data.actualEndDate,
-      });
+      };
+      if (data.syncEstStage) {
+        if (data.syncOverrideEst || !data.currentStageStartDate) stagePayload.startDate = data.actualStartDate;
+        if (data.syncOverrideEst || !data.currentStageEndDate) stagePayload.endDate = data.actualEndDate;
+      }
+      return taskWorkflowApi.updateStage(data.stageId, stagePayload);
     },
     onSuccess: () => {
       refetch();
@@ -136,7 +162,7 @@ export function StagesOverviewPanel({
       const detail = response.data;
       let minStart: string | null = null;
       let maxEnd: string | null = null;
-      const ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }> = [];
+      const ssfUpdates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }> = [];
 
       detail.steps.forEach((step: any) => {
         step.screenFunctions?.forEach((ssf: any) => {
@@ -152,6 +178,8 @@ export function StagesOverviewPanel({
               id: ssf.id,
               actualStartDate: ssfMin || undefined,
               actualEndDate: ssfMax || undefined,
+              hasEstStart: !!ssf.estimatedStartDate,
+              hasEstEnd: !!ssf.estimatedEndDate,
             });
           }
           // Also aggregate for stage-level min/max (use member-derived dates)
@@ -173,11 +201,17 @@ export function StagesOverviewPanel({
 
   const confirmSyncActualDates = () => {
     if (!syncStageId) return;
+    const currentStage = stages?.find((s) => s.id === syncStageId);
     syncActualDatesMutation.mutate({
       stageId: syncStageId,
       ssfUpdates: syncSsfUpdates,
       actualStartDate: syncCalcDates.start || undefined,
       actualEndDate: syncCalcDates.end || undefined,
+      syncEstStep,
+      syncEstStage,
+      syncOverrideEst,
+      currentStageStartDate: currentStage?.startDate,
+      currentStageEndDate: currentStage?.endDate,
     });
   };
 
@@ -495,6 +529,65 @@ export function StagesOverviewPanel({
                   })}
                 </Typography>
               )}
+
+              {/* Optional est. date sync checkboxes */}
+              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={syncEstStep}
+                      onChange={(e) => setSyncEstStep(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2">{t('stages.syncEstStep')}</Typography>}
+                  sx={{ display: 'flex', mb: 0.5 }}
+                />
+                {syncEstStep && (
+                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
+                    {t('stages.syncEstStepDesc')}
+                  </Typography>
+                )}
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={syncEstStage}
+                      onChange={(e) => setSyncEstStage(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2">{t('stages.syncEstStage')}</Typography>}
+                  sx={{ display: 'flex', mb: 0.5 }}
+                />
+                {syncEstStage && (
+                  <Typography variant="caption" color="primary" sx={{ pl: 4, display: 'block', mb: 1 }}>
+                    {t('stages.syncEstStageDesc')}
+                  </Typography>
+                )}
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={syncOverrideEst}
+                      disabled={!syncEstStep && !syncEstStage}
+                      onChange={(e) => setSyncOverrideEst(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color={!syncEstStep && !syncEstStage ? 'text.disabled' : 'text.primary'}>
+                      {t('stages.syncOverrideEst')}
+                    </Typography>
+                  }
+                  sx={{ display: 'flex' }}
+                />
+                {syncOverrideEst && (
+                  <Typography variant="caption" color="warning.main" sx={{ pl: 4, display: 'block' }}>
+                    {t('stages.syncOverrideEstDesc')}
+                  </Typography>
+                )}
+              </Box>
             </Box>
           )}
         </DialogContent>

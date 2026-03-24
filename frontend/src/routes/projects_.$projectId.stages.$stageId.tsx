@@ -44,7 +44,7 @@ function StageDetail() {
   } | null>(null);
   const [showUpdateActualDateConfirm, setShowUpdateActualDateConfirm] = useState(false);
   const [calculatedDates, setCalculatedDates] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
-  const [ssfDateUpdates, setSsfDateUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string }>>([]);
+  const [ssfDateUpdates, setSsfDateUpdates] = useState<Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }>>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("asc");
   const [showQuickLink, setShowQuickLink] = useState(false);
@@ -177,18 +177,37 @@ function StageDetail() {
 
   // Update stage actual dates mutation (also syncs SSF dates from members)
   const updateStageDatesMutation = useMutation({
-    mutationFn: async (data: { actualStartDate?: string; actualEndDate?: string }) => {
-      // Step 1: update each SSF with member-derived dates
+    mutationFn: async (data: {
+      actualStartDate?: string;
+      actualEndDate?: string;
+      syncEstStep: boolean;
+      syncEstStage: boolean;
+      syncOverrideEst: boolean;
+    }) => {
+      // Step 1: update each SSF with member-derived actual dates + optional est dates
       await Promise.all(
-        ssfDateUpdates.map((u) =>
-          taskWorkflowApi.updateStepScreenFunction(u.id, {
+        ssfDateUpdates.map((u) => {
+          const payload: Record<string, string | undefined> = {
             actualStartDate: u.actualStartDate,
             actualEndDate: u.actualEndDate,
-          })
-        )
+          };
+          if (data.syncEstStep) {
+            if (data.syncOverrideEst || !u.hasEstStart) payload.estimatedStartDate = u.actualStartDate;
+            if (data.syncOverrideEst || !u.hasEstEnd) payload.estimatedEndDate = u.actualEndDate;
+          }
+          return taskWorkflowApi.updateStepScreenFunction(u.id, payload);
+        })
       );
-      // Step 2: update stage
-      return taskWorkflowApi.updateStage(parseInt(stageId), data);
+      // Step 2: update stage actual + optional est dates
+      const stagePayload: Record<string, string | undefined> = {
+        actualStartDate: data.actualStartDate,
+        actualEndDate: data.actualEndDate,
+      };
+      if (data.syncEstStage) {
+        if (data.syncOverrideEst || !stage.startDate) stagePayload.startDate = data.actualStartDate;
+        if (data.syncOverrideEst || !stage.endDate) stagePayload.endDate = data.actualEndDate;
+      }
+      return taskWorkflowApi.updateStage(parseInt(stageId), stagePayload);
     },
     onSuccess: () => {
       invalidateStageQueries();
@@ -293,7 +312,7 @@ function StageDetail() {
 
     let minStartDate: string | null = null;
     let maxEndDate: string | null = null;
-    const updates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string }> = [];
+    const updates: Array<{ id: number; actualStartDate?: string; actualEndDate?: string; hasEstStart: boolean; hasEstEnd: boolean }> = [];
 
     // Iterate through all steps and screen functions
     stageDetail.steps.forEach(step => {
@@ -314,6 +333,8 @@ function StageDetail() {
             id: ssf.id,
             actualStartDate: ssfMin || undefined,
             actualEndDate: ssfMax || undefined,
+            hasEstStart: !!ssf.estimatedStartDate,
+            hasEstEnd: !!ssf.estimatedEndDate,
           });
         }
 
@@ -327,10 +348,11 @@ function StageDetail() {
     setShowUpdateActualDateConfirm(true);
   };
 
-  const confirmUpdateActualDate = () => {
+  const confirmUpdateActualDate = (opts: { syncEstStep: boolean; syncEstStage: boolean; syncOverrideEst: boolean }) => {
     updateStageDatesMutation.mutate({
       actualStartDate: calculatedDates.start || undefined,
       actualEndDate: calculatedDates.end || undefined,
+      ...opts,
     });
   };
 
