@@ -898,6 +898,16 @@
     "completed": "Đã hoàn thành",
     "incomplete": "Chưa hoàn thành",
     "exportExcel": "Xuất Excel",
+    "exportDialog": {
+      "title": "Xuất Excel — Chọn nội dung",
+      "selectAll": "Chọn tất cả",
+      "deselectAll": "Bỏ chọn tất cả",
+      "cancel": "Hủy",
+      "export": "Xuất Excel",
+      "noStages": "Không có dữ liệu stage",
+      "noScreenFunctions": "Không có màn hình/chức năng",
+      "selectedCount": "Đã chọn {{count}}"
+    },
     "noWorkflow": "Chưa cấu hình workflow",
     "initializeDescription": "Khởi tạo các giai đoạn và bước mặc định để bắt đầu.",
     "initialize": "Khởi tạo Workflow",

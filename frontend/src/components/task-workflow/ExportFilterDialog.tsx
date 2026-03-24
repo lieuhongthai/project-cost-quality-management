@@ -5,9 +5,11 @@ import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Typography from "@mui/material/Typography";
+import Chip from "@mui/material/Chip";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import IconButton from "@mui/material/IconButton";
+import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/common/Modal";
 import { Button } from "@/components/common/Button";
 import type { StageDetailData, StageOverviewData } from "@/types";
@@ -15,9 +17,7 @@ import type { StageDetailData, StageOverviewData } from "@/types";
 interface ExportFilterDialogProps {
   open: boolean;
   onClose: () => void;
-  /** All stage overview data (already fetched by the parent) */
   stagesOverview: StageOverviewData[];
-  /** All stage detail data (already fetched by the parent) */
   stagesDetail: StageDetailData[];
   loading: boolean;
   onExport: (
@@ -39,44 +39,41 @@ export function ExportFilterDialog({
   onExport,
   exporting,
 }: ExportFilterDialogProps) {
-  // ── Selection state: sets of IDs ──────────────────────────────────────────
+  const { t } = useTranslation();
+
   const [selectedStages, setSelectedStages] = useState<Set<number>>(new Set());
   const [selectedSteps, setSelectedSteps] = useState<Set<StepId>>(new Set());
   const [selectedSsfs, setSelectedSsfs] = useState<Set<SsfId>>(new Set());
-
-  // ── Expansion state for stages/steps ─────────────────────────────────────
   const [expandedStages, setExpandedStages] = useState<Set<number>>(new Set());
-  const [expandedSteps, setExpandedSteps] = useState<Set<StepId>>(new Set());
 
   // Select all on initial load
   useEffect(() => {
     if (!stagesDetail.length) return;
-    const stageIds = new Set(stagesDetail.map((d) => d.stage.id));
-    const stepIds = new Set(
-      stagesDetail.flatMap((d) => d.steps.map((st) => st.id))
+    setSelectedStages(new Set(stagesDetail.map((d) => d.stage.id)));
+    setSelectedSteps(
+      new Set(stagesDetail.flatMap((d) => d.steps.map((s) => s.id)))
     );
-    const ssfIds = new Set(
-      stagesDetail.flatMap((d) =>
-        d.steps.flatMap((st) => st.screenFunctions.map((ssf) => ssf.id))
+    setSelectedSsfs(
+      new Set(
+        stagesDetail.flatMap((d) =>
+          d.steps.flatMap((s) => s.screenFunctions.map((ssf) => ssf.id))
+        )
       )
     );
-    setSelectedStages(stageIds);
-    setSelectedSteps(stepIds);
-    setSelectedSsfs(ssfIds);
     setExpandedStages(new Set(stagesDetail.map((d) => d.stage.id)));
   }, [stagesDetail]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const allSsfIdsForStep = (detail: StageDetailData, stepId: StepId) => {
-    const step = detail.steps.find((s) => s.id === stepId);
-    return step ? step.screenFunctions.map((ssf) => ssf.id) : [];
-  };
-
   const allStepIdsForStage = (detail: StageDetailData) =>
     detail.steps.map((s) => s.id);
 
   const allSsfIdsForStage = (detail: StageDetailData) =>
     detail.steps.flatMap((s) => s.screenFunctions.map((ssf) => ssf.id));
+
+  const allSsfIdsForStep = (detail: StageDetailData, stepId: StepId) =>
+    (detail.steps.find((s) => s.id === stepId)?.screenFunctions ?? []).map(
+      (ssf) => ssf.id
+    );
 
   // ── Toggle handlers ───────────────────────────────────────────────────────
   const toggleStage = (detail: StageDetailData) => {
@@ -114,15 +111,14 @@ export function ExportFilterDialog({
       ssfIds.forEach((id) => (adding ? next.add(id) : next.delete(id)));
       return next;
     });
-    // Update parent stage indeterminate state (re-derive via render)
-    // If any step is selected, ensure stage is selected
     setSelectedStages((prev) => {
       const next = new Set(prev);
-      const stageStepIds = allStepIdsForStage(detail);
-      const anySelected = adding
+      const anyStepSelected = adding
         ? true
-        : stageStepIds.some((id) => id !== stepId && prev.has(id));
-      anySelected
+        : allStepIdsForStage(detail).some(
+            (id) => id !== stepId && prev.has(id)
+          );
+      anyStepSelected
         ? next.add(detail.stage.id)
         : next.delete(detail.stage.id);
       return next;
@@ -143,12 +139,10 @@ export function ExportFilterDialog({
     // Propagate up to step
     setSelectedSteps((prev) => {
       const next = new Set(prev);
-      const step = detail.steps.find((s) => s.id === stepId);
-      if (!step) return next;
-      const anySelected = step.screenFunctions.some(
-        (ssf) => ssf.id !== ssfId && prev.has(ssf.id)
-      );
-      (adding || anySelected) ? next.add(stepId) : next.delete(stepId);
+      const ssfIds = allSsfIdsForStep(detail, stepId);
+      const anySelected =
+        adding || ssfIds.some((id) => id !== ssfId && prev.has(id));
+      anySelected ? next.add(stepId) : next.delete(stepId);
       return next;
     });
     // Propagate up to stage
@@ -156,9 +150,9 @@ export function ExportFilterDialog({
       const next = new Set(prev);
       const anySsfSelected =
         adding ||
-        detail.steps
-          .flatMap((s) => s.screenFunctions)
-          .some((ssf) => ssf.id !== ssfId && selectedSsfs.has(ssf.id));
+        allSsfIdsForStage(detail).some(
+          (id) => id !== ssfId && selectedSsfs.has(id)
+        );
       anySsfSelected
         ? next.add(detail.stage.id)
         : next.delete(detail.stage.id);
@@ -166,7 +160,6 @@ export function ExportFilterDialog({
     });
   };
 
-  // Select all / deselect all
   const selectAll = () => {
     setSelectedStages(new Set(stagesDetail.map((d) => d.stage.id)));
     setSelectedSteps(
@@ -180,6 +173,7 @@ export function ExportFilterDialog({
       )
     );
   };
+
   const deselectAll = () => {
     setSelectedStages(new Set());
     setSelectedSteps(new Set());
@@ -188,25 +182,22 @@ export function ExportFilterDialog({
 
   // ── Indeterminate helpers ─────────────────────────────────────────────────
   const stageIndeterminate = (detail: StageDetailData) => {
-    const stepIds = allStepIdsForStage(detail);
     const ssfIds = allSsfIdsForStage(detail);
-    const allSel =
-      stepIds.every((id) => selectedSteps.has(id)) &&
-      ssfIds.every((id) => selectedSsfs.has(id));
-    const noneSel =
-      !stepIds.some((id) => selectedSteps.has(id)) &&
-      !ssfIds.some((id) => selectedSsfs.has(id));
-    return !allSel && !noneSel;
-  };
-
-  const stepIndeterminate = (detail: StageDetailData, stepId: StepId) => {
-    const ssfIds = allSsfIdsForStep(detail, stepId);
+    if (!ssfIds.length) return false;
     const allSel = ssfIds.every((id) => selectedSsfs.has(id));
     const noneSel = !ssfIds.some((id) => selectedSsfs.has(id));
     return !allSel && !noneSel;
   };
 
-  // ── Build filtered data for export ───────────────────────────────────────
+  const stepIndeterminate = (detail: StageDetailData, stepId: StepId) => {
+    const ssfIds = allSsfIdsForStep(detail, stepId);
+    if (!ssfIds.length) return false;
+    const allSel = ssfIds.every((id) => selectedSsfs.has(id));
+    const noneSel = !ssfIds.some((id) => selectedSsfs.has(id));
+    return !allSel && !noneSel;
+  };
+
+  // ── Filtered data for export ──────────────────────────────────────────────
   const filteredData = useMemo(() => {
     const filteredDetail: StageDetailData[] = stagesDetail
       .filter((d) => selectedStages.has(d.stage.id))
@@ -230,28 +221,40 @@ export function ExportFilterDialog({
     return { filteredOverview, filteredDetail };
   }, [selectedStages, selectedSteps, selectedSsfs, stagesDetail, stagesOverview]);
 
+  const totalSsfs = stagesDetail.flatMap((d) =>
+    d.steps.flatMap((s) => s.screenFunctions)
+  ).length;
+
   const canExport = filteredData.filteredDetail.length > 0;
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Modal
       isOpen={open}
       onClose={onClose}
-      title="Xuất Excel — Chọn nội dung"
+      title={t("taskWorkflow.exportDialog.title")}
       size="md"
       footer={
         <div className="flex justify-between items-center w-full">
-          <div className="flex gap-2">
+          <div className="flex gap-1 items-center">
             <Button variant="ghost" size="sm" onClick={selectAll}>
-              Chọn tất cả
+              {t("taskWorkflow.exportDialog.selectAll")}
             </Button>
+            <span className="text-gray-300">|</span>
             <Button variant="ghost" size="sm" onClick={deselectAll}>
-              Bỏ chọn tất cả
+              {t("taskWorkflow.exportDialog.deselectAll")}
             </Button>
+            {totalSsfs > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                {t("taskWorkflow.exportDialog.selectedCount", {
+                  count: selectedSsfs.size,
+                })}{" "}
+                / {totalSsfs}
+              </Typography>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose} disabled={exporting}>
-              Hủy
+              {t("taskWorkflow.exportDialog.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -264,7 +267,7 @@ export function ExportFilterDialog({
               disabled={!canExport || exporting}
               loading={exporting}
             >
-              Xuất Excel
+              {t("taskWorkflow.exportDialog.export")}
             </Button>
           </div>
         </div>
@@ -274,14 +277,18 @@ export function ExportFilterDialog({
         <div className="flex justify-center py-10">
           <CircularProgress />
         </div>
+      ) : stagesDetail.length === 0 ? (
+        <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+          {t("taskWorkflow.exportDialog.noStages")}
+        </Typography>
       ) : (
-        <div className="space-y-1">
+        <div>
           {stagesDetail.map((detail) => {
             const stageExpanded = expandedStages.has(detail.stage.id);
             return (
               <div key={detail.stage.id}>
-                {/* Stage row */}
-                <div className="flex items-center gap-1 py-0.5 rounded hover:bg-gray-50">
+                {/* ── Stage row ── */}
+                <div className="flex items-center gap-1 py-1 rounded hover:bg-gray-50">
                   <IconButton
                     size="small"
                     onClick={() =>
@@ -318,106 +325,81 @@ export function ExportFilterDialog({
                   />
                 </div>
 
-                {/* Steps */}
+                {/* ── Steps (always-expanded list, no extra click needed) ── */}
                 <Collapse in={stageExpanded} unmountOnExit>
-                  <div className="ml-8">
-                    {detail.steps.map((step) => {
-                      const stepExpanded = expandedSteps.has(step.id);
-                      return (
-                        <div key={step.id}>
-                          {/* Step row */}
-                          <div className="flex items-center gap-1 py-0.5 rounded hover:bg-gray-50">
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                setExpandedSteps((prev) => {
-                                  const next = new Set(prev);
-                                  stepExpanded
-                                    ? next.delete(step.id)
-                                    : next.add(step.id);
-                                  return next;
-                                })
-                              }
-                            >
-                              {stepExpanded ? (
-                                <ExpandMoreIcon fontSize="small" />
-                              ) : (
-                                <ChevronRightIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                            <FormControlLabel
-                              sx={{ m: 0, flex: 1 }}
-                              control={
-                                <Checkbox
-                                  checked={selectedSteps.has(step.id)}
-                                  indeterminate={stepIndeterminate(
-                                    detail,
-                                    step.id
-                                  )}
-                                  onChange={() => toggleStep(detail, step.id)}
-                                  size="small"
-                                />
-                              }
-                              label={
-                                <Typography fontSize={13} color="text.secondary">
-                                  {step.name}
-                                </Typography>
-                              }
-                            />
-                          </div>
-
-                          {/* Screen functions */}
-                          <Collapse in={stepExpanded} unmountOnExit>
-                            <div className="ml-8">
-                              {step.screenFunctions.map((ssf) => (
-                                <FormControlLabel
-                                  key={ssf.id}
-                                  sx={{ m: 0, display: "flex", py: 0.25 }}
-                                  control={
-                                    <Checkbox
-                                      checked={selectedSsfs.has(ssf.id)}
-                                      onChange={() =>
-                                        toggleSsf(detail, step.id, ssf.id)
-                                      }
-                                      size="small"
-                                    />
-                                  }
-                                  label={
-                                    <Typography
-                                      fontSize={12}
-                                      color="text.secondary"
-                                    >
-                                      {ssf.screenFunction.name}
-                                    </Typography>
-                                  }
-                                />
-                              ))}
-                              {step.screenFunctions.length === 0 && (
-                                <Typography
-                                  fontSize={12}
-                                  color="text.disabled"
-                                  sx={{ pl: 1, py: 0.5 }}
-                                >
-                                  Không có màn hình/chức năng
-                                </Typography>
-                              )}
-                            </div>
-                          </Collapse>
-                          <Divider sx={{ ml: 4, opacity: 0.4 }} />
+                  <div className="ml-8 pb-1">
+                    {detail.steps.map((step, stepIdx) => (
+                      <div key={step.id}>
+                        {/* Step header with checkbox */}
+                        <div className="flex items-center gap-1 pt-1">
+                          <FormControlLabel
+                            sx={{ m: 0 }}
+                            control={
+                              <Checkbox
+                                checked={selectedSteps.has(step.id)}
+                                indeterminate={stepIndeterminate(detail, step.id)}
+                                onChange={() => toggleStep(detail, step.id)}
+                                size="small"
+                              />
+                            }
+                            label={
+                              <Typography
+                                fontSize={13}
+                                fontWeight={500}
+                                color="text.secondary"
+                              >
+                                {step.name}
+                              </Typography>
+                            }
+                          />
                         </div>
-                      );
-                    })}
+
+                        {/* Screen functions as chips — always visible, no expand needed */}
+                        <div className="flex flex-wrap gap-1.5 pl-8 pb-2 pt-1">
+                          {step.screenFunctions.length === 0 ? (
+                            <Typography
+                              fontSize={11}
+                              color="text.disabled"
+                              sx={{ py: 0.5 }}
+                            >
+                              {t("taskWorkflow.exportDialog.noScreenFunctions")}
+                            </Typography>
+                          ) : (
+                            step.screenFunctions.map((ssf) => {
+                              const selected = selectedSsfs.has(ssf.id);
+                              return (
+                                <Chip
+                                  key={ssf.id}
+                                  label={ssf.screenFunction.name}
+                                  size="small"
+                                  onClick={() =>
+                                    toggleSsf(detail, step.id, ssf.id)
+                                  }
+                                  variant={selected ? "filled" : "outlined"}
+                                  color={selected ? "primary" : "default"}
+                                  sx={{
+                                    fontSize: 11,
+                                    height: 24,
+                                    cursor: "pointer",
+                                    opacity: selected ? 1 : 0.5,
+                                  }}
+                                />
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {stepIdx < detail.steps.length - 1 && (
+                          <Divider sx={{ opacity: 0.3 }} />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </Collapse>
                 <Divider />
               </div>
             );
           })}
-          {stagesDetail.length === 0 && (
-            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-              Không có dữ liệu stage
-            </Typography>
-          )}
         </div>
       )}
     </Modal>

@@ -899,6 +899,16 @@
     "completed": "Completed",
     "incomplete": "Incomplete",
     "exportExcel": "Export Excel",
+    "exportDialog": {
+      "title": "Export Excel — Select Content",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "cancel": "Cancel",
+      "export": "Export Excel",
+      "noStages": "No stage data",
+      "noScreenFunctions": "No screen functions",
+      "selectedCount": "{{count}} selected"
+    },
     "noWorkflow": "No workflow configured",
     "initializeDescription": "Initialize the default workflow stages and steps to get started.",
     "initialize": "Initialize Workflow",
