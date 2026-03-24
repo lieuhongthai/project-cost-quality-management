@@ -906,7 +906,9 @@
       "export": "Xuất Excel",
       "noStages": "Không có dữ liệu stage",
       "noScreenFunctions": "Không có màn hình/chức năng",
-      "selectedCount": "Đã chọn {{count}}"
+      "selectedCount": "Đã chọn {{count}}",
+      "selectStep": "Chọn tất cả",
+      "deselectStep": "Bỏ chọn tất cả"
     },
     "noWorkflow": "Chưa cấu hình workflow",
     "initializeDescription": "Khởi tạo các giai đoạn và bước mặc định để bắt đầu.",

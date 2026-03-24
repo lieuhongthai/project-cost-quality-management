@@ -907,7 +907,9 @@
       "export": "Export Excel",
       "noStages": "No stage data",
       "noScreenFunctions": "No screen functions",
-      "selectedCount": "{{count}} selected"
+      "selectedCount": "{{count}} selected",
+      "selectStep": "Select all",
+      "deselectStep": "Deselect all"
     },
     "noWorkflow": "No workflow configured",
     "initializeDescription": "Initialize the default workflow stages and steps to get started.",

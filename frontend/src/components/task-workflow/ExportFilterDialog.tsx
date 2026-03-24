@@ -330,10 +330,10 @@ export function ExportFilterDialog({
                   <div className="ml-8 pb-1">
                     {detail.steps.map((step, stepIdx) => (
                       <div key={step.id}>
-                        {/* Step header with checkbox */}
+                        {/* Step header with checkbox + quick select/deselect */}
                         <div className="flex items-center gap-1 pt-1">
                           <FormControlLabel
-                            sx={{ m: 0 }}
+                            sx={{ m: 0, flex: 1 }}
                             control={
                               <Checkbox
                                 checked={selectedSteps.has(step.id)}
@@ -352,6 +352,63 @@ export function ExportFilterDialog({
                               </Typography>
                             }
                           />
+                          {step.screenFunctions.length > 0 && (
+                            <Typography
+                              component="span"
+                              fontSize={11}
+                              sx={{
+                                color: "primary.main",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                                pr: 1,
+                                "&:hover": { textDecoration: "underline" },
+                              }}
+                              onClick={() => {
+                                const ssfIds = allSsfIdsForStep(detail, step.id);
+                                const allSelected = ssfIds.every((id) =>
+                                  selectedSsfs.has(id)
+                                );
+                                // toggle all ssf for this step
+                                setSelectedSsfs((prev) => {
+                                  const next = new Set(prev);
+                                  ssfIds.forEach((id) =>
+                                    allSelected ? next.delete(id) : next.add(id)
+                                  );
+                                  return next;
+                                });
+                                // sync step checkbox
+                                setSelectedSteps((prev) => {
+                                  const next = new Set(prev);
+                                  allSelected
+                                    ? next.delete(step.id)
+                                    : next.add(step.id);
+                                  return next;
+                                });
+                                // sync stage checkbox
+                                setSelectedStages((prev) => {
+                                  const next = new Set(prev);
+                                  const stageSsfIds = allSsfIdsForStage(detail);
+                                  const anyLeft = allSelected
+                                    ? stageSsfIds.some(
+                                        (id) =>
+                                          !ssfIds.includes(id) &&
+                                          selectedSsfs.has(id)
+                                      )
+                                    : true;
+                                  anyLeft
+                                    ? next.add(detail.stage.id)
+                                    : next.delete(detail.stage.id);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {allSsfIdsForStep(detail, step.id).every((id) =>
+                                selectedSsfs.has(id)
+                              )
+                                ? t("taskWorkflow.exportDialog.deselectStep")
+                                : t("taskWorkflow.exportDialog.selectStep")}
+                            </Typography>
+                          )}
                         </div>
 
                         {/* Screen functions as chips — always visible, no expand needed */}
