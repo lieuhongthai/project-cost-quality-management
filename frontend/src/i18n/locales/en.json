@@ -909,7 +909,10 @@
       "noScreenFunctions": "No screen functions",
       "selectedCount": "{{count}} selected",
       "selectStep": "Select all",
-      "deselectStep": "Deselect all"
+      "deselectStep": "Deselect all",
+      "tabDetail": "Detail",
+      "tabQuick": "Quick Select",
+      "noStepSelected": "Select a step to view its screen functions"
     },
     "noWorkflow": "No workflow configured",
     "initializeDescription": "Initialize the default workflow stages and steps to get started.",

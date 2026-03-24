@@ -6,6 +6,8 @@ import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import IconButton from "@mui/material/IconButton";
@@ -41,10 +43,13 @@ export function ExportFilterDialog({
 }: ExportFilterDialogProps) {
   const { t } = useTranslation();
 
+  const [activeTab, setActiveTab] = useState(0);
   const [selectedStages, setSelectedStages] = useState<Set<number>>(new Set());
   const [selectedSteps, setSelectedSteps] = useState<Set<StepId>>(new Set());
   const [selectedSsfs, setSelectedSsfs] = useState<Set<SsfId>>(new Set());
   const [expandedStages, setExpandedStages] = useState<Set<number>>(new Set());
+  // Tab 2: which step is focused in the right panel
+  const [focusedStepId, setFocusedStepId] = useState<StepId | null>(null);
 
   // Select all on initial load
   useEffect(() => {
@@ -61,6 +66,9 @@ export function ExportFilterDialog({
       )
     );
     setExpandedStages(new Set(stagesDetail.map((d) => d.stage.id)));
+    // auto-focus first step for tab 2
+    const firstStep = stagesDetail[0]?.steps[0];
+    if (firstStep) setFocusedStepId(firstStep.id);
   }, [stagesDetail]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -136,7 +144,6 @@ export function ExportFilterDialog({
       adding ? next.add(ssfId) : next.delete(ssfId);
       return next;
     });
-    // Propagate up to step
     setSelectedSteps((prev) => {
       const next = new Set(prev);
       const ssfIds = allSsfIdsForStep(detail, stepId);
@@ -145,7 +152,6 @@ export function ExportFilterDialog({
       anySelected ? next.add(stepId) : next.delete(stepId);
       return next;
     });
-    // Propagate up to stage
     setSelectedStages((prev) => {
       const next = new Set(prev);
       const anySsfSelected =
@@ -227,6 +233,43 @@ export function ExportFilterDialog({
 
   const canExport = filteredData.filteredDetail.length > 0;
 
+  // ── Tab 2: focused step data ──────────────────────────────────────────────
+  const focusedStepData = useMemo(() => {
+    if (focusedStepId === null) return null;
+    for (const detail of stagesDetail) {
+      const step = detail.steps.find((s) => s.id === focusedStepId);
+      if (step) return { detail, step };
+    }
+    return null;
+  }, [focusedStepId, stagesDetail]);
+
+  // ── Quick toggle for step's ssf inline (Tab 1) ───────────────────────────
+  const quickToggleStepSsfs = (detail: StageDetailData, stepId: StepId) => {
+    const ssfIds = allSsfIdsForStep(detail, stepId);
+    const allSelected = ssfIds.every((id) => selectedSsfs.has(id));
+    setSelectedSsfs((prev) => {
+      const next = new Set(prev);
+      ssfIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+    setSelectedSteps((prev) => {
+      const next = new Set(prev);
+      allSelected ? next.delete(stepId) : next.add(stepId);
+      return next;
+    });
+    setSelectedStages((prev) => {
+      const next = new Set(prev);
+      const stageSsfIds = allSsfIdsForStage(detail);
+      const anyLeft = allSelected
+        ? stageSsfIds.some(
+            (id) => !ssfIds.includes(id) && selectedSsfs.has(id)
+          )
+        : true;
+      anyLeft ? next.add(detail.stage.id) : next.delete(detail.stage.id);
+      return next;
+    });
+  };
+
   return (
     <Modal
       isOpen={open}
@@ -282,182 +325,368 @@ export function ExportFilterDialog({
           {t("taskWorkflow.exportDialog.noStages")}
         </Typography>
       ) : (
-        <div>
-          {stagesDetail.map((detail) => {
-            const stageExpanded = expandedStages.has(detail.stage.id);
-            return (
-              <div key={detail.stage.id}>
-                {/* ── Stage row ── */}
-                <div className="flex items-center gap-1 py-1 rounded hover:bg-gray-50">
-                  <IconButton
-                    size="small"
-                    onClick={() =>
-                      setExpandedStages((prev) => {
-                        const next = new Set(prev);
-                        stageExpanded
-                          ? next.delete(detail.stage.id)
-                          : next.add(detail.stage.id);
-                        return next;
-                      })
-                    }
-                  >
-                    {stageExpanded ? (
-                      <ExpandMoreIcon fontSize="small" />
-                    ) : (
-                      <ChevronRightIcon fontSize="small" />
-                    )}
-                  </IconButton>
-                  <FormControlLabel
-                    sx={{ m: 0, flex: 1 }}
-                    control={
+        <>
+          <Tabs
+            value={activeTab}
+            onChange={(_, v) => setActiveTab(v)}
+            sx={{ mb: 1, borderBottom: 1, borderColor: "divider" }}
+            variant="fullWidth"
+          >
+            <Tab
+              label={t("taskWorkflow.exportDialog.tabDetail")}
+              sx={{ fontSize: 13, textTransform: "none" }}
+            />
+            <Tab
+              label={t("taskWorkflow.exportDialog.tabQuick")}
+              sx={{ fontSize: 13, textTransform: "none" }}
+            />
+          </Tabs>
+
+          {/* ── Tab 1: tree view with chips inline ── */}
+          {activeTab === 0 && (
+            <div>
+              {stagesDetail.map((detail) => {
+                const stageExpanded = expandedStages.has(detail.stage.id);
+                return (
+                  <div key={detail.stage.id}>
+                    {/* Stage row */}
+                    <div className="flex items-center gap-1 py-1 rounded hover:bg-gray-50">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setExpandedStages((prev) => {
+                            const next = new Set(prev);
+                            stageExpanded
+                              ? next.delete(detail.stage.id)
+                              : next.add(detail.stage.id);
+                            return next;
+                          })
+                        }
+                      >
+                        {stageExpanded ? (
+                          <ExpandMoreIcon fontSize="small" />
+                        ) : (
+                          <ChevronRightIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                      <FormControlLabel
+                        sx={{ m: 0, flex: 1 }}
+                        control={
+                          <Checkbox
+                            checked={selectedStages.has(detail.stage.id)}
+                            indeterminate={stageIndeterminate(detail)}
+                            onChange={() => toggleStage(detail)}
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography fontWeight={600} fontSize={14}>
+                            {detail.stage.name}
+                          </Typography>
+                        }
+                      />
+                    </div>
+
+                    <Collapse in={stageExpanded} unmountOnExit>
+                      <div className="ml-8 pb-1">
+                        {detail.steps.map((step, stepIdx) => (
+                          <div key={step.id}>
+                            {/* Step header */}
+                            <div className="flex items-center gap-1 pt-1">
+                              <FormControlLabel
+                                sx={{ m: 0, flex: 1 }}
+                                control={
+                                  <Checkbox
+                                    checked={selectedSteps.has(step.id)}
+                                    indeterminate={stepIndeterminate(detail, step.id)}
+                                    onChange={() => toggleStep(detail, step.id)}
+                                    size="small"
+                                  />
+                                }
+                                label={
+                                  <Typography
+                                    fontSize={13}
+                                    fontWeight={500}
+                                    color="text.secondary"
+                                  >
+                                    {step.name}
+                                  </Typography>
+                                }
+                              />
+                              {step.screenFunctions.length > 0 && (
+                                <Typography
+                                  component="span"
+                                  fontSize={11}
+                                  sx={{
+                                    color: "primary.main",
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                    pr: 1,
+                                    "&:hover": { textDecoration: "underline" },
+                                  }}
+                                  onClick={() =>
+                                    quickToggleStepSsfs(detail, step.id)
+                                  }
+                                >
+                                  {allSsfIdsForStep(detail, step.id).every(
+                                    (id) => selectedSsfs.has(id)
+                                  )
+                                    ? t("taskWorkflow.exportDialog.deselectStep")
+                                    : t("taskWorkflow.exportDialog.selectStep")}
+                                </Typography>
+                              )}
+                            </div>
+
+                            {/* Screen function chips */}
+                            <div className="flex flex-wrap gap-1.5 pl-8 pb-2 pt-1">
+                              {step.screenFunctions.length === 0 ? (
+                                <Typography
+                                  fontSize={11}
+                                  color="text.disabled"
+                                  sx={{ py: 0.5 }}
+                                >
+                                  {t(
+                                    "taskWorkflow.exportDialog.noScreenFunctions"
+                                  )}
+                                </Typography>
+                              ) : (
+                                step.screenFunctions.map((ssf) => {
+                                  const selected = selectedSsfs.has(ssf.id);
+                                  return (
+                                    <Chip
+                                      key={ssf.id}
+                                      label={ssf.screenFunction.name}
+                                      size="small"
+                                      onClick={() =>
+                                        toggleSsf(detail, step.id, ssf.id)
+                                      }
+                                      variant={selected ? "filled" : "outlined"}
+                                      color={selected ? "primary" : "default"}
+                                      sx={{
+                                        fontSize: 11,
+                                        height: 24,
+                                        cursor: "pointer",
+                                        opacity: selected ? 1 : 0.5,
+                                      }}
+                                    />
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {stepIdx < detail.steps.length - 1 && (
+                              <Divider sx={{ opacity: 0.3 }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </Collapse>
+                    <Divider />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Tab 2: two-column quick select ── */}
+          {activeTab === 1 && (
+            <div className="flex gap-0" style={{ minHeight: 320 }}>
+              {/* Left: Stage/Step list */}
+              <div
+                className="flex flex-col overflow-y-auto"
+                style={{
+                  width: "42%",
+                  borderRight: "1px solid #e5e7eb",
+                  flexShrink: 0,
+                }}
+              >
+                {stagesDetail.map((detail) => (
+                  <div key={detail.stage.id}>
+                    {/* Stage header */}
+                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 sticky top-0 z-10">
                       <Checkbox
                         checked={selectedStages.has(detail.stage.id)}
                         indeterminate={stageIndeterminate(detail)}
                         onChange={() => toggleStage(detail)}
                         size="small"
+                        sx={{ p: 0.5 }}
                       />
-                    }
-                    label={
-                      <Typography fontWeight={600} fontSize={14}>
+                      <Typography
+                        fontSize={12}
+                        fontWeight={700}
+                        color="text.primary"
+                        sx={{ lineHeight: 1.3 }}
+                      >
                         {detail.stage.name}
                       </Typography>
-                    }
-                  />
-                </div>
+                    </div>
 
-                {/* ── Steps (always-expanded list, no extra click needed) ── */}
-                <Collapse in={stageExpanded} unmountOnExit>
-                  <div className="ml-8 pb-1">
-                    {detail.steps.map((step, stepIdx) => (
-                      <div key={step.id}>
-                        {/* Step header with checkbox + quick select/deselect */}
-                        <div className="flex items-center gap-1 pt-1">
-                          <FormControlLabel
-                            sx={{ m: 0, flex: 1 }}
-                            control={
-                              <Checkbox
-                                checked={selectedSteps.has(step.id)}
-                                indeterminate={stepIndeterminate(detail, step.id)}
-                                onChange={() => toggleStep(detail, step.id)}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography
-                                fontSize={13}
-                                fontWeight={500}
-                                color="text.secondary"
-                              >
-                                {step.name}
-                              </Typography>
-                            }
+                    {/* Steps */}
+                    {detail.steps.map((step) => {
+                      const isFocused = focusedStepId === step.id;
+                      return (
+                        <div
+                          key={step.id}
+                          className="flex items-center gap-1 px-2 py-1 cursor-pointer"
+                          style={{
+                            background: isFocused ? "#eff6ff" : undefined,
+                            borderLeft: isFocused
+                              ? "3px solid #3b82f6"
+                              : "3px solid transparent",
+                          }}
+                          onClick={() => setFocusedStepId(step.id)}
+                        >
+                          <Checkbox
+                            checked={selectedSteps.has(step.id)}
+                            indeterminate={stepIndeterminate(detail, step.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleStep(detail, step.id);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            size="small"
+                            sx={{ p: 0.5 }}
                           />
+                          <Typography
+                            fontSize={12}
+                            color={isFocused ? "primary.main" : "text.secondary"}
+                            fontWeight={isFocused ? 600 : 400}
+                            sx={{ lineHeight: 1.4 }}
+                          >
+                            {step.name}
+                          </Typography>
                           {step.screenFunctions.length > 0 && (
                             <Typography
-                              component="span"
-                              fontSize={11}
+                              fontSize={10}
                               sx={{
-                                color: "primary.main",
-                                cursor: "pointer",
-                                whiteSpace: "nowrap",
-                                pr: 1,
-                                "&:hover": { textDecoration: "underline" },
-                              }}
-                              onClick={() => {
-                                const ssfIds = allSsfIdsForStep(detail, step.id);
-                                const allSelected = ssfIds.every((id) =>
-                                  selectedSsfs.has(id)
-                                );
-                                // toggle all ssf for this step
-                                setSelectedSsfs((prev) => {
-                                  const next = new Set(prev);
-                                  ssfIds.forEach((id) =>
-                                    allSelected ? next.delete(id) : next.add(id)
-                                  );
-                                  return next;
-                                });
-                                // sync step checkbox
-                                setSelectedSteps((prev) => {
-                                  const next = new Set(prev);
-                                  allSelected
-                                    ? next.delete(step.id)
-                                    : next.add(step.id);
-                                  return next;
-                                });
-                                // sync stage checkbox
-                                setSelectedStages((prev) => {
-                                  const next = new Set(prev);
-                                  const stageSsfIds = allSsfIdsForStage(detail);
-                                  const anyLeft = allSelected
-                                    ? stageSsfIds.some(
-                                        (id) =>
-                                          !ssfIds.includes(id) &&
-                                          selectedSsfs.has(id)
-                                      )
-                                    : true;
-                                  anyLeft
-                                    ? next.add(detail.stage.id)
-                                    : next.delete(detail.stage.id);
-                                  return next;
-                                });
+                                ml: "auto",
+                                px: 0.75,
+                                py: 0.25,
+                                borderRadius: 10,
+                                bgcolor: selectedSteps.has(step.id)
+                                  ? "primary.light"
+                                  : "grey.200",
+                                color: selectedSteps.has(step.id)
+                                  ? "primary.contrastText"
+                                  : "text.disabled",
+                                flexShrink: 0,
                               }}
                             >
-                              {allSsfIdsForStep(detail, step.id).every((id) =>
-                                selectedSsfs.has(id)
-                              )
-                                ? t("taskWorkflow.exportDialog.deselectStep")
-                                : t("taskWorkflow.exportDialog.selectStep")}
+                              {
+                                step.screenFunctions.filter((ssf) =>
+                                  selectedSsfs.has(ssf.id)
+                                ).length
+                              }
+                              /{step.screenFunctions.length}
                             </Typography>
                           )}
                         </div>
-
-                        {/* Screen functions as chips — always visible, no expand needed */}
-                        <div className="flex flex-wrap gap-1.5 pl-8 pb-2 pt-1">
-                          {step.screenFunctions.length === 0 ? (
-                            <Typography
-                              fontSize={11}
-                              color="text.disabled"
-                              sx={{ py: 0.5 }}
-                            >
-                              {t("taskWorkflow.exportDialog.noScreenFunctions")}
-                            </Typography>
-                          ) : (
-                            step.screenFunctions.map((ssf) => {
-                              const selected = selectedSsfs.has(ssf.id);
-                              return (
-                                <Chip
-                                  key={ssf.id}
-                                  label={ssf.screenFunction.name}
-                                  size="small"
-                                  onClick={() =>
-                                    toggleSsf(detail, step.id, ssf.id)
-                                  }
-                                  variant={selected ? "filled" : "outlined"}
-                                  color={selected ? "primary" : "default"}
-                                  sx={{
-                                    fontSize: 11,
-                                    height: 24,
-                                    cursor: "pointer",
-                                    opacity: selected ? 1 : 0.5,
-                                  }}
-                                />
-                              );
-                            })
-                          )}
-                        </div>
-
-                        {stepIdx < detail.steps.length - 1 && (
-                          <Divider sx={{ opacity: 0.3 }} />
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
+                    <Divider />
                   </div>
-                </Collapse>
-                <Divider />
+                ))}
               </div>
-            );
-          })}
-        </div>
+
+              {/* Right: Screen functions for focused step */}
+              <div className="flex-1 overflow-y-auto px-3 py-2">
+                {focusedStepData ? (
+                  <>
+                    {/* Panel header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <Typography
+                        fontSize={12}
+                        fontWeight={600}
+                        color="text.primary"
+                      >
+                        {focusedStepData.step.name}
+                      </Typography>
+                      {focusedStepData.step.screenFunctions.length > 0 && (
+                        <Typography
+                          component="span"
+                          fontSize={11}
+                          sx={{
+                            color: "primary.main",
+                            cursor: "pointer",
+                            "&:hover": { textDecoration: "underline" },
+                          }}
+                          onClick={() =>
+                            quickToggleStepSsfs(
+                              focusedStepData.detail,
+                              focusedStepData.step.id
+                            )
+                          }
+                        >
+                          {allSsfIdsForStep(
+                            focusedStepData.detail,
+                            focusedStepData.step.id
+                          ).every((id) => selectedSsfs.has(id))
+                            ? t("taskWorkflow.exportDialog.deselectStep")
+                            : t("taskWorkflow.exportDialog.selectStep")}
+                        </Typography>
+                      )}
+                    </div>
+
+                    {focusedStepData.step.screenFunctions.length === 0 ? (
+                      <Typography fontSize={12} color="text.disabled">
+                        {t("taskWorkflow.exportDialog.noScreenFunctions")}
+                      </Typography>
+                    ) : (
+                      <div className="flex flex-col gap-0.5">
+                        {focusedStepData.step.screenFunctions.map((ssf) => {
+                          const selected = selectedSsfs.has(ssf.id);
+                          return (
+                            <div
+                              key={ssf.id}
+                              className="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-gray-50"
+                              onClick={() =>
+                                toggleSsf(
+                                  focusedStepData.detail,
+                                  focusedStepData.step.id,
+                                  ssf.id
+                                )
+                              }
+                            >
+                              <Checkbox
+                                checked={selected}
+                                size="small"
+                                sx={{ p: 0.5 }}
+                                onChange={() =>
+                                  toggleSsf(
+                                    focusedStepData.detail,
+                                    focusedStepData.step.id,
+                                    ssf.id
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Typography
+                                fontSize={12}
+                                color={
+                                  selected ? "text.primary" : "text.disabled"
+                                }
+                              >
+                                {ssf.screenFunction.name}
+                              </Typography>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Typography
+                    fontSize={12}
+                    color="text.disabled"
+                    sx={{ textAlign: "center", mt: 6 }}
+                  >
+                    {t("taskWorkflow.exportDialog.noStepSelected")}
+                  </Typography>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </Modal>
   );
