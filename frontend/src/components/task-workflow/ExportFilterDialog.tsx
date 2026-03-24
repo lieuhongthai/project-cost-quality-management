@@ -245,14 +245,13 @@ export function ExportFilterDialog({
 
   const canExport = filteredData.filteredDetail.length > 0;
 
-  // Tab 1 right panel: selected steps in order (for grouped view)
+  // Tab 1 right panel: all steps (not filtered by selectedSteps — right panel
+  // always shows every step so unchecking a step only deselects SSFs, not hides them)
   const selectedStepRows = useMemo(() =>
     stagesDetail.flatMap((detail) =>
-      detail.steps
-        .filter((step) => selectedSteps.has(step.id))
-        .map((step) => ({ detail, step }))
+      detail.steps.map((step) => ({ detail, step }))
     ),
-    [stagesDetail, selectedSteps]
+    [stagesDetail]
   );
 
   // Tab 2 right panel: unique screen functions (dedup by screenFunctionId)
