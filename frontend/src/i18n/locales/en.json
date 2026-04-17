@@ -689,7 +689,15 @@
     "noIssuesFound": "No issues found!",
     "allScreensClean": "All screens are clean.",
     "issues": "issues",
-    "distributionDescription": "Breakdown of issues by category for each metric type."
+    "distributionDescription": "Breakdown of issues by category for each metric type.",
+    "quickEntryTab": "Metric Entry",
+    "quickEntryDescription": "Quickly add or edit review/test/bug metrics without navigating into each task detail.",
+    "newMetricEntry": "New Metric",
+    "quickEntryDialogTitle": "Quick Metric Entry",
+    "loadTaskSteps": "Load Task Steps",
+    "noTaskStepMembers": "No task-step members found. Please select filters and load data.",
+    "currentValue": "Current",
+    "quickSaveSuccess": "Metric values have been saved successfully."
   },
   "productivity": {
     "title": "Team Productivity",
