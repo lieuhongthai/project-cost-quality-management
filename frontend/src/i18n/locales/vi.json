@@ -559,6 +559,8 @@
     "quickEntryDescription": "Thêm hoặc sửa nhanh nhiều category metric review/test/bug cùng lúc mà không cần đi sâu vào từng task.",
     "newMetricEntry": "Thêm Metric",
     "quickEntryDialogTitle": "Nhập nhanh Metric",
+    "metricListTitle": "Danh sách Metric đã nhập",
+    "metricListDescription": "Xem các giá trị metric đã được ghi nhận.",
     "loadTaskSteps": "Tải danh sách task-step",
     "noTaskStepMembers": "Không tìm thấy task-step member. Vui lòng chọn bộ lọc và tải dữ liệu.",
     "currentValue": "Hiện tại",

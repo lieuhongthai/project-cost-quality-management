@@ -24,6 +24,12 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
+import Table from '@mui/material/Table';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
+import TableBody from '@mui/material/TableBody';
+import Paper from '@mui/material/Paper';
 
 interface ProjectMetricQuickEntryTabProps {
   projectId: number;
@@ -37,6 +43,16 @@ interface MetricEntryRow {
   metricValues: Record<number, number>;
 }
 
+interface ExistingMetricRow {
+  stageId: number;
+  stageName: string;
+  stepName: string;
+  screenFunctionName: string;
+  metricTypeName: string;
+  categoryName: string;
+  value: number;
+}
+
 export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntryTabProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -48,6 +64,7 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
   const [rows, setRows] = useState<MetricEntryRow[]>([]);
   const [edits, setEdits] = useState<Record<number, Record<number, number>>>({});
   const [loadingRows, setLoadingRows] = useState(false);
+  const [listStageFilter, setListStageFilter] = useState<number | ''>('');
 
   const { data: metricTypes = [], isLoading: loadingMetricTypes } = useQuery({
     queryKey: ['metricTypes', projectId],
@@ -77,12 +94,66 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
     enabled: !!selectedStageId,
   });
 
+  const { data: metricSummary } = useQuery({
+    queryKey: ['projectMetricTypeSummary', projectId],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricTypeSummary(projectId);
+      return response.data;
+    },
+    enabled: !!projectId,
+  });
+
   const selectedMetricType = useMemo(
     () => metricTypes.find((mt) => mt.id === Number(selectedMetricTypeId)),
     [metricTypes, selectedMetricTypeId],
   );
 
   const categories = selectedMetricType?.categories || [];
+
+  const existingMetricRows = useMemo((): ExistingMetricRow[] => {
+    if (!metricSummary) return [];
+
+    const categoryMap = new Map<number, { categoryName: string; metricTypeName: string }>();
+    for (const metricType of metricSummary.metricTypes) {
+      for (const category of metricType.categories) {
+        categoryMap.set(category.id, {
+          categoryName: category.name,
+          metricTypeName: metricType.name,
+        });
+      }
+    }
+
+    const flattened: ExistingMetricRow[] = [];
+
+    for (const stage of metricSummary.stages) {
+      if (listStageFilter && stage.stageId !== Number(listStageFilter)) continue;
+
+      for (const step of stage.steps) {
+        for (const screenFunction of step.screenFunctions) {
+          for (const metric of screenFunction.metrics) {
+            if ((metric.value || 0) <= 0) continue;
+            const info = categoryMap.get(metric.metricCategoryId);
+            if (!info) continue;
+
+            flattened.push({
+              stageId: stage.stageId,
+              stageName: stage.stageName,
+              stepName: step.stepName,
+              screenFunctionName: screenFunction.screenFunctionName,
+              metricTypeName: info.metricTypeName,
+              categoryName: info.categoryName,
+              value: metric.value,
+            });
+          }
+        }
+      }
+    }
+
+    return flattened.sort((a, b) => {
+      if (a.stageId !== b.stageId) return a.stageId - b.stageId;
+      return a.screenFunctionName.localeCompare(b.screenFunctionName);
+    });
+  }, [listStageFilter, metricSummary]);
 
   const resetDialogState = () => {
     setSelectedMetricTypeId('');
@@ -242,6 +313,69 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
             + {t('metrics.newMetricEntry', 'New Metric')}
           </Button>
         </div>
+      </Card>
+
+      <Card title={t('metrics.metricListTitle', 'Added Metric List')}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('metrics.metricListDescription', 'View metric values that have already been logged.')}
+          </Typography>
+
+          <Box sx={{ maxWidth: 280 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('metrics.allStages', 'All stages')}</InputLabel>
+              <Select
+                value={listStageFilter}
+                label={t('metrics.allStages', 'All stages')}
+                onChange={(e) => setListStageFilter(e.target.value ? Number(e.target.value) : '')}
+              >
+                <MenuItem value="">{t('metrics.allStages', 'All stages')}</MenuItem>
+                {stages.map((stage: WorkflowStage) => (
+                  <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Typography variant="caption" color="text.secondary">
+            {t('common.total', 'Total')}: {existingMetricRows.length}
+          </Typography>
+
+          {existingMetricRows.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 3, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography color="text.secondary">
+                {t('metrics.noMetricsLogged', 'No metrics logged yet')}
+              </Typography>
+            </Box>
+          ) : (
+            <Paper variant="outlined" sx={{ maxHeight: 460, overflow: 'auto' }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('stages.title', 'Stage')}</TableCell>
+                    <TableCell>{t('stages.step', 'Step')}</TableCell>
+                    <TableCell>{t('nav.screenFunctions', 'Screen/Function')}</TableCell>
+                    <TableCell>{t('metrics.metricTypes', 'Metric Type')}</TableCell>
+                    <TableCell>{t('metrics.categories', 'Category')}</TableCell>
+                    <TableCell align="right">{t('metrics.value', 'Value')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {existingMetricRows.map((item, index) => (
+                    <TableRow key={`${item.stageId}-${item.stepName}-${item.screenFunctionName}-${item.categoryName}-${index}`} hover>
+                      <TableCell>{item.stageName}</TableCell>
+                      <TableCell>{item.stepName}</TableCell>
+                      <TableCell>{item.screenFunctionName}</TableCell>
+                      <TableCell>{item.metricTypeName}</TableCell>
+                      <TableCell>{item.categoryName}</TableCell>
+                      <TableCell align="right">{item.value}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
+        </Box>
       </Card>
 
       <Dialog open={openDialog} onClose={closeQuickDialog} maxWidth="lg" fullWidth disableScrollLock>

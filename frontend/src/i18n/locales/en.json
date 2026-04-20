@@ -694,6 +694,8 @@
     "quickEntryDescription": "Quickly add or edit multiple review/test/bug categories at once without navigating into each task detail.",
     "newMetricEntry": "New Metric",
     "quickEntryDialogTitle": "Quick Metric Entry",
+    "metricListTitle": "Added Metric List",
+    "metricListDescription": "View metric values that have already been logged.",
     "loadTaskSteps": "Load Task Steps",
     "noTaskStepMembers": "No task-step members found. Please select filters and load data.",
     "currentValue": "Current",
