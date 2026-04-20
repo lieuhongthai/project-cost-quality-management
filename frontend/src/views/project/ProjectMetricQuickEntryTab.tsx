@@ -30,6 +30,8 @@ import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import TableBody from '@mui/material/TableBody';
 import Paper from '@mui/material/Paper';
+import Tooltip from '@mui/material/Tooltip';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 interface ProjectMetricQuickEntryTabProps {
   projectId: number;
@@ -51,6 +53,14 @@ interface ExistingMetricRow {
   metricTypeName: string;
   categoryName: string;
   value: number;
+}
+
+interface InsightCard {
+  key: string;
+  label: string;
+  value: string;
+  formula: string;
+  meaning: string;
 }
 
 export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntryTabProps) {
@@ -154,6 +164,109 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
       return a.screenFunctionName.localeCompare(b.screenFunctionName);
     });
   }, [listStageFilter, metricSummary]);
+
+  const insightCards = useMemo((): InsightCard[] => {
+    if (!metricSummary) return [];
+
+    const categoryMap = new Map<number, { categoryName: string; metricTypeName: string }>();
+    for (const metricType of metricSummary.metricTypes) {
+      for (const category of metricType.categories) {
+        categoryMap.set(category.id, {
+          categoryName: category.name.trim().toLowerCase(),
+          metricTypeName: metricType.name.trim().toLowerCase(),
+        });
+      }
+    }
+
+    let totalScreens = 0;
+    let totalReviewIssues = 0;
+    let shiftLeftIssues = 0;
+    const stageRisk = new Map<number, { stageName: string; score: number }>();
+
+    for (const stage of metricSummary.stages) {
+      let stageScore = 0;
+
+      for (const step of stage.steps) {
+        totalScreens += step.screenFunctions.length;
+
+        for (const screenFunction of step.screenFunctions) {
+          for (const metric of screenFunction.metrics) {
+            const info = categoryMap.get(metric.metricCategoryId);
+            if (!info || (metric.value || 0) <= 0) continue;
+
+            const typeName = info.metricTypeName;
+            const categoryName = info.categoryName;
+            const value = metric.value || 0;
+
+            if (typeName !== 'test cases') {
+              totalReviewIssues += value;
+              if (typeName.includes('requirement') || typeName.includes('functional design')) {
+                shiftLeftIssues += value;
+              }
+            }
+
+            if (typeName.includes('requirement')) stageScore += value * 1.2;
+            else if (typeName.includes('functional design')) stageScore += value * 1.1;
+            else if (typeName.includes('coding')) stageScore += value * 1.0;
+            else if (typeName.includes('test cases') && categoryName === 'failed') stageScore += value * 1.5;
+            else stageScore += value * 0.9;
+          }
+        }
+      }
+
+      stageRisk.set(stage.stageId, {
+        stageName: stage.stageName,
+        score: stageScore,
+      });
+    }
+
+    const issueDensityPerScreen = totalScreens > 0 ? totalReviewIssues / totalScreens : 0;
+    const shiftLeftScore = totalReviewIssues > 0 ? (shiftLeftIssues / totalReviewIssues) * 100 : 0;
+    const topRiskStage = Array.from(stageRisk.values()).sort((a, b) => b.score - a.score)[0];
+
+    return [
+      {
+        key: 'total-review-issues',
+        label: t('metrics.insightTotalReviewIssues', 'Total Review Issues'),
+        value: totalReviewIssues.toLocaleString(),
+        formula: 'Σ(issue categories except Test Cases)',
+        meaning: t(
+          'metrics.insightTotalReviewIssuesMeaning',
+          'Total amount of review findings across requirement/design/coding/review metrics.',
+        ),
+      },
+      {
+        key: 'issue-density',
+        label: t('metrics.insightIssueDensity', 'Issue Density / Screen'),
+        value: issueDensityPerScreen.toFixed(2),
+        formula: 'Total Review Issues / Total Screen Functions',
+        meaning: t(
+          'metrics.insightIssueDensityMeaning',
+          'Higher value means quality problems are concentrated per screen and should be prioritized.',
+        ),
+      },
+      {
+        key: 'shift-left-score',
+        label: t('metrics.insightShiftLeftScore', 'Shift-left Score'),
+        value: `${shiftLeftScore.toFixed(1)}%`,
+        formula: '(Requirement + Functional Design issues) / Total Review Issues * 100',
+        meaning: t(
+          'metrics.insightShiftLeftMeaning',
+          'Higher score means more defects are caught earlier before coding/testing.',
+        ),
+      },
+      {
+        key: 'stage-risk-score',
+        label: t('metrics.insightStageRiskScore', 'Top Stage Risk Score'),
+        value: topRiskStage ? `${topRiskStage.stageName}: ${topRiskStage.score.toFixed(1)}` : '-',
+        formula: 'Requirement*1.2 + FunctionalDesign*1.1 + Coding*1.0 + FailedTest*1.5 (+ others*0.9)',
+        meaning: t(
+          'metrics.insightStageRiskMeaning',
+          'Weighted score to quickly identify the stage that is most likely to impact delivery quality/time.',
+        ),
+      },
+    ];
+  }, [metricSummary, t]);
 
   const resetDialogState = () => {
     setSelectedMetricTypeId('');
@@ -313,6 +426,50 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
             + {t('metrics.newMetricEntry', 'New Metric')}
           </Button>
         </div>
+      </Card>
+
+      <Card title={t('metrics.insightTitle', 'Meaningful Insights')}>
+        {insightCards.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 3, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Typography color="text.secondary">
+              {t('metrics.noMetricsLogged', 'No metrics logged yet')}
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {insightCards.map((item) => (
+              <Grid key={item.key} size={{ xs: 12, md: 6, lg: 3 }}>
+                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5, height: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary">{item.label}</Typography>
+                    <Tooltip
+                      title={
+                        <Box sx={{ p: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                            {t('metrics.formula', 'Formula')}
+                          </Typography>
+                          <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
+                            {item.formula}
+                          </Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                            {t('metrics.meaning', 'Meaning')}
+                          </Typography>
+                          <Typography variant="caption" sx={{ display: 'block' }}>
+                            {item.meaning}
+                          </Typography>
+                        </Box>
+                      }
+                      arrow
+                    >
+                      <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Typography variant="h6" fontWeight={700}>{item.value}</Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Card>
 
       <Card title={t('metrics.metricListTitle', 'Added Metric List')}>
