@@ -556,7 +556,7 @@
     "qualityMetrics": "Chỉ Số Chất Lượng",
     "defectRate": "Tỷ Lệ Lỗi",
     "quickEntryTab": "Nhập Metric nhanh",
-    "quickEntryDescription": "Thêm hoặc sửa nhanh metric review/test/bug mà không cần đi sâu vào từng task.",
+    "quickEntryDescription": "Thêm hoặc sửa nhanh nhiều category metric review/test/bug cùng lúc mà không cần đi sâu vào từng task.",
     "newMetricEntry": "Thêm Metric",
     "quickEntryDialogTitle": "Nhập nhanh Metric",
     "loadTaskSteps": "Tải danh sách task-step",

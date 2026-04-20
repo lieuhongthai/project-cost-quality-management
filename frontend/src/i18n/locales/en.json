@@ -691,7 +691,7 @@
     "issues": "issues",
     "distributionDescription": "Breakdown of issues by category for each metric type.",
     "quickEntryTab": "Metric Entry",
-    "quickEntryDescription": "Quickly add or edit review/test/bug metrics without navigating into each task detail.",
+    "quickEntryDescription": "Quickly add or edit multiple review/test/bug categories at once without navigating into each task detail.",
     "newMetricEntry": "New Metric",
     "quickEntryDialogTitle": "Quick Metric Entry",
     "loadTaskSteps": "Load Task Steps",

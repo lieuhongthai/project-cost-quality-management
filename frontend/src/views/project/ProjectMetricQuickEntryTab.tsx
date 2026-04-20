@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { taskWorkflowApi } from '@/services/api';
 import type {
   MetricType,
-  MetricCategory,
   WorkflowStage,
   WorkflowStep,
   StepScreenFunction,
@@ -44,11 +43,10 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
 
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedMetricTypeId, setSelectedMetricTypeId] = useState<number | ''>('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
   const [selectedStageId, setSelectedStageId] = useState<number | ''>('');
   const [selectedStepId, setSelectedStepId] = useState<number | ''>('');
   const [rows, setRows] = useState<MetricEntryRow[]>([]);
-  const [edits, setEdits] = useState<Record<number, number>>({});
+  const [edits, setEdits] = useState<Record<number, Record<number, number>>>({});
   const [loadingRows, setLoadingRows] = useState(false);
 
   const { data: metricTypes = [], isLoading: loadingMetricTypes } = useQuery({
@@ -84,11 +82,10 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
     [metricTypes, selectedMetricTypeId],
   );
 
-  const categories: MetricCategory[] = selectedMetricType?.categories || [];
+  const categories = selectedMetricType?.categories || [];
 
   const resetDialogState = () => {
     setSelectedMetricTypeId('');
-    setSelectedCategoryId('');
     setSelectedStageId('');
     setSelectedStepId('');
     setRows([]);
@@ -148,23 +145,34 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedCategoryId) return;
-
       const updates = rows
         .map((row) => {
-          const hasEdited = Object.prototype.hasOwnProperty.call(edits, row.memberTaskId);
-          if (!hasEdited) return null;
+          const rowEdit = edits[row.memberTaskId];
+          if (!rowEdit) return null;
 
-          const nextValue = Number(edits[row.memberTaskId] ?? 0);
-          const currentValue = Number(row.metricValues[Number(selectedCategoryId)] ?? 0);
-          if (nextValue === currentValue) return null;
+          const changedMetrics = categories
+            .map((category) => {
+              if (!Object.prototype.hasOwnProperty.call(rowEdit, category.id)) return null;
+
+              const nextValue = Number(rowEdit[category.id] ?? 0);
+              const currentValue = Number(row.metricValues[category.id] ?? 0);
+              if (nextValue === currentValue) return null;
+
+              return {
+                metricCategoryId: category.id,
+                value: nextValue,
+              };
+            })
+            .filter((item): item is { metricCategoryId: number; value: number } => Boolean(item));
+
+          if (changedMetrics.length === 0) return null;
 
           return {
             memberTaskId: row.memberTaskId,
-            value: nextValue,
+            metrics: changedMetrics,
           };
         })
-        .filter((item): item is { memberTaskId: number; value: number } => Boolean(item));
+        .filter((item): item is { memberTaskId: number; metrics: Array<{ metricCategoryId: number; value: number }> } => Boolean(item));
 
       if (updates.length === 0) return;
 
@@ -172,12 +180,7 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
         updates.map((item) =>
           taskWorkflowApi.bulkUpsertTaskMemberMetrics({
             stepScreenFunctionMemberId: item.memberTaskId,
-            metrics: [
-              {
-                metricCategoryId: Number(selectedCategoryId),
-                value: item.value,
-              },
-            ],
+            metrics: item.metrics,
           }),
         ),
       );
@@ -194,18 +197,24 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
     },
   });
 
-  const handleEditValue = (memberTaskId: number, value: number) => {
+  const handleEditValue = (memberTaskId: number, categoryId: number, value: number) => {
     setEdits((prev) => ({
       ...prev,
-      [memberTaskId]: Number.isFinite(value) ? Math.max(0, value) : 0,
+      [memberTaskId]: {
+        ...(prev[memberTaskId] || {}),
+        [categoryId]: Number.isFinite(value) ? Math.max(0, value) : 0,
+      },
     }));
   };
 
-  const getDisplayValue = (row: MetricEntryRow) => {
-    if (Object.prototype.hasOwnProperty.call(edits, row.memberTaskId)) {
-      return edits[row.memberTaskId];
+  const getDisplayValue = (row: MetricEntryRow, categoryId: number) => {
+    if (
+      edits[row.memberTaskId]
+      && Object.prototype.hasOwnProperty.call(edits[row.memberTaskId], categoryId)
+    ) {
+      return edits[row.memberTaskId][categoryId];
     }
-    return row.metricValues[Number(selectedCategoryId)] ?? 0;
+    return row.metricValues[categoryId] ?? 0;
   };
 
   if (loadingMetricTypes || loadingStages) {
@@ -248,7 +257,6 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
                     label={t('metrics.metricTypes')}
                     onChange={(e) => {
                       setSelectedMetricTypeId(Number(e.target.value));
-                      setSelectedCategoryId('');
                       setRows([]);
                       setEdits({});
                     }}
@@ -260,26 +268,7 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
                 </FormControl>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 3 }}>
-                <FormControl fullWidth size="small" disabled={!selectedMetricTypeId}>
-                  <InputLabel>{t('metrics.categories')}</InputLabel>
-                  <Select
-                    value={selectedCategoryId}
-                    label={t('metrics.categories')}
-                    onChange={(e) => {
-                      setSelectedCategoryId(Number(e.target.value));
-                      setRows([]);
-                      setEdits({});
-                    }}
-                  >
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t('stages.title')}</InputLabel>
                   <Select
@@ -299,7 +288,7 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
                 </FormControl>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <FormControl fullWidth size="small" disabled={!selectedStageId}>
                   <InputLabel>{t('stages.step')}</InputLabel>
                   <Select
@@ -323,14 +312,14 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
               <Button
                 variant="outlined"
                 onClick={loadRowsForStep}
-                disabled={!selectedCategoryId || !selectedStepId || loadingRows}
+                disabled={!selectedMetricTypeId || !selectedStepId || loadingRows}
               >
                 {loadingRows ? t('common.loading') : t('metrics.loadTaskSteps', 'Load Task Steps')}
               </Button>
               <Button
                 variant="contained"
                 onClick={() => saveMutation.mutate()}
-                disabled={!selectedCategoryId || rows.length === 0 || saveMutation.isPending}
+                disabled={!selectedMetricTypeId || rows.length === 0 || saveMutation.isPending}
               >
                 {saveMutation.isPending ? t('common.saving') : t('common.save')}
               </Button>
@@ -339,13 +328,11 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
             {selectedMetricType && (
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip label={`${t('metrics.metricTypes')}: ${selectedMetricType.name}`} size="small" />
-                {selectedCategoryId && (
-                  <Chip
-                    label={`${t('metrics.categories')}: ${categories.find((c) => c.id === Number(selectedCategoryId))?.name || ''}`}
-                    size="small"
-                    color="primary"
-                  />
-                )}
+                <Chip
+                  label={`${t('metrics.categories')}: ${categories.length}`}
+                  size="small"
+                  color="primary"
+                />
               </Box>
             )}
 
@@ -360,7 +347,6 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {rows.map((row) => {
-                  const currentValue = row.metricValues[Number(selectedCategoryId)] ?? 0;
                   return (
                     <Box
                       key={row.memberTaskId}
@@ -370,24 +356,30 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
                         borderRadius: 1,
                         p: 1.5,
                         display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '2fr 2fr 1fr 1fr' },
+                        gridTemplateColumns: { xs: '1fr', md: '2fr 2fr' },
                         gap: 1.5,
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                       }}
                     >
-                      <Typography variant="body2" fontWeight={500}>{row.screenFunctionName}</Typography>
-                      <Typography variant="body2" color="text.secondary">{row.memberName}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {t('metrics.currentValue', 'Current')}: {currentValue}
-                      </Typography>
-                      <TextField
-                        label={t('metrics.value')}
-                        type="number"
-                        size="small"
-                        value={getDisplayValue(row)}
-                        onChange={(e) => handleEditValue(row.memberTaskId, Number(e.target.value))}
-                        slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-                      />
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{row.screenFunctionName}</Typography>
+                        <Typography variant="body2" color="text.secondary">{row.memberName}</Typography>
+                      </Box>
+                      <Grid container spacing={1}>
+                        {categories.map((category) => (
+                          <Grid key={category.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                            <TextField
+                              label={`${category.name} (${t('metrics.currentValue', 'Current')}: ${row.metricValues[category.id] ?? 0})`}
+                              type="number"
+                              size="small"
+                              fullWidth
+                              value={getDisplayValue(row, category.id)}
+                              onChange={(e) => handleEditValue(row.memberTaskId, category.id, Number(e.target.value))}
+                              slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Box>
                   );
                 })}
