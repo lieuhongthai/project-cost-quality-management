@@ -301,19 +301,21 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
     const projectNgCount = projectMetricInsights.project?.bugCount || 0;
     const projectActualMinutes = projectMetricInsights.project?.actualMinutes || 0;
 
-    const byStage = (projectMetricInsights.stages || []).map((stage) => {
-      const total = stage.totalTestCases || 0;
-      const ng = stage.bugCount || 0;
-      const minutes = stage.actualMinutes || 0;
-      return {
-        stageId: stage.stageId,
-        stageName: stages.find((s) => s.id === stage.stageId)?.name || `#${stage.stageId}`,
-        totalTestCases: total,
-        ngCount: ng,
-        ngRate: total > 0 ? (ng / total) * 100 : 0,
-        avgMinutesPerCase: total > 0 ? minutes / total : 0,
-      };
-    });
+    const byStage = (projectMetricInsights.stages || [])
+      .map((stage) => {
+        const total = stage.totalTestCases || 0;
+        const ng = stage.bugCount || 0;
+        const minutes = stage.actualMinutes || 0;
+        return {
+          stageId: stage.stageId,
+          stageName: stages.find((s) => s.id === stage.stageId)?.name || `#${stage.stageId}`,
+          totalTestCases: total,
+          ngCount: ng,
+          ngRate: total > 0 ? (ng / total) * 100 : 0,
+          avgMinutesPerCase: total > 0 ? minutes / total : 0,
+        };
+      })
+      .filter((stage) => stage.totalTestCases > 0 || stage.ngCount > 0);
 
     return {
       totalCases: projectTotal,
