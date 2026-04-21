@@ -63,6 +63,15 @@ interface InsightCard {
   meaning: string;
 }
 
+interface TestCaseStageStat {
+  stageId: number;
+  stageName: string;
+  totalTestCases: number;
+  ngCount: number;
+  ngRate: number;
+  avgMinutesPerCase: number;
+}
+
 export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntryTabProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -108,6 +117,15 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
     queryKey: ['projectMetricTypeSummary', projectId],
     queryFn: async () => {
       const response = await taskWorkflowApi.getProjectMetricTypeSummary(projectId);
+      return response.data;
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: projectMetricInsights } = useQuery({
+    queryKey: ['projectMetricInsights', projectId],
+    queryFn: async () => {
+      const response = await taskWorkflowApi.getProjectMetricInsights(projectId);
       return response.data;
     },
     enabled: !!projectId,
@@ -267,6 +285,44 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
       },
     ];
   }, [metricSummary, t]);
+
+  const testCaseStats = useMemo(() => {
+    if (!projectMetricInsights) {
+      return {
+        totalCases: 0,
+        ngCount: 0,
+        ngRate: 0,
+        avgMinutesPerCase: 0,
+        byStage: [] as TestCaseStageStat[],
+      };
+    }
+
+    const projectTotal = projectMetricInsights.project?.totalTestCases || 0;
+    const projectNgCount = projectMetricInsights.project?.bugCount || 0;
+    const projectActualMinutes = projectMetricInsights.project?.actualMinutes || 0;
+
+    const byStage = (projectMetricInsights.stages || []).map((stage) => {
+      const total = stage.totalTestCases || 0;
+      const ng = stage.bugCount || 0;
+      const minutes = stage.actualMinutes || 0;
+      return {
+        stageId: stage.stageId,
+        stageName: stages.find((s) => s.id === stage.stageId)?.name || `#${stage.stageId}`,
+        totalTestCases: total,
+        ngCount: ng,
+        ngRate: total > 0 ? (ng / total) * 100 : 0,
+        avgMinutesPerCase: total > 0 ? minutes / total : 0,
+      };
+    });
+
+    return {
+      totalCases: projectTotal,
+      ngCount: projectNgCount,
+      ngRate: projectTotal > 0 ? (projectNgCount / projectTotal) * 100 : 0,
+      avgMinutesPerCase: projectTotal > 0 ? projectActualMinutes / projectTotal : 0,
+      byStage: byStage.sort((a, b) => a.stageId - b.stageId),
+    };
+  }, [projectMetricInsights, stages]);
 
   const resetDialogState = () => {
     setSelectedMetricTypeId('');
@@ -470,6 +526,144 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
             ))}
           </Grid>
         )}
+      </Card>
+
+      <Card title={t('metrics.testCaseInsightTitle', 'Test Case Efficiency Statistics')}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('metrics.totalTestCases', 'Total Test Cases')}
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {testCaseStats.totalCases.toLocaleString()}
+              </Typography>
+            </Box>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('metrics.avgMinutesPerCase', 'Avg minutes / case')}
+                </Typography>
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 0.5 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                        {t('metrics.formula', 'Formula')}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
+                        Actual Minutes / Total Test Cases
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                        {t('metrics.meaning', 'Meaning')}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block' }}>
+                        {t(
+                          'metrics.avgMinutesPerCaseMeaning',
+                          'Shows average execution time per test case. Higher value may indicate complex tests or bottlenecks.',
+                        )}
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                >
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+              <Typography variant="h6" fontWeight={700}>
+                {testCaseStats.avgMinutesPerCase.toFixed(2)}
+              </Typography>
+            </Box>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('metrics.ngRate', 'NG Rate')}
+                </Typography>
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 0.5 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                        {t('metrics.formula', 'Formula')}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
+                        NG Count / Total Test Cases * 100
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                        {t('metrics.meaning', 'Meaning')}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block' }}>
+                        {t(
+                          'metrics.ngRateMeaning',
+                          'Indicates failure ratio of test execution. Higher rate suggests quality or stability risk.',
+                        )}
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                >
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+              <Typography variant="h6" fontWeight={700}>
+                {testCaseStats.ngRate.toFixed(2)}%
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t('metrics.ngCount', 'NG Count')}: {testCaseStats.ngCount.toLocaleString()}
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Paper variant="outlined" sx={{ maxHeight: 360, overflow: 'auto' }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('stages.title', 'Stage')}</TableCell>
+                <TableCell align="right">{t('metrics.totalTestCases', 'Total Test Cases')}</TableCell>
+                <TableCell align="right">{t('metrics.ngCount', 'NG Count')}</TableCell>
+                <TableCell align="right">
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    {t('metrics.ngRate', 'NG Rate')}
+                    <Tooltip title={'NG Count / Total Test Cases * 100'} arrow>
+                      <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    {t('metrics.avgMinutesPerCase', 'Avg minutes / case')}
+                    <Tooltip title={'Actual Minutes / Total Test Cases'} arrow>
+                      <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {testCaseStats.byStage.map((stage) => (
+                <TableRow key={stage.stageId} hover>
+                  <TableCell>{stage.stageName}</TableCell>
+                  <TableCell align="right">{stage.totalTestCases.toLocaleString()}</TableCell>
+                  <TableCell align="right">{stage.ngCount.toLocaleString()}</TableCell>
+                  <TableCell align="right">{stage.ngRate.toFixed(2)}%</TableCell>
+                  <TableCell align="right">{stage.avgMinutesPerCase.toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+              {testCaseStats.byStage.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    {t('metrics.noMetricsLogged', 'No metrics logged yet')}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
       </Card>
 
       <Card title={t('metrics.metricListTitle', 'Added Metric List')}>
