@@ -49,6 +49,7 @@ import { ProjectTaskWorkflowTab } from "@/views/project/ProjectTaskWorkflowTab";
 import { ProjectScreenFunctionsTab } from "@/views/project/ProjectScreenFunctionsTab";
 import { ProjectMembersTab } from "@/views/project/ProjectMembersTab";
 import { ProjectMetricSummaryTab } from "@/views/project/ProjectMetricSummaryTab";
+import { ProjectMetricQuickEntryTab } from "@/views/project/ProjectMetricQuickEntryTab";
 import { ProjectSettingsTab } from "@/views/project/ProjectSettingsTab";
 
 const PROJECT_TABS = [
@@ -58,6 +59,7 @@ const PROJECT_TABS = [
   "screen-functions",
   "members",
   "task-workflow",
+  "metric-entry",
   "metric-summary",
   "settings",
 ] as const;
@@ -507,6 +509,7 @@ function ProjectDetail() {
     { id: "screen-functions" as const, name: t("nav.screenFunctions") },
     { id: "members" as const, name: t("nav.members") },
     { id: "task-workflow" as const, name: t("taskWorkflow.title") },
+    { id: "metric-entry" as const, name: t("metrics.quickEntryTab", "Metric Entry") },
     { id: "metric-summary" as const, name: t("metrics.metricTypesReport") },
     { id: "settings" as const, name: t("nav.settings") },
   ];
@@ -978,6 +981,10 @@ function ProjectDetail() {
           metricSummaryFilter={metricSummaryFilter}
           setMetricSummaryFilter={setMetricSummaryFilter}
         />
+      )}
+
+      {activeTab === "metric-entry" && (
+        <ProjectMetricQuickEntryTab projectId={parseInt(projectId)} />
       )}
 
       {activeTab === "settings" && (
