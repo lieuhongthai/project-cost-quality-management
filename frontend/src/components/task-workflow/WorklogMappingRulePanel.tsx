@@ -327,7 +327,12 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     <Card>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 2 }}>
-          {t('worklogMapping.title', { defaultValue: 'Worklog Keyword Mapping (Stage → Step)' })}
+          {t('worklogMapping.title', { defaultValue: 'Worklog Keyword Mapping (Stage → Step → Screen/Function)' })}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('worklogMapping.description', {
+            defaultValue: 'Bạn có thể chủ động map Stage/Step/Screen Function theo keyword. Nếu không chọn Screen/Function, hệ thống sẽ tự nhận diện khi import CSV.',
+          })}
         </Typography>
 
         {/* Manual add form */}
@@ -484,7 +489,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                           ? `${targetStageName || row.targetStageId} / ${targetStepName || row.targetStepId}`
                           : (
                             <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
-                              {t('worklogMapping.copyFromProject.noMatch', { defaultValue: 'No match — will save without stage/step' })}
+                              {t('worklogMapping.copyFromProject.noMatch', { defaultValue: 'No match — will save without stage/step/screen function' })}
                             </Box>
                           );
                       },
@@ -526,7 +531,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           {copyApplyResult && (
             <Alert severity="success" sx={{ mt: 1 }}>
               {t('worklogMapping.copyFromProject.result', {
-                defaultValue: 'Done: {{added}} added, {{overwritten}} overwritten. {{unmatched}} keyword(s) saved without stage/step.',
+                defaultValue: 'Done: {{added}} added, {{overwritten}} overwritten. {{unmatched}} keyword(s) saved without full stage/step/screen-function match.',
                 added: copyApplyResult.added,
                 overwritten: copyApplyResult.overwritten,
                 unmatched: copyApplyResult.unmatched,
