@@ -2403,6 +2403,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
   private findBestMappingRule(
     rules: WorklogMappingRule[],
     workDetail: string,
+    options?: { requireStageStep?: boolean; requireScreenFunction?: boolean },
   ): WorklogMappingRule | undefined {
     const normalizedDetail = this.normalizeWorkDetailForKeywordMatching(workDetail);
     if (!normalizedDetail) return undefined;
@@ -2422,6 +2423,9 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     let best: { rule: WorklogMappingRule; score: number } | null = null;
 
     for (const rule of rules) {
+      if (options?.requireStageStep && (!rule.stageId || !rule.stepId)) continue;
+      if (options?.requireScreenFunction && !rule.screenFunctionId) continue;
+
       const rawKeyword = (rule.keyword || '').trim().toLowerCase();
       if (!rawKeyword) continue;
 
@@ -2517,10 +2521,15 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const member = email ? memberByEmail.get(email) : undefined;
 
-      const matchedRule = this.findBestMappingRule(rules, workDetail || '');
+      const matchedStageStepRule = this.findBestMappingRule(rules, workDetail || '', {
+        requireStageStep: true,
+      });
+      const matchedScreenFunctionRule = this.findBestMappingRule(rules, workDetail || '', {
+        requireScreenFunction: true,
+      });
 
-      const ruleScreenFunction = matchedRule?.screenFunctionId
-        ? screenFunctions.find((sf) => sf.id === matchedRule.screenFunctionId)
+      const ruleScreenFunction = matchedScreenFunctionRule?.screenFunctionId
+        ? screenFunctions.find((sf) => sf.id === matchedScreenFunctionRule.screenFunctionId)
         : undefined;
       const matchedScreenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
       // Fall back to catch-all screen when no specific SF matched
@@ -2531,7 +2540,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const confidence = this.calculateConfidence({
         hasMember: !!member,
-        hasRule: !!matchedRule,
+        hasRule: !!(matchedStageStepRule || matchedScreenFunctionRule),
         hasScreenFunction: !!screenFunction,
       });
 
@@ -2539,7 +2548,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       let reason = '';
       if (!member) {
         reason = 'Member email is not in this project';
-      } else if (!matchedRule) {
+      } else if (!matchedStageStepRule) {
         status = 'needs_review';
         const defaultStepLabel = defaultImportStep
           ? `; fallback step: ${(defaultImportStep as any).stage?.name ?? ''} > ${defaultImportStep.name}`
@@ -2565,7 +2574,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       }
 
       // Apply default import step as fallback for needs_review records with no matched rule
-      const useDefaultStep = status === 'needs_review' && !!member && !matchedRule && !!defaultImportStep;
+      const useDefaultStep = status === 'needs_review' && !!member && !matchedStageStepRule && !!defaultImportStep;
 
       itemsToCreate.push({
         batchId: batch.id,
@@ -2581,8 +2590,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         effortHours,
         effortDays,
         memberId: member?.id,
-        stageId: useDefaultStep ? defaultImportStep!.stageId : matchedRule?.stageId,
-        stepId: useDefaultStep ? defaultImportStep!.id : matchedRule?.stepId,
+        stageId: useDefaultStep ? defaultImportStep!.stageId : matchedStageStepRule?.stageId,
+        stepId: useDefaultStep ? defaultImportStep!.id : matchedStageStepRule?.stepId,
         screenFunctionId: screenFunction?.id,
         confidence,
         status,

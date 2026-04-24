@@ -320,7 +320,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     setEditIsActive(rule.isActive ?? true);
   };
 
-  const isMissingStageStep = (rule: any) => !rule.stageId || !rule.stepId;
+  const isUnmappedRule = (rule: any) => (!rule.stageId || !rule.stepId) && !rule.screenFunctionId;
 
   // ── render ───────────────────────────────────────────────────────
   return (
@@ -331,7 +331,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('worklogMapping.description', {
-            defaultValue: 'Bạn có thể chủ động map Stage/Step/Screen Function theo keyword. Nếu không chọn Screen/Function, hệ thống sẽ tự nhận diện khi import CSV.',
+            defaultValue: 'Bạn có thể map Stage/Step và Screen/Function độc lập theo keyword. Mỗi phần nhận diện được xử lý riêng khi import CSV.',
           })}
         </Typography>
 
@@ -548,7 +548,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
               header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }),
               sortable: true,
               render: (rule: any) => {
-                const missing = isMissingStageStep(rule);
+                const missing = isUnmappedRule(rule);
                 return missing
                   ? <Box component="span" sx={{ color: 'warning.main' }}>{rule.keyword} *</Box>
                   : rule.keyword;
@@ -559,10 +559,10 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
               header: t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' }),
               sortable: true,
               render: (rule: any) => {
-                const missing = isMissingStageStep(rule);
+                const missing = !rule.stageId || !rule.stepId;
                 return missing
                   ? <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
-                      {t('worklogMapping.noStageStep', { defaultValue: 'No stage/step assigned *' })}
+                      {t('worklogMapping.noStageStep', { defaultValue: 'No stage/step assigned' })}
                     </Box>
                   : `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}`;
               },
