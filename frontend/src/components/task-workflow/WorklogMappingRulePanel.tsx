@@ -44,8 +44,10 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [keyword, setKeyword] = useState('');
   const [stageId, setStageId] = useState<number | ''>('');
   const [stepId, setStepId] = useState<number | ''>('');
-  const [screenFunctionId, setScreenFunctionId] = useState<number | ''>('');
   const [priority, setPriority] = useState<number>(100);
+  const [screenKeyword, setScreenKeyword] = useState('');
+  const [screenFunctionId, setScreenFunctionId] = useState<number | ''>('');
+  const [screenPriority, setScreenPriority] = useState<number>(100);
 
   // ── AI suggest ───────────────────────────────────────────────────
   const [aiFile, setAiFile] = useState<File | null>(null);
@@ -55,8 +57,6 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // ── rules table sort ─────────────────────────────────────────────
-  const [ruleSortBy, setRuleSortBy] = useState<'keyword' | 'stageStep'>('keyword');
-  const [ruleSortDirection, setRuleSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // ── copy from project ────────────────────────────────────────────
   const [copySourceProjectId, setCopySourceProjectId] = useState<number | ''>('');
@@ -120,13 +120,27 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
       keyword,
       stageId: stageId ? Number(stageId) : undefined,
       stepId: stepId ? Number(stepId) : undefined,
-      screenFunctionId: screenFunctionId ? Number(screenFunctionId) : undefined,
       priority,
       isActive: true,
     }),
     onSuccess: () => {
       setKeyword('');
+      queryClient.invalidateQueries({ queryKey: ['worklogMappingRules', projectId] });
+    },
+  });
+
+  const createScreenMutation = useMutation({
+    mutationFn: () => taskWorkflowApi.createWorklogMappingRule({
+      projectId,
+      keyword: screenKeyword,
+      screenFunctionId: screenFunctionId ? Number(screenFunctionId) : undefined,
+      priority: screenPriority,
+      isActive: true,
+    }),
+    onSuccess: () => {
+      setScreenKeyword('');
       setScreenFunctionId('');
+      setScreenPriority(100);
       queryClient.invalidateQueries({ queryKey: ['worklogMappingRules', projectId] });
     },
   });
@@ -296,19 +310,15 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     return rows;
   }, [aiSuggestions, sortBy, sortDirection, stageOptions]);
 
-  const sortedRules = useMemo(() => {
-    const rows = [...(rules as any[] || [])];
-    rows.sort((a, b) => {
-      const stageA = a.stage?.name || '';
-      const stepA = a.step?.name || '';
-      const stageB = b.stage?.name || '';
-      const stepB = b.step?.name || '';
-      const valueA = ruleSortBy === 'keyword' ? String(a.keyword || '').toLowerCase() : `${stageA} / ${stepA}`.toLowerCase();
-      const valueB = ruleSortBy === 'keyword' ? String(b.keyword || '').toLowerCase() : `${stageB} / ${stepB}`.toLowerCase();
-      return ruleSortDirection === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
-    });
-    return rows;
-  }, [rules, ruleSortBy, ruleSortDirection]);
+  const sortedRules = useMemo(() => [...(rules as any[] || [])], [rules]);
+  const stageStepRules = useMemo(
+    () => sortedRules.filter((rule: any) => rule.stageId && rule.stepId),
+    [sortedRules],
+  );
+  const screenFunctionRules = useMemo(
+    () => sortedRules.filter((rule: any) => rule.screenFunctionId),
+    [sortedRules],
+  );
 
   const openEdit = (rule: any) => {
     setEditingRule(rule);
@@ -335,8 +345,11 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           })}
         </Typography>
 
-        {/* Manual add form */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
+        {/* Stage/Step mapping form */}
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          {t('worklogMapping.stageStepSection', { defaultValue: 'Stage/Step Mapping' })}
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
           <TextField label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })} size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
           <Autocomplete
             size="small"
@@ -356,6 +369,21 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
             renderInput={(params) => <TextField {...params} label={t('taskWorkflow.step', { defaultValue: 'Step' })} />}
           />
+          <TextField type="number" label={t('common.priority', { defaultValue: 'Priority' })} size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
+          <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || createMutation.isPending}>{t('common.add')}</Button>
+        </Box>
+
+        {/* Screen/function mapping form */}
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          {t('worklogMapping.screenFunctionSection', { defaultValue: 'Screen/Function Mapping' })}
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 2fr 1fr auto' }, gap: 1.5, mb: 2 }}>
+          <TextField
+            label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })}
+            size="small"
+            value={screenKeyword}
+            onChange={(e) => setScreenKeyword(e.target.value)}
+          />
           <Autocomplete
             size="small"
             options={screenFunctions}
@@ -365,8 +393,20 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
             renderInput={(params) => <TextField {...params} label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })} />}
           />
-          <TextField type="number" label={t('common.priority', { defaultValue: 'Priority' })} size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
-          <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || createMutation.isPending}>{t('common.add')}</Button>
+          <TextField
+            type="number"
+            label={t('common.priority', { defaultValue: 'Priority' })}
+            size="small"
+            value={screenPriority}
+            onChange={(e) => setScreenPriority(Number(e.target.value) || 100)}
+          />
+          <Button
+            variant="contained"
+            onClick={() => createScreenMutation.mutate()}
+            disabled={!screenKeyword || !screenFunctionId || createScreenMutation.isPending}
+          >
+            {t('common.add')}
+          </Button>
         </Box>
 
         {/* AI suggest */}
@@ -540,76 +580,60 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           )}
         </Box>
 
-        {/* Existing rules table */}
+        {/* Stage/Step rules */}
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          {t('worklogMapping.stageStepRules', { defaultValue: 'Stage/Step Rules' })}
+        </Typography>
         <DataTable
           columns={[
-            {
-              key: 'keyword',
-              header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }),
-              sortable: true,
-              render: (rule: any) => {
-                const missing = isUnmappedRule(rule);
-                return missing
-                  ? <Box component="span" sx={{ color: 'warning.main' }}>{rule.keyword} *</Box>
-                  : rule.keyword;
-              },
-            },
-            {
-              key: 'stageStep',
-              header: t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' }),
-              sortable: true,
-              render: (rule: any) => {
-                const missing = !rule.stageId || !rule.stepId;
-                return missing
-                  ? <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
-                      {t('worklogMapping.noStageStep', { defaultValue: 'No stage/step assigned' })}
-                    </Box>
-                  : `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}`;
-              },
-            },
-            {
-              key: 'screenFunction',
-              header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }),
-              render: (rule: any) => rule.screenFunction?.name || '—',
-            },
-            {
-              key: 'priority',
-              header: t('common.priority', { defaultValue: 'Priority' }),
-              render: (rule: any) => rule.priority,
-            },
-            {
-              key: 'isActive',
-              header: t('common.status'),
-              render: (rule: any) => rule.isActive
-                ? t('common.active', { defaultValue: 'Active' })
-                : t('common.inactive', { defaultValue: 'Inactive' }),
-            },
+            { key: 'keyword', header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }), sortable: true, render: (rule: any) => rule.keyword },
+            { key: 'stageStep', header: t('worklogMapping.table.stageStep', { defaultValue: 'Stage/Step' }), sortable: true, render: (rule: any) => `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}` },
+            { key: 'priority', header: t('common.priority', { defaultValue: 'Priority' }), render: (rule: any) => rule.priority },
+            { key: 'isActive', header: t('common.status'), render: (rule: any) => rule.isActive ? t('common.active', { defaultValue: 'Active' }) : t('common.inactive', { defaultValue: 'Inactive' }) },
             {
               key: 'actions',
               header: t('worklogImport.table.action', { defaultValue: 'Action' }),
               align: 'right',
               render: (rule: any) => (
                 <Box sx={{ whiteSpace: 'nowrap' }}>
-                  <Button size="small" onClick={() => openEdit(rule)} sx={{ mr: 0.5 }}>
-                    {t('common.edit', { defaultValue: 'Edit' })}
-                  </Button>
-                  <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>
-                    {t('common.delete')}
-                  </Button>
+                  <Button size="small" onClick={() => openEdit(rule)} sx={{ mr: 0.5 }}>{t('common.edit', { defaultValue: 'Edit' })}</Button>
+                  <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>{t('common.delete')}</Button>
                 </Box>
               ),
             },
           ] as ColumnDef<any>[]}
-          data={sortedRules}
-          keyExtractor={(rule: any) => rule.id}
+          data={stageStepRules}
+          keyExtractor={(rule: any) => `ss-${rule.id}`}
           stickyHeader
-          maxHeight={320}
-          sortBy={ruleSortBy}
-          sortOrder={ruleSortDirection}
-          onSort={(col) => {
-            if (ruleSortBy === col) setRuleSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-            else { setRuleSortBy(col as 'keyword' | 'stageStep'); setRuleSortDirection('asc'); }
-          }}
+          maxHeight={220}
+        />
+
+        {/* Screen/function rules */}
+        <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+          {t('worklogMapping.screenFunctionRules', { defaultValue: 'Screen/Function Rules' })}
+        </Typography>
+        <DataTable
+          columns={[
+            { key: 'keyword', header: t('worklogMapping.table.keyword', { defaultValue: 'Keyword' }), sortable: true, render: (rule: any) => isUnmappedRule(rule) ? <Box component="span" sx={{ color: 'warning.main' }}>{rule.keyword} *</Box> : rule.keyword },
+            { key: 'screenFunction', header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }), render: (rule: any) => rule.screenFunction?.name || '—' },
+            { key: 'priority', header: t('common.priority', { defaultValue: 'Priority' }), render: (rule: any) => rule.priority },
+            { key: 'isActive', header: t('common.status'), render: (rule: any) => rule.isActive ? t('common.active', { defaultValue: 'Active' }) : t('common.inactive', { defaultValue: 'Inactive' }) },
+            {
+              key: 'actions',
+              header: t('worklogImport.table.action', { defaultValue: 'Action' }),
+              align: 'right',
+              render: (rule: any) => (
+                <Box sx={{ whiteSpace: 'nowrap' }}>
+                  <Button size="small" onClick={() => openEdit(rule)} sx={{ mr: 0.5 }}>{t('common.edit', { defaultValue: 'Edit' })}</Button>
+                  <Button color="error" size="small" onClick={() => deleteMutation.mutate(rule.id)}>{t('common.delete')}</Button>
+                </Box>
+              ),
+            },
+          ] as ColumnDef<any>[]}
+          data={screenFunctionRules}
+          keyExtractor={(rule: any) => `sf-${rule.id}`}
+          stickyHeader
+          maxHeight={220}
         />
       </CardContent>
 
