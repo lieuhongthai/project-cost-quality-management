@@ -6,13 +6,10 @@ import { DateInput } from '@/components/common';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
@@ -476,19 +473,15 @@ export function StepScreenFunctionEditModal({
           {/* Status */}
           <Grid container spacing={2}>
             <Grid size={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('screenFunction.status')}</InputLabel>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  label={t('screenFunction.status')}
-                  MenuProps={{ disableScrollLock: true }}
-                >
-                  {statusOptions.map((opt) => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                size="small"
+                options={statusOptions}
+                value={statusOptions.find((opt) => opt.value === formData.status) || null}
+                onChange={(_, option) => option && handleChange('status', option.value)}
+                getOptionLabel={(option) => option.label}
+                isOptionEqualToValue={(option, value) => option.value === value.value}
+                renderInput={(params) => <TextField {...params} label={t('screenFunction.status')} />}
+              />
             </Grid>
             <Grid size={6}>
               {/* Summary info */}
@@ -787,20 +780,16 @@ export function StepScreenFunctionEditModal({
                 <Typography variant="subtitle2" color="primary.dark" sx={{ mb: 1.5 }}>{t('stages.addNewMember')}</Typography>
 
                 {/* Member Selection */}
-                <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-                  <InputLabel>{t('member.name')}</InputLabel>
-                  <Select
-                    value={newMember.memberId}
-                    onChange={(e) => setNewMember((prev) => ({ ...prev, memberId: Number(e.target.value) }))}
-                    label={t('member.name')}
-                    MenuProps={{ disableScrollLock: true }}
-                  >
-                    <MenuItem value={0}>{t('stages.selectMember')}</MenuItem>
-                    {getAvailableMembers().map((member) => (
-                      <MenuItem key={member.id} value={member.id}>{member.name} ({member.role})</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  sx={{ mb: 1.5 }}
+                  options={[{ id: 0, name: t('stages.selectMember'), role: '' }, ...getAvailableMembers()]}
+                  value={getAvailableMembers().find((member) => member.id === newMember.memberId) || { id: 0, name: t('stages.selectMember'), role: '' }}
+                  onChange={(_, option) => setNewMember((prev) => ({ ...prev, memberId: option?.id ?? 0 }))}
+                  getOptionLabel={(option) => option.role ? `${option.name} (${option.role})` : option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label={t('member.name')} />}
+                />
 
                 {/* Effort and Progress */}
                 <Grid container spacing={1.5} sx={{ mb: 1.5 }}>

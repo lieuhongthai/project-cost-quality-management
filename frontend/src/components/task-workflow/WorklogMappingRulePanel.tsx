@@ -9,7 +9,7 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
 import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -305,12 +305,24 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
         {/* Manual add form */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
           <TextField label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })} size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-          <TextField select label={t('taskWorkflow.stage', { defaultValue: 'Stage' })} size="small" value={stageId} onChange={(e) => { setStageId(Number(e.target.value)); setStepId(''); }}>
-            {stageOptions.map((stage: any) => <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>)}
-          </TextField>
-          <TextField select label={t('taskWorkflow.step', { defaultValue: 'Step' })} size="small" value={stepId} onChange={(e) => setStepId(Number(e.target.value))}>
-            {stepOptions.map((step: any) => <MenuItem key={step.id} value={step.id}>{step.name}</MenuItem>)}
-          </TextField>
+          <Autocomplete
+            size="small"
+            options={stageOptions}
+            value={stageOptions.find((stage: any) => stage.id === stageId) || null}
+            onChange={(_, value) => { setStageId(value?.id ?? ''); setStepId(''); }}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+            renderInput={(params) => <TextField {...params} label={t('taskWorkflow.stage', { defaultValue: 'Stage' })} />}
+          />
+          <Autocomplete
+            size="small"
+            options={stepOptions}
+            value={stepOptions.find((step: any) => step.id === stepId) || null}
+            onChange={(_, value) => setStepId(value?.id ?? '')}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+            renderInput={(params) => <TextField {...params} label={t('taskWorkflow.step', { defaultValue: 'Step' })} />}
+          />
           <TextField type="number" label={t('common.priority', { defaultValue: 'Priority' })} size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
           <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || createMutation.isPending}>{t('common.add')}</Button>
         </Box>
@@ -381,18 +393,16 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             {t('worklogMapping.copyFromProject.title', { defaultValue: 'Copy keywords from another project' })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              select
+            <Autocomplete
               size="small"
-              label={t('worklogMapping.copyFromProject.selectProject', { defaultValue: 'Source project' })}
-              value={copySourceProjectId}
-              onChange={(e) => { setCopySourceProjectId(Number(e.target.value)); setCopyPreviewRows([]); setSelectedCopyKeys([]); setCopyApplyResult(null); }}
+              options={otherProjects}
+              value={otherProjects.find((p: any) => p.id === copySourceProjectId) || null}
+              onChange={(_, value) => { setCopySourceProjectId(value?.id ?? ''); setCopyPreviewRows([]); setSelectedCopyKeys([]); setCopyApplyResult(null); }}
               sx={{ minWidth: 220 }}
-            >
-              {otherProjects.map((p: any) => (
-                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-              ))}
-            </TextField>
+              getOptionLabel={(option: any) => option.name}
+              isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+              renderInput={(params) => <TextField {...params} label={t('worklogMapping.copyFromProject.selectProject', { defaultValue: 'Source project' })} />}
+            />
             <Button variant="outlined" onClick={() => loadCopyPreviewMutation.mutate()} disabled={!copySourceProjectId || loadCopyPreviewMutation.isPending}>
               {t('worklogMapping.copyFromProject.load', { defaultValue: 'Load keywords' })}
             </Button>
@@ -547,33 +557,27 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             value={editKeyword}
             onChange={(e) => setEditKeyword(e.target.value)}
           />
-          <TextField
-            select
-            label={t('taskWorkflow.stage', { defaultValue: 'Stage' })}
+          <Autocomplete
             size="small"
             fullWidth
-            value={editStageId}
-            onChange={(e) => { setEditStageId(e.target.value ? Number(e.target.value) : ''); setEditStepId(''); }}
-          >
-            <MenuItem value="">{t('common.none', { defaultValue: '— None —' })}</MenuItem>
-            {stageOptions.map((stage: any) => (
-              <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label={t('taskWorkflow.step', { defaultValue: 'Step' })}
+            options={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...stageOptions]}
+            value={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...stageOptions].find((stage: any) => stage.id === editStageId) || null}
+            onChange={(_, value: any) => { setEditStageId(value?.id ? Number(value.id) : ''); setEditStepId(''); }}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+            renderInput={(params) => <TextField {...params} label={t('taskWorkflow.stage', { defaultValue: 'Stage' })} />}
+          />
+          <Autocomplete
             size="small"
             fullWidth
-            value={editStepId}
-            onChange={(e) => setEditStepId(e.target.value ? Number(e.target.value) : '')}
+            options={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...editStepOptions]}
+            value={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...editStepOptions].find((step: any) => step.id === editStepId) || null}
+            onChange={(_, value: any) => setEditStepId(value?.id ? Number(value.id) : '')}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
             disabled={!editStageId}
-          >
-            <MenuItem value="">{t('common.none', { defaultValue: '— None —' })}</MenuItem>
-            {editStepOptions.map((step: any) => (
-              <MenuItem key={step.id} value={step.id}>{step.name}</MenuItem>
-            ))}
-          </TextField>
+            renderInput={(params) => <TextField {...params} label={t('taskWorkflow.step', { defaultValue: 'Step' })} />}
+          />
           <TextField
             type="number"
             label={t('common.priority', { defaultValue: 'Priority' })}

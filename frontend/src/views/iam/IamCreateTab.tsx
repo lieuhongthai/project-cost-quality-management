@@ -9,10 +9,8 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import MuiCheckbox from '@mui/material/Checkbox'
 import MuiRadio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import MuiSelect from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
+import Autocomplete from '@mui/material/Autocomplete'
+import TextField from '@mui/material/TextField'
 import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
@@ -321,23 +319,16 @@ export function IamCreateTab({
                 />
               </RadioGroup>
             </Box>
-            <FormControl size="small" fullWidth>
-              <InputLabel>{t('iam.position')}</InputLabel>
-              <MuiSelect
-                value={newUserPositionId || ''}
-                onChange={(e) => setNewUserPositionId(Number(e.target.value))}
-                label={t('iam.position')}
-                disabled={!ability.can('manage', 'user')}
-                MenuProps={{ disableScrollLock: true }}
-              >
-                <MenuItem value="">{t('iam.selectPosition')}</MenuItem>
-                {positions?.map((position) => (
-                  <MenuItem key={position.id} value={position.id}>
-                    {position.name}
-                  </MenuItem>
-                ))}
-              </MuiSelect>
-            </FormControl>
+            <Autocomplete
+              size="small"
+              options={positions || []}
+              value={positions?.find((position) => position.id === newUserPositionId) || null}
+              onChange={(_, option) => setNewUserPositionId(option?.id || null)}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              disabled={!ability.can('manage', 'user')}
+              renderInput={(params) => <TextField {...params} label={t('iam.position')} />}
+            />
             <Alert severity="info" sx={{ py: 0.5 }}>
               <Typography variant="caption">{t('iam.userMustChangePasswordHint')}</Typography>
             </Alert>

@@ -5,9 +5,7 @@ import type { Position, User } from '@/types'
 import { UserCog, Edit2, Trash2, X, Check, Key } from 'lucide-react'
 import Box from '@mui/material/Box'
 import MuiTextField from '@mui/material/TextField'
-import MuiSelect from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import FormControl from '@mui/material/FormControl'
+import Autocomplete from '@mui/material/Autocomplete'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import { Card, DataTable, IconButton } from '@/components/common'
@@ -97,20 +95,16 @@ export function IamUsersTab({
       header: t('iam.position'),
       render: (user) =>
         editingUserId === user.id ? (
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <MuiSelect
-              value={editingUserPositionId || ''}
-              onChange={(e) => setEditingUserPositionId(Number(e.target.value))}
-              MenuProps={{ disableScrollLock: true }}
-            >
-              <MenuItem value="">{t('iam.selectPosition')}</MenuItem>
-              {positions?.map((position) => (
-                <MenuItem key={position.id} value={position.id}>
-                  {position.name}
-                </MenuItem>
-              ))}
-            </MuiSelect>
-          </FormControl>
+          <Autocomplete
+            size="small"
+            sx={{ minWidth: 150 }}
+            options={positions || []}
+            value={positions?.find((position) => position.id === editingUserPositionId) || null}
+            onChange={(_, option) => setEditingUserPositionId(option?.id || null)}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(params) => <MuiTextField {...params} />}
+          />
         ) : (
           <Typography variant="body2" color="text.secondary">
             {user.position?.name || t('common.unknown')}

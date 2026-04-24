@@ -17,10 +17,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
@@ -675,19 +672,15 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
           </Typography>
 
           <Box sx={{ maxWidth: 280 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('metrics.allStages', 'All stages')}</InputLabel>
-              <Select
-                value={listStageFilter}
-                label={t('metrics.allStages', 'All stages')}
-                onChange={(e) => setListStageFilter(e.target.value ? Number(e.target.value) : '')}
-              >
-                <MenuItem value="">{t('metrics.allStages', 'All stages')}</MenuItem>
-                {stages.map((stage: WorkflowStage) => (
-                  <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              size="small"
+              options={[null, ...stages]}
+              value={stages.find((stage: WorkflowStage) => stage.id === listStageFilter) || null}
+              onChange={(_, value) => setListStageFilter(value ? value.id : '')}
+              getOptionLabel={(option) => option?.name || t('metrics.allStages', 'All stages')}
+              isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              renderInput={(params) => <TextField {...params} label={t('metrics.allStages', 'All stages')} />}
+            />
           </Box>
 
           <Typography variant="caption" color="text.secondary">
@@ -737,61 +730,53 @@ export function ProjectMetricQuickEntryTab({ projectId }: ProjectMetricQuickEntr
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('metrics.metricTypes')}</InputLabel>
-                  <Select
-                    value={selectedMetricTypeId}
-                    label={t('metrics.metricTypes')}
-                    onChange={(e) => {
-                      setSelectedMetricTypeId(Number(e.target.value));
-                      setRows([]);
-                      setEdits({});
-                    }}
-                  >
-                    {metricTypes.map((type: MetricType) => (
-                      <MenuItem key={type.id} value={type.id}>{type.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  options={metricTypes}
+                  value={metricTypes.find((type: MetricType) => type.id === selectedMetricTypeId) || null}
+                  onChange={(_, value) => {
+                    setSelectedMetricTypeId(value?.id || '');
+                    setRows([]);
+                    setEdits({});
+                  }}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label={t('metrics.metricTypes')} />}
+                />
               </Grid>
 
               <Grid size={{ xs: 12, md: 4 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('stages.title')}</InputLabel>
-                  <Select
-                    value={selectedStageId}
-                    label={t('stages.title')}
-                    onChange={(e) => {
-                      setSelectedStageId(Number(e.target.value));
-                      setSelectedStepId('');
-                      setRows([]);
-                      setEdits({});
-                    }}
-                  >
-                    {stages.map((stage: WorkflowStage) => (
-                      <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  options={stages}
+                  value={stages.find((stage: WorkflowStage) => stage.id === selectedStageId) || null}
+                  onChange={(_, value) => {
+                    setSelectedStageId(value?.id || '');
+                    setSelectedStepId('');
+                    setRows([]);
+                    setEdits({});
+                  }}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label={t('stages.title')} />}
+                />
               </Grid>
 
               <Grid size={{ xs: 12, md: 4 }}>
-                <FormControl fullWidth size="small" disabled={!selectedStageId}>
-                  <InputLabel>{t('stages.step')}</InputLabel>
-                  <Select
-                    value={selectedStepId}
-                    label={t('stages.step')}
-                    onChange={(e) => {
-                      setSelectedStepId(Number(e.target.value));
-                      setRows([]);
-                      setEdits({});
-                    }}
-                  >
-                    {steps.map((step: WorkflowStep) => (
-                      <MenuItem key={step.id} value={step.id}>{step.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  options={steps}
+                  value={steps.find((step: WorkflowStep) => step.id === selectedStepId) || null}
+                  onChange={(_, value) => {
+                    setSelectedStepId(value?.id || '');
+                    setRows([]);
+                    setEdits({});
+                  }}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  disabled={!selectedStageId}
+                  renderInput={(params) => <TextField {...params} label={t('stages.step')} />}
+                />
               </Grid>
             </Grid>
 
