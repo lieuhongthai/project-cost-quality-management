@@ -2961,22 +2961,107 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     return Number(score.toFixed(2));
   }
 
+  private normalizeTextForMatching(value: string): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private hasBoundedTerm(text: string, term: string): boolean {
+    if (!term) return false;
+    const boundedPattern = new RegExp(`(^|[^a-z0-9])${this.escapeRegExp(term)}([^a-z0-9]|$)`, 'i');
+    return boundedPattern.test(text);
+  }
+
+  private collectScreenFunctionTokens(value?: string, minLength: number = 3): string[] {
+    if (!value) return [];
+
+    const STOP_WORDS = new Set([
+      'screen',
+      'function',
+      'func',
+      'feature',
+      'task',
+      'the',
+      'and',
+      'for',
+      'with',
+      'api',
+    ]);
+
+    return [...new Set(
+      value
+        .toLowerCase()
+        .split(/[\s,;:/|()[\]{}<>._-]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= minLength && !STOP_WORDS.has(token)),
+    )];
+  }
+
   private findScreenFunction(screenFunctions: ScreenFunction[], workDetail: string): ScreenFunction | undefined {
-    const text = workDetail.toLowerCase();
+    const text = this.normalizeTextForMatching(workDetail);
+    if (!text) return undefined;
+
     const ticketMatch = workDetail.match(/[A-Za-z]+-\d+/);
     if (ticketMatch) {
       const ticket = ticketMatch[0].toLowerCase();
       const byTicket = screenFunctions.find((sf) =>
-        (sf.name || '').toLowerCase().includes(ticket) ||
-        (sf.description || '').toLowerCase().includes(ticket),
+        this.normalizeTextForMatching(sf.name || '').includes(ticket) ||
+        this.normalizeTextForMatching(sf.description || '').includes(ticket),
       );
       if (byTicket) return byTicket;
     }
 
-    return screenFunctions.find((sf) => {
-      const name = (sf.name || '').toLowerCase();
-      return name.length > 4 && text.includes(name);
-    });
+    let bestMatch: { score: number; sf: ScreenFunction } | null = null;
+
+    for (const sf of screenFunctions) {
+      const normalizedName = this.normalizeTextForMatching(sf.name || '');
+      const normalizedDescription = this.normalizeTextForMatching(sf.description || '');
+      if (!normalizedName) continue;
+
+      let score = 0;
+
+      // Strong match when full screen/function name appears in the work detail
+      if (normalizedName.length >= 4 && this.hasBoundedTerm(text, normalizedName)) {
+        score += 1200;
+      }
+
+      const nameTokens = this.collectScreenFunctionTokens(normalizedName, 3);
+      const descTokens = this.collectScreenFunctionTokens(normalizedDescription, 4);
+
+      let matchedNameTokens = 0;
+      for (const token of nameTokens) {
+        if (this.hasBoundedTerm(text, token)) {
+          matchedNameTokens += 1;
+          score += 150 + Math.min(token.length * 4, 40);
+        }
+      }
+
+      let matchedDescTokens = 0;
+      for (const token of descTokens) {
+        if (this.hasBoundedTerm(text, token)) {
+          matchedDescTokens += 1;
+          score += 40 + Math.min(token.length * 2, 20);
+        }
+      }
+
+      // Boost when multiple tokens matched (similar spirit to stage/step rule scoring)
+      if (matchedNameTokens >= 2) score += 180;
+      if (matchedNameTokens >= 3) score += 220;
+      if (matchedNameTokens === 0 && matchedDescTokens === 0) continue;
+
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { score, sf };
+      }
+    }
+
+    // Guardrail to avoid weak accidental matches
+    return bestMatch && bestMatch.score >= 220 ? bestMatch.sf : undefined;
   }
 
   private escapeCsv(value: string): string {
