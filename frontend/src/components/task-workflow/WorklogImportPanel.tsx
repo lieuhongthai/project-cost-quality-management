@@ -13,7 +13,7 @@ import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -302,6 +302,9 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
   const editingItem = batchDetail?.items.find((item) => item.rowNumber === editingItemId) || null;
   const editingStage = stageOptions.find((s: any) => s.id === Number(editDraft.stageId));
   const editingStepOptions = editingStage?.steps || [];
+  const stageAutocompleteOptions = [{ id: '', name: '-' }, ...stageOptions];
+  const stepAutocompleteOptions = [{ id: '', name: '-' }, ...editingStepOptions];
+  const screenFunctionAutocompleteOptions = [{ id: '', name: '-' }, ...(screenFunctions || [])];
 
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -678,50 +681,51 @@ export function WorklogImportPanel({ projectId }: WorklogImportPanelProps) {
             {editingItem?.workDetail || '-'}
           </Typography>
           <Box sx={{ display: 'grid', gap: 2 }}>
-            <TextField
-              select
+            <Autocomplete
               size="small"
-              label={t('taskWorkflow.stage', { defaultValue: 'Stage' })}
-              value={editDraft.stageId || ''}
-              onChange={(e) => setEditDraft((prev) => ({
+              options={stageAutocompleteOptions}
+              value={stageAutocompleteOptions.find((s: any) => s.id === (editDraft.stageId || '')) || stageAutocompleteOptions[0]}
+              onChange={(_, value: any) => setEditDraft((prev) => ({
                 ...prev,
-                stageId: parseOptionalNumber(e.target.value),
+                stageId: parseOptionalNumber(value?.id),
                 stepId: undefined,
               }))}
-            >
-              <MenuItem value="">-</MenuItem>
-              {stageOptions.map((s: any) => (
-                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-              ))}
-            </TextField>
+              getOptionLabel={(option: any) => option.name}
+              isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField {...params} size="small" label={t('taskWorkflow.stage', { defaultValue: 'Stage' })} />
+              )}
+            />
 
-            <TextField
-              select
+            <Autocomplete
               size="small"
-              label={t('taskWorkflow.step', { defaultValue: 'Step' })}
-              value={editDraft.stepId || ''}
-              onChange={(e) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(e.target.value) }))}
-            >
-              <MenuItem value="">-</MenuItem>
-              {editingStepOptions.map((sp: any) => (
-                <MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>
-              ))}
-            </TextField>
+              options={stepAutocompleteOptions}
+              value={stepAutocompleteOptions.find((sp: any) => sp.id === (editDraft.stepId || '')) || stepAutocompleteOptions[0]}
+              onChange={(_, value: any) => setEditDraft((prev) => ({ ...prev, stepId: parseOptionalNumber(value?.id) }))}
+              getOptionLabel={(option: any) => option.name}
+              isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField {...params} size="small" label={t('taskWorkflow.step', { defaultValue: 'Step' })} />
+              )}
+            />
 
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                select
+              <Autocomplete
                 size="small"
-                label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}
                 fullWidth
-                value={editDraft.screenFunctionId || ''}
-                onChange={(e) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(e.target.value) }))}
-              >
-                <MenuItem value="">-</MenuItem>
-                {(screenFunctions || []).map((sf: any) => (
-                  <MenuItem key={sf.id} value={sf.id}>{sf.name}</MenuItem>
-                ))}
-              </TextField>
+                options={screenFunctionAutocompleteOptions}
+                value={screenFunctionAutocompleteOptions.find((sf: any) => sf.id === (editDraft.screenFunctionId || '')) || screenFunctionAutocompleteOptions[0]}
+                onChange={(_, value: any) => setEditDraft((prev) => ({ ...prev, screenFunctionId: parseOptionalNumber(value?.id) }))}
+                getOptionLabel={(option: any) => option.name}
+                isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })}
+                  />
+                )}
+              />
               <Button
                 size="small"
                 variant="outlined"

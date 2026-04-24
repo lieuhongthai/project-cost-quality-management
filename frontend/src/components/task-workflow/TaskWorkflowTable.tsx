@@ -6,14 +6,11 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -215,35 +212,31 @@ export function TaskWorkflowTable({ projectId }: TaskWorkflowTableProps) {
               />
 
               {/* Stage Filter */}
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>{t('taskWorkflow.stage')}</InputLabel>
-                <Select
-                  value={stageFilter || ''}
-                  onChange={(e) => setStageFilter(e.target.value ? Number(e.target.value) : null)}
-                  label={t('taskWorkflow.stage')}
-                  MenuProps={{ disableScrollLock: true }}
-                >
-                  <MenuItem value="">{t('taskWorkflow.allStages')}</MenuItem>
-                  {workflowData.stages.map((stage) => (
-                    <MenuItem key={stage.id} value={stage.id}>{stage.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                size="small"
+                sx={{ minWidth: 150 }}
+                options={[null, ...workflowData.stages]}
+                value={workflowData.stages.find((stage) => stage.id === stageFilter) || null}
+                onChange={(_, value) => setStageFilter(value ? value.id : null)}
+                getOptionLabel={(option) => (option ? option.name : t('taskWorkflow.allStages'))}
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                renderInput={(params) => <TextField {...params} label={t('taskWorkflow.stage')} />}
+              />
 
               {/* Status Filter */}
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>{t('taskWorkflow.status')}</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'incomplete')}
-                  label={t('taskWorkflow.status')}
-                  MenuProps={{ disableScrollLock: true }}
-                >
-                  <MenuItem value="all">{t('taskWorkflow.allStatus')}</MenuItem>
-                  <MenuItem value="completed">{t('taskWorkflow.completed')}</MenuItem>
-                  <MenuItem value="incomplete">{t('taskWorkflow.incomplete')}</MenuItem>
-                </Select>
-              </FormControl>
+              <Autocomplete
+                size="small"
+                sx={{ minWidth: 150 }}
+                options={['all', 'completed', 'incomplete'] as const}
+                value={statusFilter}
+                onChange={(_, value) => setStatusFilter((value || 'all') as 'all' | 'completed' | 'incomplete')}
+                getOptionLabel={(option) => {
+                  if (option === 'all') return t('taskWorkflow.allStatus');
+                  if (option === 'completed') return t('taskWorkflow.completed');
+                  return t('taskWorkflow.incomplete');
+                }}
+                renderInput={(params) => <TextField {...params} label={t('taskWorkflow.status')} />}
+              />
             </Box>
 
             <Box sx={{ display: 'flex', gap: 1 }}>

@@ -755,6 +755,11 @@ export class CreateWorklogMappingRuleDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  screenFunctionId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   priority?: number;
 
   @IsOptional()
@@ -776,6 +781,11 @@ export class UpdateWorklogMappingRuleDto {
   @Type(() => Number)
   @IsNumber()
   stepId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  screenFunctionId?: number;
 
   @IsOptional()
   @Type(() => Number)

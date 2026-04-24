@@ -1,9 +1,6 @@
 import React from 'react';
 import TextField from '@mui/material/TextField';
-import MuiSelect from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
+import Autocomplete from '@mui/material/Autocomplete';
 import FormHelperText from '@mui/material/FormHelperText';
 
 // TextArea Component - Using MUI TextField with multiline
@@ -77,52 +74,45 @@ export const Select: React.FC<SelectProps> = ({
   onChange,
   ...props
 }) => {
-  const labelId = `${id || 'select'}-label`;
+  const selectedOption = options.find((option) => option.value === props.value) || null;
 
   return (
-    <FormControl
-      fullWidth={fullWidth}
-      size={size}
-      error={!!error}
-      className={className}
-      required={props.required}
-      disabled={props.disabled}
-      sx={!fullWidth ? { minWidth: 140 } : undefined}
-    >
-      {label && <InputLabel id={labelId}>{label}</InputLabel>}
-      <MuiSelect
+    <>
+      <Autocomplete
         id={id}
-        labelId={labelId}
-        label={label}
-        value={props.value || ''}
-        defaultValue={props.defaultValue}
-        onChange={(e) => {
+        options={options}
+        value={selectedOption}
+        onChange={(_, option) => {
           if (onChange) {
-            // Create synthetic event for compatibility
             const syntheticEvent = {
               target: {
                 name: props.name,
-                value: e.target.value,
+                value: option?.value ?? '',
               },
             } as React.ChangeEvent<HTMLSelectElement>;
             onChange(syntheticEvent);
           }
         }}
-        name={props.name}
-        MenuProps={{
-          disableScrollLock: true,
+        getOptionLabel={(option) => option.label}
+        isOptionEqualToValue={(option, value) => option.value === value.value}
+        disabled={props.disabled}
+        className={className}
+        sx={{
+          ...(fullWidth ? {} : { minWidth: 140 }),
         }}
-        displayEmpty
-      >
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </MuiSelect>
+        size={size}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            required={props.required}
+            error={!!error}
+          />
+        )}
+      />
       {(error || helperText) && (
-        <FormHelperText>{error || helperText}</FormHelperText>
+        <FormHelperText error={!!error}>{error || helperText}</FormHelperText>
       )}
-    </FormControl>
+    </>
   );
 };

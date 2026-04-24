@@ -17,10 +17,7 @@ import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Grid from '@mui/material/Grid'
 import TextField from '@mui/material/TextField'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
+import Autocomplete from '@mui/material/Autocomplete'
 import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -339,35 +336,30 @@ function MyTasksPage() {
           size="small"
           sx={{ minWidth: 200, flex: 1 }}
         />
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>{t('todo.filterByStage')}</InputLabel>
-          <Select
-            value={filter.stage}
-            onChange={(e) => setFilter({ ...filter, stage: e.target.value })}
-            label={t('todo.filterByStage')}
-            MenuProps={{ disableScrollLock: true }}
-          >
-            <MenuItem value="">{t('todo.filterByStage')}</MenuItem>
-            {stages.map((s) => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>{t('todo.filterByStatus')}</InputLabel>
-          <Select
-            value={filter.status}
-            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-            label={t('todo.filterByStatus')}
-            MenuProps={{ disableScrollLock: true }}
-          >
-            <MenuItem value="">{t('todo.filterByStatus')}</MenuItem>
-            <MenuItem value="Not Started">{t('todo.statusNotStarted')}</MenuItem>
-            <MenuItem value="In Progress">{t('todo.statusInProgress')}</MenuItem>
-            <MenuItem value="Completed">{t('todo.statusCompleted')}</MenuItem>
-            <MenuItem value="Skipped">{t('todo.statusSkipped')}</MenuItem>
-          </Select>
-        </FormControl>
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 160 }}
+          options={['', ...stages]}
+          value={filter.stage}
+          onChange={(_, value) => setFilter({ ...filter, stage: value || '' })}
+          getOptionLabel={(option) => option || t('todo.filterByStage')}
+          renderInput={(params) => <TextField {...params} label={t('todo.filterByStage')} />}
+        />
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 160 }}
+          options={['', 'Not Started', 'In Progress', 'Completed', 'Skipped']}
+          value={filter.status}
+          onChange={(_, value) => setFilter({ ...filter, status: value || '' })}
+          getOptionLabel={(option) => {
+            if (!option) return t('todo.filterByStatus')
+            if (option === 'Not Started') return t('todo.statusNotStarted')
+            if (option === 'In Progress') return t('todo.statusInProgress')
+            if (option === 'Completed') return t('todo.statusCompleted')
+            return t('todo.statusSkipped')
+          }}
+          renderInput={(params) => <TextField {...params} label={t('todo.filterByStatus')} />}
+        />
       </Box>
 
       {/* Task Table */}

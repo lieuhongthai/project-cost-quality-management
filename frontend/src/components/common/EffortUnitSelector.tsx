@@ -1,10 +1,8 @@
 import React from 'react';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import MuiSelect from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import { EffortUnit } from '../../types';
 import { EFFORT_UNIT_LABELS, EFFORT_UNIT_FULL_LABELS } from '../../utils/effortUtils';
@@ -80,23 +78,23 @@ export const EffortUnitDropdown: React.FC<EffortUnitDropdownProps> = ({
   size = 'small',
   fullWidth = true,
 }) => {
-  const labelId = 'effort-unit-label';
+  const options = EFFORT_UNITS.map((unit) => ({
+    value: unit,
+    label: `${EFFORT_UNIT_FULL_LABELS[unit]} (${EFFORT_UNIT_LABELS[unit]})`,
+  }));
+  const selectedOption = options.find((option) => option.value === value) || null;
 
   return (
-    <FormControl fullWidth={fullWidth} size={size} className={className}>
-      {label && <InputLabel id={labelId}>{label}</InputLabel>}
-      <MuiSelect
-        labelId={labelId}
-        value={value}
-        label={label}
-        onChange={(e) => onChange(e.target.value as EffortUnit)}
-      >
-        {EFFORT_UNITS.map((unit) => (
-          <MenuItem key={unit} value={unit}>
-            {EFFORT_UNIT_FULL_LABELS[unit]} ({EFFORT_UNIT_LABELS[unit]})
-          </MenuItem>
-        ))}
-      </MuiSelect>
-    </FormControl>
+    <Autocomplete
+      options={options}
+      value={selectedOption}
+      onChange={(_, option) => option && onChange(option.value)}
+      getOptionLabel={(option) => option.label}
+      isOptionEqualToValue={(option, val) => option.value === val.value}
+      size={size}
+      className={className}
+      fullWidth={fullWidth}
+      renderInput={(params) => <TextField {...params} label={label} />}
+    />
   );
 };

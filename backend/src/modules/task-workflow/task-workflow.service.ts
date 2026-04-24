@@ -2020,6 +2020,7 @@ export class TaskWorkflowService {
       include: [
         { model: WorkflowStage, as: 'stage' },
         { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
       ],
       order: [['priority', 'DESC'], ['id', 'ASC']],
     });
@@ -2030,6 +2031,12 @@ export class TaskWorkflowService {
   ): Promise<WorklogMappingRule> {
     if (dto.stageId) await this.findStageById(dto.stageId);
     if (dto.stepId) await this.findStepById(dto.stepId);
+    if (dto.screenFunctionId) {
+      const sf = await this.screenFunctionRepository.findByPk(dto.screenFunctionId);
+      if (!sf || sf.projectId !== dto.projectId) {
+        throw new BadRequestException('Invalid screen function');
+      }
+    }
 
     const normalizedKeyword = dto.keyword.trim();
 
@@ -2049,6 +2056,7 @@ export class TaskWorkflowService {
       keyword: normalizedKeyword,
       stageId: dto.stageId ?? null,
       stepId: dto.stepId ?? null,
+      screenFunctionId: dto.screenFunctionId ?? null,
       priority: dto.priority ?? 100,
       isActive: dto.isActive ?? true,
     } as any);
@@ -2068,6 +2076,12 @@ export class TaskWorkflowService {
     }
     if (dto.stepId) {
       await this.findStepById(dto.stepId);
+    }
+    if (dto.screenFunctionId) {
+      const sf = await this.screenFunctionRepository.findByPk(dto.screenFunctionId);
+      if (!sf || sf.projectId !== rule.projectId) {
+        throw new BadRequestException('Invalid screen function');
+      }
     }
 
     await rule.update({
@@ -2096,6 +2110,7 @@ export class TaskWorkflowService {
       include: [
         { model: WorkflowStage, as: 'stage' },
         { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
       ],
     });
 
@@ -2107,6 +2122,9 @@ export class TaskWorkflowService {
     const targetSteps = targetStageIds.length > 0
       ? await this.stepRepository.findAll({ where: { stageId: { [Op.in]: targetStageIds } } })
       : [];
+    const targetScreenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId: targetProjectId },
+    });
 
     const stageByName = new Map<string, WorkflowStage>();
     targetStages.forEach(s => stageByName.set(s.name.trim().toLowerCase(), s));
@@ -2114,6 +2132,10 @@ export class TaskWorkflowService {
     const stepByStageAndName = new Map<string, WorkflowStep>();
     targetSteps.forEach(sp => {
       stepByStageAndName.set(`${sp.stageId}::${sp.name.trim().toLowerCase()}`, sp);
+    });
+    const screenFunctionByName = new Map<string, ScreenFunction>();
+    targetScreenFunctions.forEach((sf) => {
+      screenFunctionByName.set(sf.name.trim().toLowerCase(), sf);
     });
 
     let copied = 0;
@@ -2123,6 +2145,7 @@ export class TaskWorkflowService {
     for (const rule of sourceRules) {
       const sourceStageName = (rule as any).stage?.name;
       const sourceStepName = (rule as any).step?.name;
+      const sourceScreenFunctionName = (rule as any).screenFunction?.name;
 
       const targetStage = sourceStageName
         ? stageByName.get(sourceStageName.trim().toLowerCase())
@@ -2130,8 +2153,11 @@ export class TaskWorkflowService {
       const targetStep = targetStage && sourceStepName
         ? stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`)
         : undefined;
+      const targetScreenFunction = sourceScreenFunctionName
+        ? screenFunctionByName.get(sourceScreenFunctionName.trim().toLowerCase())
+        : undefined;
 
-      if (!targetStage || !targetStep) unmatched++;
+      if (!targetStage || !targetStep || (sourceScreenFunctionName && !targetScreenFunction)) unmatched++;
 
       const normalizedKeyword = rule.keyword.trim();
 
@@ -2145,6 +2171,7 @@ export class TaskWorkflowService {
         await existing.update({
           stageId: targetStep ? targetStage!.id : null,
           stepId: targetStep?.id ?? null,
+          screenFunctionId: targetScreenFunction?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         });
@@ -2155,6 +2182,7 @@ export class TaskWorkflowService {
           keyword: normalizedKeyword,
           stageId: targetStep ? targetStage!.id : null,
           stepId: targetStep?.id ?? null,
+          screenFunctionId: targetScreenFunction?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         } as any);
@@ -2375,6 +2403,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
   private findBestMappingRule(
     rules: WorklogMappingRule[],
     workDetail: string,
+    options?: { requireStageStep?: boolean; requireScreenFunction?: boolean },
   ): WorklogMappingRule | undefined {
     const normalizedDetail = this.normalizeWorkDetailForKeywordMatching(workDetail);
     if (!normalizedDetail) return undefined;
@@ -2394,6 +2423,9 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     let best: { rule: WorklogMappingRule; score: number } | null = null;
 
     for (const rule of rules) {
+      if (options?.requireStageStep && (!rule.stageId || !rule.stepId)) continue;
+      if (options?.requireScreenFunction && !rule.screenFunctionId) continue;
+
       const rawKeyword = (rule.keyword || '').trim().toLowerCase();
       if (!rawKeyword) continue;
 
@@ -2489,17 +2521,26 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const member = email ? memberByEmail.get(email) : undefined;
 
-      const matchedRule = this.findBestMappingRule(rules, workDetail || '');
+      const matchedStageStepRule = this.findBestMappingRule(rules, workDetail || '', {
+        requireStageStep: true,
+      });
+      const matchedScreenFunctionRule = this.findBestMappingRule(rules, workDetail || '', {
+        requireScreenFunction: true,
+      });
 
+      const ruleScreenFunction = matchedScreenFunctionRule?.screenFunctionId
+        ? screenFunctions.find((sf) => sf.id === matchedScreenFunctionRule.screenFunctionId)
+        : undefined;
       const matchedScreenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
       // Fall back to catch-all screen when no specific SF matched
-      const screenFunction = matchedScreenFunction
+      const screenFunction = ruleScreenFunction
+        ?? matchedScreenFunction
         ?? (member && catchAllScreen ? catchAllScreen : undefined);
-      const usedCatchAll = !matchedScreenFunction && !!screenFunction && !!catchAllScreen;
+      const usedCatchAll = !ruleScreenFunction && !matchedScreenFunction && !!screenFunction && !!catchAllScreen;
 
       const confidence = this.calculateConfidence({
         hasMember: !!member,
-        hasRule: !!matchedRule,
+        hasRule: !!(matchedStageStepRule || matchedScreenFunctionRule),
         hasScreenFunction: !!screenFunction,
       });
 
@@ -2507,7 +2548,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       let reason = '';
       if (!member) {
         reason = 'Member email is not in this project';
-      } else if (!matchedRule) {
+      } else if (!matchedStageStepRule) {
         status = 'needs_review';
         const defaultStepLabel = defaultImportStep
           ? `; fallback step: ${(defaultImportStep as any).stage?.name ?? ''} > ${defaultImportStep.name}`
@@ -2533,7 +2574,7 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
       }
 
       // Apply default import step as fallback for needs_review records with no matched rule
-      const useDefaultStep = status === 'needs_review' && !!member && !matchedRule && !!defaultImportStep;
+      const useDefaultStep = status === 'needs_review' && !!member && !matchedStageStepRule && !!defaultImportStep;
 
       itemsToCreate.push({
         batchId: batch.id,
@@ -2549,8 +2590,8 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
         effortHours,
         effortDays,
         memberId: member?.id,
-        stageId: useDefaultStep ? defaultImportStep!.stageId : matchedRule?.stageId,
-        stepId: useDefaultStep ? defaultImportStep!.id : matchedRule?.stepId,
+        stageId: useDefaultStep ? defaultImportStep!.stageId : matchedStageStepRule?.stageId,
+        stepId: useDefaultStep ? defaultImportStep!.id : matchedStageStepRule?.stepId,
         screenFunctionId: screenFunction?.id,
         confidence,
         status,
@@ -2961,22 +3002,107 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
     return Number(score.toFixed(2));
   }
 
+  private normalizeTextForMatching(value: string): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private hasBoundedTerm(text: string, term: string): boolean {
+    if (!term) return false;
+    const boundedPattern = new RegExp(`(^|[^a-z0-9])${this.escapeRegExp(term)}([^a-z0-9]|$)`, 'i');
+    return boundedPattern.test(text);
+  }
+
+  private collectScreenFunctionTokens(value?: string, minLength: number = 3): string[] {
+    if (!value) return [];
+
+    const STOP_WORDS = new Set([
+      'screen',
+      'function',
+      'func',
+      'feature',
+      'task',
+      'the',
+      'and',
+      'for',
+      'with',
+      'api',
+    ]);
+
+    return [...new Set(
+      value
+        .toLowerCase()
+        .split(/[\s,;:/|()[\]{}<>._-]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= minLength && !STOP_WORDS.has(token)),
+    )];
+  }
+
   private findScreenFunction(screenFunctions: ScreenFunction[], workDetail: string): ScreenFunction | undefined {
-    const text = workDetail.toLowerCase();
+    const text = this.normalizeTextForMatching(workDetail);
+    if (!text) return undefined;
+
     const ticketMatch = workDetail.match(/[A-Za-z]+-\d+/);
     if (ticketMatch) {
       const ticket = ticketMatch[0].toLowerCase();
       const byTicket = screenFunctions.find((sf) =>
-        (sf.name || '').toLowerCase().includes(ticket) ||
-        (sf.description || '').toLowerCase().includes(ticket),
+        this.normalizeTextForMatching(sf.name || '').includes(ticket) ||
+        this.normalizeTextForMatching(sf.description || '').includes(ticket),
       );
       if (byTicket) return byTicket;
     }
 
-    return screenFunctions.find((sf) => {
-      const name = (sf.name || '').toLowerCase();
-      return name.length > 4 && text.includes(name);
-    });
+    let bestMatch: { score: number; sf: ScreenFunction } | null = null;
+
+    for (const sf of screenFunctions) {
+      const normalizedName = this.normalizeTextForMatching(sf.name || '');
+      const normalizedDescription = this.normalizeTextForMatching(sf.description || '');
+      if (!normalizedName) continue;
+
+      let score = 0;
+
+      // Strong match when full screen/function name appears in the work detail
+      if (normalizedName.length >= 4 && this.hasBoundedTerm(text, normalizedName)) {
+        score += 1200;
+      }
+
+      const nameTokens = this.collectScreenFunctionTokens(normalizedName, 3);
+      const descTokens = this.collectScreenFunctionTokens(normalizedDescription, 4);
+
+      let matchedNameTokens = 0;
+      for (const token of nameTokens) {
+        if (this.hasBoundedTerm(text, token)) {
+          matchedNameTokens += 1;
+          score += 150 + Math.min(token.length * 4, 40);
+        }
+      }
+
+      let matchedDescTokens = 0;
+      for (const token of descTokens) {
+        if (this.hasBoundedTerm(text, token)) {
+          matchedDescTokens += 1;
+          score += 40 + Math.min(token.length * 2, 20);
+        }
+      }
+
+      // Boost when multiple tokens matched (similar spirit to stage/step rule scoring)
+      if (matchedNameTokens >= 2) score += 180;
+      if (matchedNameTokens >= 3) score += 220;
+      if (matchedNameTokens === 0 && matchedDescTokens === 0) continue;
+
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { score, sf };
+      }
+    }
+
+    // Guardrail to avoid weak accidental matches
+    return bestMatch && bestMatch.score >= 220 ? bestMatch.sf : undefined;
   }
 
   private escapeCsv(value: string): string {

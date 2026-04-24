@@ -8,6 +8,7 @@ import {
 } from 'sequelize-typescript';
 import { WorkflowStage } from './workflow-stage.model';
 import { WorkflowStep } from './workflow-step.model';
+import { ScreenFunction } from '../screen-function/screen-function.model';
 
 @Table({
   tableName: 'worklog_mapping_rules',
@@ -52,6 +53,16 @@ export class WorklogMappingRule extends Model {
 
   @BelongsTo(() => WorkflowStep)
   step: WorkflowStep;
+
+  @ForeignKey(() => ScreenFunction)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+  })
+  screenFunctionId: number | null;
+
+  @BelongsTo(() => ScreenFunction)
+  screenFunction: ScreenFunction;
 
   @Column({
     type: DataType.INTEGER,

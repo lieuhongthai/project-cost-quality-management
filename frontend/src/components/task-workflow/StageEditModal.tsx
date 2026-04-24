@@ -6,13 +6,10 @@ import { DateInput } from '@/components/common';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
@@ -447,19 +444,15 @@ export function StageEditModal({
           {/* Status Section */}
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
             <Typography variant="subtitle2" fontWeight={500} sx={{ mb: 1.5 }}>{t('stages.manualStatus')}</Typography>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('stages.status')}</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => handleChange('status', e.target.value)}
-                label={t('stages.status')}
-                MenuProps={{ disableScrollLock: true }}
-              >
-                {statusOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              size="small"
+              options={statusOptions}
+              value={statusOptions.find((opt) => opt.value === formData.status) || null}
+              onChange={(_, option) => option && handleChange('status', option.value)}
+              getOptionLabel={(option) => option.label}
+              isOptionEqualToValue={(option, value) => option.value === value.value}
+              renderInput={(params) => <TextField {...params} label={t('stages.status')} />}
+            />
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
               {t('stages.statusAutoCalculated')}
             </Typography>

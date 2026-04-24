@@ -1,4 +1,5 @@
 import { Sequelize } from "sequelize-typescript";
+import { DataTypes } from "sequelize";
 import { Project } from "../modules/project/project.model";
 import { Report } from "../modules/report/report.model";
 import { Commentary } from "../modules/commentary/commentary.model";
@@ -81,7 +82,25 @@ export const databaseProviders = [
         WorklogImportItem,
       ]);
 
-      await sequelize.sync({alter: true });
+      await sequelize.sync({ alter: true });
+
+      // Backward-compatible schema guard:
+      // older databases may still have NOT NULL on stageId/stepId in worklog_mapping_rules.
+      // We now support independent Stage/Step and Screen/Function mapping, so these columns must be nullable.
+      const queryInterface = sequelize.getQueryInterface();
+      await queryInterface.changeColumn("worklog_mapping_rules", "stageId", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      });
+      await queryInterface.changeColumn("worklog_mapping_rules", "stepId", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      });
+      await queryInterface.changeColumn("worklog_mapping_rules", "screenFunctionId", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      });
+
       return sequelize;
     },
   },
