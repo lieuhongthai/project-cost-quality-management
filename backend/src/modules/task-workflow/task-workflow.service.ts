@@ -2020,6 +2020,7 @@ export class TaskWorkflowService {
       include: [
         { model: WorkflowStage, as: 'stage' },
         { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
       ],
       order: [['priority', 'DESC'], ['id', 'ASC']],
     });
@@ -2030,6 +2031,12 @@ export class TaskWorkflowService {
   ): Promise<WorklogMappingRule> {
     if (dto.stageId) await this.findStageById(dto.stageId);
     if (dto.stepId) await this.findStepById(dto.stepId);
+    if (dto.screenFunctionId) {
+      const sf = await this.screenFunctionRepository.findByPk(dto.screenFunctionId);
+      if (!sf || sf.projectId !== dto.projectId) {
+        throw new BadRequestException('Invalid screen function');
+      }
+    }
 
     const normalizedKeyword = dto.keyword.trim();
 
@@ -2049,6 +2056,7 @@ export class TaskWorkflowService {
       keyword: normalizedKeyword,
       stageId: dto.stageId ?? null,
       stepId: dto.stepId ?? null,
+      screenFunctionId: dto.screenFunctionId ?? null,
       priority: dto.priority ?? 100,
       isActive: dto.isActive ?? true,
     } as any);
@@ -2068,6 +2076,12 @@ export class TaskWorkflowService {
     }
     if (dto.stepId) {
       await this.findStepById(dto.stepId);
+    }
+    if (dto.screenFunctionId) {
+      const sf = await this.screenFunctionRepository.findByPk(dto.screenFunctionId);
+      if (!sf || sf.projectId !== rule.projectId) {
+        throw new BadRequestException('Invalid screen function');
+      }
     }
 
     await rule.update({
@@ -2096,6 +2110,7 @@ export class TaskWorkflowService {
       include: [
         { model: WorkflowStage, as: 'stage' },
         { model: WorkflowStep, as: 'step' },
+        { model: ScreenFunction, as: 'screenFunction' },
       ],
     });
 
@@ -2107,6 +2122,9 @@ export class TaskWorkflowService {
     const targetSteps = targetStageIds.length > 0
       ? await this.stepRepository.findAll({ where: { stageId: { [Op.in]: targetStageIds } } })
       : [];
+    const targetScreenFunctions = await this.screenFunctionRepository.findAll({
+      where: { projectId: targetProjectId },
+    });
 
     const stageByName = new Map<string, WorkflowStage>();
     targetStages.forEach(s => stageByName.set(s.name.trim().toLowerCase(), s));
@@ -2114,6 +2132,10 @@ export class TaskWorkflowService {
     const stepByStageAndName = new Map<string, WorkflowStep>();
     targetSteps.forEach(sp => {
       stepByStageAndName.set(`${sp.stageId}::${sp.name.trim().toLowerCase()}`, sp);
+    });
+    const screenFunctionByName = new Map<string, ScreenFunction>();
+    targetScreenFunctions.forEach((sf) => {
+      screenFunctionByName.set(sf.name.trim().toLowerCase(), sf);
     });
 
     let copied = 0;
@@ -2123,6 +2145,7 @@ export class TaskWorkflowService {
     for (const rule of sourceRules) {
       const sourceStageName = (rule as any).stage?.name;
       const sourceStepName = (rule as any).step?.name;
+      const sourceScreenFunctionName = (rule as any).screenFunction?.name;
 
       const targetStage = sourceStageName
         ? stageByName.get(sourceStageName.trim().toLowerCase())
@@ -2130,8 +2153,11 @@ export class TaskWorkflowService {
       const targetStep = targetStage && sourceStepName
         ? stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`)
         : undefined;
+      const targetScreenFunction = sourceScreenFunctionName
+        ? screenFunctionByName.get(sourceScreenFunctionName.trim().toLowerCase())
+        : undefined;
 
-      if (!targetStage || !targetStep) unmatched++;
+      if (!targetStage || !targetStep || (sourceScreenFunctionName && !targetScreenFunction)) unmatched++;
 
       const normalizedKeyword = rule.keyword.trim();
 
@@ -2145,6 +2171,7 @@ export class TaskWorkflowService {
         await existing.update({
           stageId: targetStep ? targetStage!.id : null,
           stepId: targetStep?.id ?? null,
+          screenFunctionId: targetScreenFunction?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         });
@@ -2155,6 +2182,7 @@ export class TaskWorkflowService {
           keyword: normalizedKeyword,
           stageId: targetStep ? targetStage!.id : null,
           stepId: targetStep?.id ?? null,
+          screenFunctionId: targetScreenFunction?.id ?? null,
           priority: rule.priority,
           isActive: rule.isActive,
         } as any);
@@ -2491,11 +2519,15 @@ Each item: {"keyword": string, "stageId": number, "stepId": number, "confidence"
 
       const matchedRule = this.findBestMappingRule(rules, workDetail || '');
 
+      const ruleScreenFunction = matchedRule?.screenFunctionId
+        ? screenFunctions.find((sf) => sf.id === matchedRule.screenFunctionId)
+        : undefined;
       const matchedScreenFunction = this.findScreenFunction(screenFunctions, workDetail || '');
       // Fall back to catch-all screen when no specific SF matched
-      const screenFunction = matchedScreenFunction
+      const screenFunction = ruleScreenFunction
+        ?? matchedScreenFunction
         ?? (member && catchAllScreen ? catchAllScreen : undefined);
-      const usedCatchAll = !matchedScreenFunction && !!screenFunction && !!catchAllScreen;
+      const usedCatchAll = !ruleScreenFunction && !matchedScreenFunction && !!screenFunction && !!catchAllScreen;
 
       const confidence = this.calculateConfidence({
         hasMember: !!member,

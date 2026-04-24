@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { projectApi, taskWorkflowApi } from '@/services/api';
+import { projectApi, screenFunctionApi, taskWorkflowApi } from '@/services/api';
 import { DataTable } from '@/components/common/DataTable';
 import type { ColumnDef } from '@/components/common/DataTable';
 import Box from '@mui/material/Box';
@@ -29,8 +29,10 @@ interface CopyPreviewRow {
   isActive: boolean;
   sourceStageName: string;
   sourceStepName: string;
+  sourceScreenFunctionName: string;
   targetStageId: number | null;
   targetStepId: number | null;
+  targetScreenFunctionId: number | null;
   matched: boolean;
 }
 
@@ -42,6 +44,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [keyword, setKeyword] = useState('');
   const [stageId, setStageId] = useState<number | ''>('');
   const [stepId, setStepId] = useState<number | ''>('');
+  const [screenFunctionId, setScreenFunctionId] = useState<number | ''>('');
   const [priority, setPriority] = useState<number>(100);
 
   // ── AI suggest ───────────────────────────────────────────────────
@@ -66,6 +69,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
   const [editKeyword, setEditKeyword] = useState('');
   const [editStageId, setEditStageId] = useState<number | ''>('');
   const [editStepId, setEditStepId] = useState<number | ''>('');
+  const [editScreenFunctionId, setEditScreenFunctionId] = useState<number | ''>('');
   const [editPriority, setEditPriority] = useState<number>(100);
   const [editIsActive, setEditIsActive] = useState(true);
 
@@ -84,9 +88,20 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     queryKey: ['projects'],
     queryFn: async () => (await projectApi.getAll()).data,
   });
+  const { data: screenFunctions = [] } = useQuery({
+    queryKey: ['screenFunctions', projectId],
+    queryFn: async () => (await screenFunctionApi.getByProject(projectId)).data,
+  });
 
   const stageOptions = config?.stages || [];
   const otherProjects = (allProjects || []).filter((p: any) => p.id !== projectId);
+  const screenFunctionByName = useMemo(() => {
+    const map = new Map<string, any>();
+    (screenFunctions || []).forEach((sf: any) => {
+      map.set(sf.name.trim().toLowerCase(), sf);
+    });
+    return map;
+  }, [screenFunctions]);
 
   const stepOptions = useMemo(() => {
     const stage = stageOptions.find((s: any) => s.id === Number(stageId));
@@ -105,11 +120,13 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
       keyword,
       stageId: stageId ? Number(stageId) : undefined,
       stepId: stepId ? Number(stepId) : undefined,
+      screenFunctionId: screenFunctionId ? Number(screenFunctionId) : undefined,
       priority,
       isActive: true,
     }),
     onSuccess: () => {
       setKeyword('');
+      setScreenFunctionId('');
       queryClient.invalidateQueries({ queryKey: ['worklogMappingRules', projectId] });
     },
   });
@@ -124,6 +141,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
       keyword: editKeyword,
       stageId: editStageId ? Number(editStageId) : undefined,
       stepId: editStepId ? Number(editStepId) : undefined,
+      screenFunctionId: editScreenFunctionId ? Number(editScreenFunctionId) : undefined,
       priority: editPriority,
       isActive: editIsActive,
     }),
@@ -154,6 +172,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           keyword: s.keyword,
           stageId: s.stageId,
           stepId: s.stepId,
+          screenFunctionId: undefined,
           priority: Math.round((s.confidence || 0.7) * 100),
           isActive: true,
         });
@@ -186,9 +205,13 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
       return (sourceRules as any[]).map((rule): CopyPreviewRow => {
         const sourceStageName = rule.stage?.name || '';
         const sourceStepName = rule.step?.name || '';
+        const sourceScreenFunctionName = rule.screenFunction?.name || '';
         const targetStage = sourceStageName ? stageByName.get(sourceStageName.trim().toLowerCase()) : undefined;
         const targetStep = targetStage && sourceStepName
           ? stepByStageAndName.get(`${targetStage.id}::${sourceStepName.trim().toLowerCase()}`)
+          : undefined;
+        const targetScreenFunction = sourceScreenFunctionName
+          ? screenFunctionByName.get(sourceScreenFunctionName.trim().toLowerCase())
           : undefined;
         return {
           keyword: rule.keyword,
@@ -196,9 +219,11 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           isActive: rule.isActive,
           sourceStageName,
           sourceStepName,
+          sourceScreenFunctionName,
           targetStageId: targetStage?.id ?? null,
           targetStepId: targetStep?.id ?? null,
-          matched: !!(targetStage && targetStep),
+          targetScreenFunctionId: targetScreenFunction?.id ?? null,
+          matched: !!(targetStage && targetStep && (!sourceScreenFunctionName || targetScreenFunction)),
         };
       });
     },
@@ -225,6 +250,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
           await taskWorkflowApi.updateWorklogMappingRule(existingRule.id, {
             stageId: row.targetStageId ?? undefined,
             stepId: row.targetStepId ?? undefined,
+            screenFunctionId: row.targetScreenFunctionId ?? undefined,
             priority: row.priority,
           });
           overwritten++;
@@ -234,6 +260,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             keyword: row.keyword,
             stageId: row.targetStageId ?? undefined,
             stepId: row.targetStepId ?? undefined,
+            screenFunctionId: row.targetScreenFunctionId ?? undefined,
             priority: row.priority,
             isActive: row.isActive,
           });
@@ -288,6 +315,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
     setEditKeyword(rule.keyword);
     setEditStageId(rule.stageId || '');
     setEditStepId(rule.stepId || '');
+    setEditScreenFunctionId(rule.screenFunctionId || '');
     setEditPriority(rule.priority ?? 100);
     setEditIsActive(rule.isActive ?? true);
   };
@@ -303,7 +331,7 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
         </Typography>
 
         {/* Manual add form */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr 1fr auto' }, gap: 1.5, mb: 2 }}>
           <TextField label={t('worklogMapping.form.keyword', { defaultValue: 'Keyword' })} size="small" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
           <Autocomplete
             size="small"
@@ -322,6 +350,15 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             getOptionLabel={(option: any) => option.name}
             isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
             renderInput={(params) => <TextField {...params} label={t('taskWorkflow.step', { defaultValue: 'Step' })} />}
+          />
+          <Autocomplete
+            size="small"
+            options={screenFunctions}
+            value={(screenFunctions || []).find((sf: any) => sf.id === screenFunctionId) || null}
+            onChange={(_, value: any) => setScreenFunctionId(value?.id ?? '')}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+            renderInput={(params) => <TextField {...params} label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })} />}
           />
           <TextField type="number" label={t('common.priority', { defaultValue: 'Priority' })} size="small" value={priority} onChange={(e) => setPriority(Number(e.target.value) || 100)} />
           <Button variant="contained" onClick={() => createMutation.mutate()} disabled={!keyword || createMutation.isPending}>{t('common.add')}</Button>
@@ -429,6 +466,11 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                       ),
                     },
                     {
+                      key: 'sourceScreenFunction',
+                      header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }),
+                      render: (row) => row.sourceScreenFunctionName || '—',
+                    },
+                    {
                       key: 'targetStageStep',
                       header: t('worklogMapping.copyFromProject.targetStageStep', { defaultValue: 'Target Stage/Step' }),
                       render: (row) => {
@@ -445,6 +487,21 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                               {t('worklogMapping.copyFromProject.noMatch', { defaultValue: 'No match — will save without stage/step' })}
                             </Box>
                           );
+                      },
+                    },
+                    {
+                      key: 'targetScreenFunction',
+                      header: t('worklogMapping.copyFromProject.targetScreenFunction', { defaultValue: 'Target Screen/Function' }),
+                      render: (row) => {
+                        const targetScreenFunctionName = row.targetScreenFunctionId
+                          ? (screenFunctions || []).find((sf: any) => sf.id === row.targetScreenFunctionId)?.name
+                          : null;
+                        if (!row.sourceScreenFunctionName) return '—';
+                        return targetScreenFunctionName || (
+                          <Box component="span" sx={{ color: 'warning.main', fontStyle: 'italic' }}>
+                            {t('worklogMapping.copyFromProject.noScreenFunctionMatch', { defaultValue: 'No screen/function match' })}
+                          </Box>
+                        );
                       },
                     },
                   ]}
@@ -504,6 +561,11 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
                     </Box>
                   : `${rule.stage?.name || rule.stageId} / ${rule.step?.name || rule.stepId}`;
               },
+            },
+            {
+              key: 'screenFunction',
+              header: t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' }),
+              render: (rule: any) => rule.screenFunction?.name || '—',
             },
             {
               key: 'priority',
@@ -577,6 +639,16 @@ export function WorklogMappingRulePanel({ projectId }: Props) {
             isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
             disabled={!editStageId}
             renderInput={(params) => <TextField {...params} label={t('taskWorkflow.step', { defaultValue: 'Step' })} />}
+          />
+          <Autocomplete
+            size="small"
+            fullWidth
+            options={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...(screenFunctions || [])]}
+            value={[{ id: '', name: t('common.none', { defaultValue: '— None —' }) }, ...(screenFunctions || [])].find((sf: any) => sf.id === editScreenFunctionId) || null}
+            onChange={(_, value: any) => setEditScreenFunctionId(value?.id ? Number(value.id) : '')}
+            getOptionLabel={(option: any) => option.name}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+            renderInput={(params) => <TextField {...params} label={t('worklogImport.table.screenFunction', { defaultValue: 'Screen/Function' })} />}
           />
           <TextField
             type="number"

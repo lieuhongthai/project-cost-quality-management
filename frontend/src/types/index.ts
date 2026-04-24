@@ -588,10 +588,12 @@ export interface WorklogMappingRule {
   keyword: string;
   stageId: number;
   stepId: number;
+  screenFunctionId?: number;
   priority: number;
   isActive: boolean;
   stage?: WorkflowStage;
   step?: WorkflowStep;
+  screenFunction?: ScreenFunction;
   createdAt: string;
   updatedAt: string;
 }

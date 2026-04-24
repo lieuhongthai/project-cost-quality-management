@@ -246,6 +246,7 @@ export const taskWorkflowApi = {
     keyword: string;
     stageId?: number;
     stepId?: number;
+    screenFunctionId?: number;
     priority?: number;
     isActive?: boolean;
   }) => api.post<WorklogMappingRule>('/task-workflow/worklog-mapping-rules', data),
@@ -253,6 +254,7 @@ export const taskWorkflowApi = {
     keyword?: string;
     stageId?: number;
     stepId?: number;
+    screenFunctionId?: number;
     priority?: number;
     isActive?: boolean;
   }) => api.put<WorklogMappingRule>(`/task-workflow/worklog-mapping-rules/${id}`, data),
